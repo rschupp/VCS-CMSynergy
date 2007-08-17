@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.24 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.26 % =~ /(\d+)\.(\d+)/);
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -188,6 +188,9 @@ sub _start
 
     $self->{env}->{CCM_INI_FILE} = $self->{ini_file} if is_win32;
 
+    # remember the process that created $self (so we can check in DESTROY)
+    $self->{pid} = $$;
+
     if ($self->{UseCoprocess})
     {
 	if ($self->{coprocess} = $self->_spawn_coprocess)
@@ -237,7 +240,12 @@ sub _start
 sub DESTROY 
 {
     my $self = shift;
-    return unless $self->ccm_addr;	# session not yet established
+
+    # no-op if the session has not yet been established
+    return unless $self->ccm_addr;	
+
+    # no-op if this is not the process that created $self
+    return unless $self->{pid} == $$;	
 
     # NOTE: DESTROY might be called implicitly while unwinding 
     # stack frames during exception processing, e.g.
@@ -263,6 +271,7 @@ sub DESTROY
     local $?;				# don't screw up global $?
     $self->_kill_coprocess if $self->{coprocess};
 
+    # don't stop session if KeepSession is set 
     unless ($self->{KeepSession})
     {
 	$self->_ccm(0, 'stop');
@@ -366,16 +375,11 @@ sub query_object_with_attributes
     foreach my $row (@$result)
     {
 	push @objects, $row->{object};
-
 	my $acache = $row->{object}->_private->{acache};
 
-	# NOTE: Only cache attributes with defined values, because
-	# an undefined value actually means that the attribute 
-	# doesn't exist on this object.
-	foreach (@attributes)
-	{
-	    $acache->{$_} = $row->{$_} if defined $row->{$_};
-	}
+	# NOTE: We also cache undefined values (i.e. the attribute
+	# doesn't exist on this object).
+	$acache->{$_} = $row->{$_} foreach @attributes;
     }
     return \@objects;
 }
@@ -386,7 +390,8 @@ sub query_count
     my ($self, $query) = @_;
     _usage(2, 2, '$query', \@_);
 
-    my ($rc, $out, $err) = $self->_ccm(0, qw/query -u -ns -nf -format X/, $query);
+    my ($rc, $out, $err) = $self->_ccm(0, 
+	qw/query -u -ns -nf -format X/, $self->_expand_query($query));
 
     # NOTE: if there are no hits, `ccm query' exits with status 1, 
     # but produces no output on either stdout and stderr
@@ -401,19 +406,7 @@ sub _query
 {
     my ($self, $query, $wanthash, @keywords) = @_;
 
-    if (ref $query eq 'HASH')
-    {
-	$query = _query_shortcut($query);
-	$Debug >= 2 && $self->trace_msg("query: $query\n");
-    }
-    else
-    {
-	# Sanitize query string by replacing whitespace (esp. newlines)
-	# by a single blank except inside single or double quotes.
-	# This helps to improve the legibility of longish queries with 
-	# whitespace and line breaks (which CM Synergy's CLI dosen't grok).
-	$query =~ s/('.*?'|".*?"|\S+)|(\s+)/defined $2 ? " " : $1/ge;
-    }
+    $query = $self->_expand_query($query);
 
     my %want = map { $_ => "%$_" } @keywords;
     $want{object} = "%objectname" if $want{object};
@@ -536,13 +529,27 @@ sub _parse_query_result
     return \%row;
 }
 
+# helper
+sub _expand_query
+{
+    my ($self, $query) = @_;
+    if (ref $query eq 'HASH')
+    {
+	$query = _query_shortcut($query);
+	$self->trace_msg("expanded shortcut query: $query\n", 2);
+    }
+    else
+    {
+	# Sanitize query string by replacing whitespace (esp. newlines)
+	# by a single blank except inside single or double quotes.
+	# This helps to improve the legibility of longish queries with 
+	# whitespace and line breaks (which CM Synergy's CLI dosen't grok).
+	$query =~ s/('.*?'|".*?"|[^'"\s]+)|(\s+)/defined $2 ? " " : $1/sge;
+    }
+    return $query;
+}
+
 # helper (not a method): expand shortcut queries
-# NOTE: CM Synergy seems to use the following quoting rules
-# for the right hand side of an "attribute value clause" in a query:
-# - string and text values must be quoted
-# - boolean values ("TRUE" or "FALSE") must not be quoted
-# - integer values must not be quoted, but must always have a leading sign
-# - time values must be written as "time('Fri Dec 12 1997')"
 
 sub _query_shortcut
 {
@@ -557,7 +564,7 @@ sub _query_shortcut
 	    {
 		/^task$/ && do 		# same as "ccm query -task ..."
 		{
-		    push @clauses, "is_associated_cv_of(cvtype = 'task' and task_number = '$value')";
+		    push @clauses, "is_associated_cv_of(cvtype='task' and task_number='$value')";
 		    next;
 		};
 		/^match$/ && do
@@ -565,13 +572,17 @@ sub _query_shortcut
 		    push @clauses, "name match '$value'";
 		    next;
 		};
-		$value = "'$value'" unless $value =~ /^(TRUE|FALSE)$/;
-		push @clauses, "$key = $value";
+		# FIXME: rumor (D. Honey) has it that using
+		#   "has_cvtype('base/cvtype/FOO/1')"
+	        # is faster than plain
+		#   "type='FOO'"
+		# so we should treat $key =~ /^(cv?)type$/ specially, too
+		push @clauses, "$key="._quote_value($value);
 	    }
 	}
 	elsif (ref $value eq 'ARRAY')
 	{
-	    my $args = join(",", map { /^(TRUE|FALSE)$/ ? $_ : "'$_'" } @$value);
+	    my $args = join(",", map { _quote_value($_) } @$value);
 	    push @clauses, "$key($args)";
 	}
 	elsif (ref $value eq 'HASH')
@@ -587,6 +598,21 @@ sub _query_shortcut
     }
 
     return join(" and ", @clauses);
+}
+
+# helper (not a method): smart quoting of string or boolean values
+# NOTE: CM Synergy seems to use the following quoting rules
+# for the right hand side of an "attribute value clause" in a query:
+# - string and text values must be quoted
+# - boolean values ("TRUE" or "FALSE") must not be quoted
+# - integer values must not be quoted, but must always have a leading sign
+# - time values must be written as "time('Fri Dec 12 1997')"
+sub _quote_value
+{
+    local $_ = shift;
+    return /^(TRUE|FALSE)$/ ? $_ : # don't quote boolean
+	   /'/ ? qq["$_"] :	   # use double quotes if contains single quote
+	   qq['$_'];		   # use single quotes otherwise
 }
 
 
@@ -934,8 +960,9 @@ sub get_attribute
     _usage(3, 3, '$attr_name, $file_spec', \@_);
 
     my ($rc, $out, $err) = $self->_ccm(0, qw/attribute -show/, $attr_name, $file_spec);
-    return $self->set_error($err || $out) unless $rc == 0;
-    return $out;
+    return $out if $rc == 0;
+    return undef if ($err || $out) =~ /Attribute .* does not exist on object/;
+    return $self->set_error($err || $out);
 }
 
 
@@ -948,6 +975,12 @@ sub set_attribute
 
     if ($value eq "")
     {
+	# FIXME: doesn't work on Windows (CCM seems to write/read
+	# confirmation prompt and answer directly from the console
+	# window, NOT from stdout/stdin
+	return $self->set_error("setting a text attribute to an empty string is not supported on Windows")
+	    if is_win32;
+
 	# Setting a text attribute to an empty string is a real PITA:
 	# - CM Synergy will launch text_editor, even if "-v ''" was specified
 	# - if the temporary file containing the attribute's value is empty 
@@ -974,8 +1007,6 @@ sub set_attribute
 
 	    local @ENV{keys %{ $self->{env} }} = values %{ $self->{env} };
 
-	    # FIXME: doesn't work on Windows (confirmation prompt and answer
-	    # seems to be written to/read from console, NOT stdout/stdin)
 	    run3([ $self->ccm_exe, qw/attribute -modify/, $attr_name, $file_spec ], 
 		 \"y\n", \$out, \$err, 
 		 { binmode_stdout => 1, binmode_stderr => 1 });
@@ -1028,15 +1059,16 @@ sub create_attribute
 {
     my ($self, $name, $type, $value, @file_specs) = @_;
     _usage(5, undef, '$name, $type, $value, $file_spec...', \@_);
+    croak(__PACKAGE__.'::create_attribute: argument $value must be defined')
+	unless defined $value;
 
-    my @args = (-type => $type, @file_specs);
-    unshift @args, -value => $value if defined $value;
     # FIXME this should employ the same heuristic as set_attribute()
     # and use a separate ccm_with_text_editor(..., 'attribute -modify', ...)
     # for troublesome $value
     # FIXME need a variant "attribute -create -force ..."
 
-    return scalar $self->ccm(qw/attribute -create/, $name, @args);
+    return scalar $self->ccm(qw/attribute -create/, $name, 
+                             -value => $value, -type => $type, @file_specs);
 }
 
 
@@ -1086,7 +1118,7 @@ sub property
 	$self->_ccm(0, qw/properties -nf -format/, "\cA%$keyword\cD", $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
-    my ($prop) = $out =~ /\cA(.*)\cD/;
+    my ($prop) = $out =~ /\cA(.*)\cD/s;
     return defined $prop && $prop ne "<void>" ? $prop : undef;
 }
 
@@ -1614,7 +1646,7 @@ sub object_from_cvid
 	$self->_ccm(0, qw/properties -nf -format/, "\cA%objectname\cD", "\@=$cvid");
     return $self->set_error($err || $out) unless $rc == 0;
 
-    my ($name) = $out =~ /\cA(.*)\cD/;
+    my ($name) = $out =~ /\cA(.*)\cD/s;
     return $self->set_error($err || $out) unless $name;
 
     return $self->object($name);

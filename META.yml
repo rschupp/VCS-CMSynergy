@@ -1,5 +1,5 @@
 --- 
-abstract: Perl interface to Telelogic SYNERGY/CM (aka Continuus/CM)
+abstract: Perl interface to Telelogic Synergy
 author: Roderich Schupp <schupp@argumentum.de>
 build_requires: 
   End: 0

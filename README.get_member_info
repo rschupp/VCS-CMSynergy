@@ -4,13 +4,22 @@ USAGE
     load "$CCM_HOME/lib/intlib.a"
     define get_member_info intcmds get_member_info_cmd
 - ccm get_member_info [-format ...] [-recurse] project
-- path is always prepended before format output
+- path is always prepended before output specified by "-format" option
 
 PROS
 - order of magnitude faster than VC::traverse_project
 
 CONS
-- no indication of sub projects
-- path always includes full wa path unless maintain_wa = FALSE
+- no indication of sub projects; but could do
+    my %dir2proj;	# top_dir_of_subproj => subproj 
+    for my $subproj (@{ $proj->hierarchy_project_members })
+    {
+	($topdir) = @{ $subproj->is_child_of };
+	$dir2proj{$topdir} = $subproj;
+    }
+- if project's maintain_wa = FALSE then path reported is relative wa path,
+  otherwise it is an absolute path starting with the project's wa_path;
+  hence must strip wa_path in the latter case
+- path is always in client's native OS notation? 
 - can't be restricted to sub tree
 

@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.28.6 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.28.7 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -1650,6 +1650,7 @@ sub object_from_cvid
 # $ccm->object_from_proj_ref($path, $proj_spec) => VCS::CMSynergy::Object
 # NOTE: $path is either sa tring (wa relative path) 
 # or array ref of path components
+# FIXME needs pod
 # FIXME needs test
 sub object_from_proj_ref
 {

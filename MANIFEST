@@ -3,6 +3,7 @@ CMSynergy/Users.pm
 Makefile.PL
 MANIFEST
 README
+Changes
 t/01session.t
 t/02autoload.t
 t/03query.t

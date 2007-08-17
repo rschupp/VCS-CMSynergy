@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.06 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.07 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -33,11 +33,14 @@ VCS::CMSynergy - Perl interface to Telelogic CM Synergy
   $ary_ref = $ccm->ls_hashref($file_spec, @keywords);
 
   $value = $ccm->attribute($attr_name, $file_spec);
-  $old_value = $ccm->attribute($attr_name, $file_spec, $new_value);
+  $ccm->attribute($attr_name, $file_spec, $value);
   $hash_ref = $ccm->attributes($file_spec);
 
   $delim = $ccm->delimiter;
   @types = $ccm->types;
+
+  $last_error = $ccm->error;
+  $last_ccm_command = $ccm->ccm_command;
 
   ($ccm, $schema, $informix, @patches) = $h->version;
   @ary = $h->databases;
@@ -56,7 +59,7 @@ described in the L<VCS::CMSynergy::Users> documentation.
   my $ccm = VCS::CMSynergy->new(database => "/ccmdb/test/tut62/db");
 
   $ccm->checkout(qw(foo/bar.c@foo~user -to test))
-    or die "checkout failed: $ccm->{error}";
+    or die "checkout failed: ".$ccm->error;
 
   my $csrcs = $ccm->query_hashref("type = 'csrc'",
 				  qw(displayname modify_time));
@@ -91,7 +94,38 @@ use File::Temp qw(tempfile);		# in Perl core v5.6.1 and later
 
 our $ccm_prompt = qr/^ccm> /;		# NOTE the trailing blank
 our $use_ccm_coprocess = 0;
-our ($debug, $debugfh, $error, $AUTOLOAD);
+our $osWindows = $^O eq 'MSWin32' || $^O eq 'cygwin';
+our ($debug, $debugfh, $Error, $Ccm_command, $AUTOLOAD);
+
+# hash of well known attributes types
+# (the starting point for _attype_is_text)
+our %Attypes =
+(
+    acc_data	=> 0, 	# ???
+    acc_method	=> 0, 	# ???
+    boolean	=> 0,
+    float	=> 0,
+    integer	=> 0,
+    string	=> 0,
+    text	=> 1,
+    time	=> 0,
+);
+
+our %Start_options =
+(
+    CCM_HOME 		=> undef,
+    CCM_ADDR		=> undef,
+    PrintError		=> undef,
+    RaiseError		=> undef,
+    HandleError		=> undef,
+    database		=> "-d",
+    host		=> "-h",
+    ini_file		=> "-f",
+    password		=> "-pw",
+    role		=> "-r",
+    ui_database_dir	=> "-u",
+    user		=> "-n",
+);
 
 {
     $debug = $ENV{CMSYNERGY_TRACE} || 0;
@@ -124,12 +158,12 @@ our ($debug, $debugfh, $error, $AUTOLOAD);
 =item C<new>
 
   my $ccm = VCS::CMSynergy->new( database => "/ccmdb/foo/db" )
-              or die $VCS::CMSynergy::error;
+              or die VCS::CMSynergy->error;
 
 Starts a new CM Synergy session. Returns a session handle if it succeeds. 
 
-If fails to start a session, it returns C<undef> and sets 
-C<$VCS::CMSynergy::error> to the error string printed by CM Synergy.
+If it fails to start a session, it returns C<undef>. Use
+C<< VCS::CMSynergy->error >> to get the error string printed by CM Synergy.
 
 Multiple simultaneous sessions to multiple databases or with
 engines running on different hosts, even using different versions
@@ -180,7 +214,7 @@ This attribute is available and required on Windows systems only.
 This attribute can be used to force errors to generate warnings (using
 L<Carp/carp>) in addition to returning error codes in the normal way.  
 When set to true, any method which results in an error occuring will cause
-the corresponding C<$ccm-E<gt>{error}> to be printed to stderr.
+the corresponding C<< $ccm->error >> to be printed to stderr.
 
 It defaults to 1.
 
@@ -192,7 +226,7 @@ L<DBI> module.
 This attribute can be used to force errors to raise exceptions 
 (using L<Carp/croak>) rather than simply return error codes in the normal way. 
 When set to true, any method which results in an error will cause
-the DBI to effectively do a C<die> with the actual C<$ccm->E<gt>C<{error}>
+effectively a C<die> with the actual C<< $ccm->error >>
 as the message. 
 
 It defaults to 0.
@@ -221,7 +255,7 @@ The same logic applies to other attributes, including C<PrintError>.
 CM Synergy ini file to use. 
 
 In contrast to the CM Synergy C<ccm start> command there is I<no>
-default ini file whatsoever consulted. (On Unix systems this is achieved
+default ini file consulted. (On Unix systems this is achieved
 by executing C<ccm start> with the option C<-f /dev/null>.) The reason
 is that we want scripts to behave in a reproducible way. Otherwise
 the script might accidentally work with the current contents of
@@ -254,9 +288,15 @@ installed. You can have simultaneous sessions using different
 CM Synergy versions (the module takes care of setting the C<CCM_HOME>
 variable appropriately before issuing any C<ccm> commands). 
 
+=item C<ui_database_dir>
 
-FIXME:
-describe sessions attributes (RaiseError,PrintError,CCM_HOME,...)
+Specifies the path name to which your database information is copied 
+when you are running a remote client session. This corresponds
+to the C<-u pathname> option for C<ccm start>.
+
+=item FIXME
+
+describe sessions attributes (RaiseError,PrintError,...)
 
 =back
 
@@ -280,25 +320,39 @@ sub new
 	IgnoreError	=> undef,
 	error		=> undef,
     };	
-    foreach (qw(CCM_HOME 
-    	        database host role 
-		user password 
-		PrintError RaiseError HandleError
-		ini_file CCM_ADDR))
+    foreach (keys %Start_options)
     {
 	$self->{$_} = $args{$_} if exists $args{$_};
     }
+
+    bless $self, $class;
 
     if ($self->{CCM_ADDR})
     {
 	$self->{reuse} = 1;
 	$class->trace_msg("reusing session `$self->{CCM_ADDR}'\n") if $debug;
+
+	if ($osWindows)
+	{
+	    # figure out user of session specified by CCM_ADDR
+	    {
+		local $ENV{CCM_HOME} = $self->{CCM_HOME};
+		$self->{user} = 
+		    VCS::CMSynergy->ps(rfc_address => $self->{CCM_ADDR})->[0]->{user};
+	    }
+	    my $inifh;
+	    ($inifh, $self->{ini_file}) = 
+		tempfile("ccmXXXX", SUFFIX => ".ini", UNLINK => 0);
+	    print $inifh "[UNIX information]\nUser = $self->{user}\n";
+	    close $inifh;
+	    push @{ $self->{files_to_unlink} }, $self->{ini_file};
+	}
     }
     else
     {
 	unless (defined $self->{ini_file})
 	{
-	    if ($^O eq 'MSWin32' || $^O eq 'cygwin')
+	    if ($osWindows)
 	    {
 		# NOTES: 
 		# (1) "ccm start -f nul ..." doesn't work on Windows
@@ -308,7 +362,7 @@ sub new
 		# stopped and Windows refuses removing the "busy" file
 		(undef, $self->{ini_file}) = 
 		    tempfile("ccmXXXX", SUFFIX => ".ini", UNLINK => 0);
-		$self->{unlink_ini_file} = 1;
+		push @{ $self->{files_to_unlink} }, $self->{ini_file};
 	    }
 	    else
 	    {
@@ -317,41 +371,25 @@ sub new
 	}
 
 	my @start = qw(start -m -q -nogui);
-	push @start, "-d", $self->{database}	if defined  $self->{database};
-	push @start, "-h", $self->{host}	if defined  $self->{host};
-	push @start, "-f", $self->{ini_file}	if defined  $self->{ini_file};
-	push @start, "-r", $self->{role}	if defined  $self->{role};
-	if ($^O eq 'MSWin32' || $^O eq 'cygwin')
+	while (my ($name, $ccm_opt) = each %Start_options)
 	{
-	    push @start, "-n", $self->{user}	if defined  $self->{user};
-	    push @start, "-pw", $self->{password} if defined  $self->{password};
-	    # FIXME: CCM 6.2 with ESD uses -pw on UNix, too
+	    push @start, $ccm_opt, $self->{$name} 
+		if defined $ccm_opt && defined $self->{$name};
 	}
+	$Ccm_command = "@start";
 
 	my ($rc, $out, $err) = 
 	    _ccmexec($self->{CCM_HOME}, _ccm_exe($self->{CCM_HOME}), @start);
-	if ($rc != 0)
-	{
-	    # set_error does not work as a class method, 
-	    # hence we must handle *Error by hand
-
-	    $VCS::CMSynergy::error = $err || $out;
-	    
-	    my $handler = $self->{HandleError};
-	    return undef if $handler and &$handler($VCS::CMSynergy::error, $self);
-
-	    my $msg = __PACKAGE__ . " new: $VCS::CMSynergy::error";
-	    croak($msg)	if $self->{RaiseError};	# die if RaiseError is set
-	    carp($msg)	if $self->{PrintError};	# warn if PrintError is set
-
-	    return undef;
-	}
+	$self->trace_msg("<- ccm($Ccm_command) = " .
+			 ($debug >= 8 ? "($rc, '$out', '$err')" : $rc==0) .
+			 "\n") if $debug;
+	return $self->set_error($err || $out) unless $rc == 0;
 
 	$self->{CCM_ADDR} = $out;
+	$self->{ccm_command} = $Ccm_command;
 	$class->trace_msg("started session `$self->{CCM_ADDR}'\n") if $debug;
     }
 
-    bless $self, $class;
 
     if ($use_ccm_coprocess)
     {
@@ -360,6 +398,8 @@ sub new
 	{
 	    local $ENV{CCM_HOME} = $self->{CCM_HOME};
 	    local $ENV{CCM_ADDR} = $self->{CCM_ADDR};
+	    local $ENV{CCM_INI_FILE} = $self->{ini_file} if $osWindows;
+
 	    my $exp = new Expect
 		or $exp_err = "Expect: new failed", last EXP;
 	    ($exp->log_stdout(0) && $exp->slave->stty(qw(-echo raw)))
@@ -387,7 +427,8 @@ sub new
     return $self->set_error($err || $out) unless $rc == 0;
     $self->{delimiter} = $out;
     $self->{objectname_re} = qr/^(.*?)\Q$self->{delimiter}\E(.*?):(.*?):(.*?)$/;
-	
+    %{ $self->{attypes} } = %Attypes;
+
     # sanitize database path
     # FIXME: how do I determine database if $self->{reuse}? from $ccm->status?
     # FIXME: parsing is broken in case of an NT server
@@ -407,6 +448,8 @@ sub new
     return $self;
 }
 
+
+
 =item C<DESTROY>
 
   $ccm->DESTROY;
@@ -418,7 +461,7 @@ attribut set).
 There is usually no need to call this method explicitly, as it
 is invoked by the Perl runtime when the Perl process exits
 (either by calling C<exit> or because of a C<die>).
-Hence, a script using the L<VCS::CMSynergy> module will not leave
+Hence, a script using the C<VCS::CMSynergy> module will not leave
 any CM Synergy sessions hanging around. 
 
 Actually, the Perl runtime will call C<DESTROY> when the last reference
@@ -442,6 +485,7 @@ at any one time:
 sub DESTROY 
 {
     my $self = shift;
+    return unless $self->{CCM_ADDR};	# session not yet established
 
     # NOTE: DESTROY might be called implicitly while unwinding 
     # stack frames during exception processing, e.g.
@@ -474,7 +518,8 @@ sub DESTROY
     {
 	$self->trace_msg("stopped session $self->{CCM_ADDR}\n") if $debug;
     }
-    unlink($self->{ini_file}) if $self->{unlink_ini_file};
+
+    unlink(@{ $self->{files_to_unlink} }) if defined $self->{files_to_unlink};
 }
 
 =item C<ccm>
@@ -495,7 +540,7 @@ In scalar context C<ccm> returns the
 "logical" exit code, i.e. C<!$rc>, so that you can write:
 
   $ccm->ccm('checkout', $file_spec) 
-      or die "checkout failed: $ccm->{error}";
+      or die "checkout failed: ".$ccm->error;
 
 Note that you must pass every C<ccm> argument or option as a single Perl 
 argument. For literal arguments the C<qw()> notation may come in handy, e.g.
@@ -530,7 +575,10 @@ This is accomplished by a suitable C<AUTOLOAD> method.
 sub ccm					# class/instance method
 {
     my ($this, $cmd, @args) = @_;
-    ref $this ? $this->{error} : $VCS::CMSynergy::error = undef;
+    $this->{error} = undef if ref $this;
+
+    $Ccm_command = "$cmd @args";
+    $this->{ccm_command} = $Ccm_command if ref $this;
 
     my ($rc, $out, $err);
 
@@ -565,11 +613,30 @@ sub ccm					# class/instance method
     }
     else
     {
+	# NOTE: Use of $CCM_INI_FILE fixes the annoying `Warning:
+	# Security violation.  User JLUSER is not authorized to the
+	# Continbuus interface at ...'  when running on Windows.
+	#
+	# Background: The problem is the obsolete ccm.ini file in
+	# Windows' %SytemRoot%.  If ccm_gui or "ccm start ..." is
+	# invoked _without_ specifying an ini file it writes the
+	# Unix user (as given in the login popup or -n option, resp.)
+	# into this file. If $CCM_INI_FILE is not set, all other "ccm ..."
+	# invocations will read this file and check its "user"
+	# entry against the session identified by $CCM_ADDR. If
+	# they don't match, the above warning is issued and the
+	# command aborted.  If we already have have an ini_file we
+	# just set $CCM_INI_FILE to its name. Otherwise we fake
+	# a minimal ini file with the correct setting of "user"
+	# and set $CCM_INI_FILE to its name.
+	local $ENV{CCM_INI_FILE} = $this->{ini_file} if ref $this && $osWindows;
+
 	local $ENV{CCM_ADDR} = $this->{CCM_ADDR} if ref $this;
+
 	($rc, $out, $err) = 
 	    _ccmexec($this->_ccm_home, _ccm_exe($this->_ccm_home), $cmd, @args);
     }
-    $this->trace_msg("<- ccm($cmd @args)= " .
+    $this->trace_msg("<- ccm($Ccm_command) = " .
                      ($debug >= 8 ? "($rc, '$out', '$err')" : $rc==0) .
 		     "\n") if $debug;
 
@@ -578,6 +645,7 @@ sub ccm					# class/instance method
     return $this->set_error($err || $out, undef, 0, $rc, $out, $err);
     # NOTE: most failing ccm commands issue there error messages on stdout!
 }
+
 
 # helper: return CCM_HOME in class/instance context
 sub _ccm_home					# class/instance method
@@ -712,7 +780,7 @@ sub _ccmexec
 		{
 		    # NOTE: remove handle BEFORE closing it:
 		    # membership in $sel is actually based on fileno;
-		    # if we close $fh before removal it's fileno is gone;
+		    # if we close $fh before removal its fileno is gone;
 		    # hence removal is a noop; this leaves an invalid 
 		    # file descriptor in the select set which causes the whole
 		    # can_read loop to exit prematurely
@@ -722,12 +790,13 @@ sub _ccmexec
 	    }
 	}
     }
+
     return (_exitstatus(255), "", "waitpid returned unexpected value")
 	if waitpid($pid, 0) != $pid;
     $rc = $?;
 
     # on Windows, treat output as if read in "text" mode
-    $out =~ s/\015\012/\012/g if $^O eq 'MSWin32' || $^O eq 'cygwin';
+    $out =~ s/\015\012/\012/g if $osWindows;
 
     chomp($out, $err);
 
@@ -834,27 +903,14 @@ sub query
 # helper: query with correct handling of multi-line attributes
 sub _query
 {
-    my ($self, $query, @keywords) = @_;
+    my ($self, $query, $wantarray, @keywords) = @_;
 
-    my (@wanted, @kw_object, @kw_finduse);
-    for (my $i = 0; $i < @keywords; $i++)
-    {
-	if ($keywords[$i] eq 'object')
-	{
-	    push @wanted, "%objectname";
-	    push @kw_object, $i;
-	    next;
-	}
-	if ($keywords[$i] eq 'finduse')
-	{
-	    push @wanted, "?";			# doesn't matter
-	    push @kw_finduse, $i;
-	    next;
-	}
-	push @wanted, "%$keywords[$i]";
-    }
+    my %wanted = map { ($_, "%$_") } @keywords;
+    $wanted{object} = "%objectname"	if exists $wanted{object};
+    $wanted{finduse} = "?"		if exists $wanted{finduse};
 
-    my $format = "\cD" . join("\cG", @wanted) . "\cG";
+    my $format = "\cD" . join("\cG", values %wanted) . "\cG";
+    my $nwanted = keys %wanted;
 
     my ($rc, $out, $err);
     {
@@ -862,7 +918,7 @@ sub _query
 	# but produces no output on either stdout and stderr
 	local $self->{IgnoreError} = 1;
 
-	if (@kw_finduse)
+	if (exists $wanted{finduse})
 	{
 	    ($rc, $out, $err) = $self->_with_local_option(
 		Object_format => $format,
@@ -874,7 +930,7 @@ sub _query
 	}
     }
     return [ ] if $rc == _exitstatus(1) and $out eq "" and $err eq "";
-    return $self->set_error($err || $out) unless $rc == 0;;
+    return $self->set_error($err || $out) unless $rc == 0;
 
     my @result;
     $out =~ s/\A\cD//;				# trim leading record separator
@@ -883,36 +939,36 @@ sub _query
 	# split into columns and translate "<void>" to undef
 	my @cols = map { $_ eq "<void>" ? undef : $_ } split(/\cG/, $row);
 
-	# make sure we have exactly @keywords+1 columns (because split may 
+	# make sure we have exactly $nwanted+1 columns (because split may 
 	# have discarded trailing empty fields, esp. for the last row)
-	$#cols = @keywords;
+	$#cols = $nwanted;
 
-	if (@kw_finduse)
-	{
-	    # parse finduse list (the last columns)
-	    local $_ = pop @cols;
-	    my @finduse = ();
+	my ($finduse, %hash);
+	(@hash{keys %wanted}, $finduse) = @cols;
 
-	    unless (/Object is not used in scope/)
+	# handle special keywords
+	if (exists $wanted{object})
 	    {
-		s/\n\z//;
-		s/\A\n\t//;
-		@finduse = split(/\n\t/);
+	    # objectify 'object' column
+	    $hash{object} = $self->object($hash{object});
 	    }
-
-	    # fill in 'finduse' columns
-	    $cols[$_] = \@finduse foreach (@kw_finduse);
+	if (exists $wanted{finduse})
+	{
+	    # parse finduse list (the last column)
+	    if ($finduse =~ /Object is not used in scope/)
+	    {
+		$hash{finduse} = [];
 	}
 	else
 	{
-	    pop @cols;				# discard superficial last column
+		$finduse =~ s/\A\n\t//;
+		$hash{finduse} = [ split(/\n\t?/, $finduse) ];
+	    }
 	}
 
-	# objectify 'object' columns
-	$cols[$_] = $self->object($cols[$_]) foreach (@kw_object);
-
-	push @result, \@cols;
+	push @result, $wantarray ? [ @hash{@keywords} ] : \%hash;
     }
+
     return \@result;
 }
 
@@ -928,10 +984,10 @@ If there a no hits, a reference to an empty array is returned.
 
 If there was an error, C<undef> is returned.
 
-Note that this query method does I<not> support any of the
+NOTE: This query method does I<not> support any of the
 shortcut query options of the B<ccm query> command, e.g.
-B<-o owner>, as these can all be expressed by suitable sub clauses
-of the C<$query> expression.
+B<-o owner> or B<-n name>, as these can all be expressed by 
+suitable sub clauses of the C<$query> expression.
 
 =cut
 
@@ -940,11 +996,11 @@ sub query_object
     my ($self, $query) = @_;
     return $self->set_error("no query string supplied") unless defined $query;
 
-    my $ary_ref =  $self->_query($query, qw(object));
-    return undef unless $ary_ref;
+    my $result =  $self->_query($query, 0, qw(object));
+    return undef unless $result;
 
-    # slice out the first column
-    return [ map { $_->[0] } @$ary_ref ];
+    # slice out the single "object" column
+    return [ map { $_->{object} } @$result ];
 }
 
 =item C<query_arrayref>
@@ -998,10 +1054,10 @@ contain a leading C<%>. Example:
     ...
   }
 
-Note that this query method does I<not> support any of the
+NOTE: This query method does I<not> support any of the
 shortcut query options of the B<ccm query> command, e.g.
-B<-o owner>, as these can all be expressed by suitable sub clauses
-of the C<$query> expression.
+B<-o owner> or B<-n name>, as these can all be expressed by 
+suitable sub clauses of the C<$query> expression.
 
 =cut
 
@@ -1011,7 +1067,7 @@ sub query_arrayref
     return $self->set_error("no query string supplied") unless defined $query;
     return $self->set_error("no keywords supplied") unless @keywords;
 
-    return $self->_query($query, @keywords);
+    return $self->_query($query, 1, @keywords);
 }
 
 =item C<query_hashref>
@@ -1063,10 +1119,10 @@ contain a leading C<%>. Example:
     ...
   }
 
-Note that this query method does I<not> support any of the
+NOTE: This query method does I<not> support any of the
 shortcut query options of the B<ccm query> command, e.g.
-"-o owner", as these can all be expressed by suitable sub clauses
-of the C<$query> expression.
+B<-o owner> or B<-n name>, as these can all be expressed by 
+suitable sub clauses of the C<$query> expression.
 
 =cut
 
@@ -1076,47 +1132,8 @@ sub query_hashref
     return $self->set_error("no query string supplied") unless defined $query;
     return $self->set_error("no keywords supplied") unless @keywords;
 
-    my $ary_ref = $self->_query($query, @keywords);
-    return undef unless $ary_ref;
-
-    # convert each row (an array ref) into a hash ref (with @keywords as the keys)
-    return [ map { my %h; @h{@keywords} = @$_; \%h } @$ary_ref ];
+    return $self->_query($query, 0, @keywords);
 }
-
-=item C<hierarchy_project_members>
-
-FIXME: interface may change
-
-  $ary_ref = $ccm->hierarchy_project_members(
-    $proj_vers, $order_spec, @keywords);
-
-Convenience function. Uses the built-in VCS::CMSynergy query function of the
-same name with arguments ($proj_vers, $order_spec).
-Uses L</query_hashref>, i.e. returns ref to array of hash refs. 
-@keywords are passed to query_hashref.
-
-NOTE: The VCS::CMSynergy function hierarchy_project_members accepts
-only objectname as its first argument , but this method
-accepts a VCS::CMSynergy::Object, an objectname, or a proj_vers.
-Example:
-
-  $sub_projs = $ccm->hierarchy_project_members(
-    "guilib-darcy", "depth", qw(name wa_path status));
-  print "$_->{name} $_->{status} $_->{wa_path}\n" foreach (@$sub_projs);
-
-=cut
-
-sub hierarchy_project_members
-{
-    my ($self, $proj_vers, $order_spec, @keywords) = @_;
-
-    $proj_vers .= ":project:1" 
-	unless ref $proj_vers || $proj_vers =~ /:project:1$/;
-
-    return $self->query_hashref(
-	"hierarchy_project_members('$proj_vers', '$order_spec')", @keywords);
-}
-
 
 =item C<history>
 
@@ -1206,13 +1223,71 @@ contain a leading C<%>. Example:
 
 =cut
 
+# helper: history with correct handling of multi-line attributes
+sub _history
+{
+    my ($self, $file_spec, $wantarray, @keywords) = @_;
+
+    my %wanted = map { ($_, "%$_") } @keywords;
+    $wanted{object} = "%objectname"	if exists $wanted{object};
+    $wanted{predecessors} = "?"		if exists $wanted{predecessors};
+    $wanted{successors} = "?"		if exists $wanted{successors};
+
+    my $format = "\cD" . join("\cG", values %wanted) . "\cG";
+
+    my ($rc, $out, $err) = $self->ccm(qw(history -f), $format, $file_spec);
+    return $self->set_error($err || $out) unless $rc == 0;
+
+    my @result;
+    $out =~ s/\A\cD//;				# trim leading record separator
+    foreach my $row (split(/\cD/, $out))	# split into records 
+    {
+	# split into columns and translate "<void>" to undef
+	my @cols = map { $_ eq "<void>" ? undef : $_ } split(/\cG/, $row);
+
+	my ($history, %hash);
+	(@hash{keys %wanted}, $history) = @cols;
+
+	# handle special keywords
+	if (exists $wanted{object})
+	{
+	    # objectify 'object' column
+	    $hash{object} = $self->object($hash{object});
+	}
+	if (exists $wanted{predecessors} || exists $wanted{successors})
+	{
+	    # parse history (the last column)
+	    my ($predecessors, $successors) = $history =~
+		/^Predecessors:\n\t?(.*)
+		 ^Successors:\n\t?(.*)
+		 ^\*
+		/msx;
+
+	    if (exists $wanted{predecessors})
+	    {
+		$hash{predecessors} = 
+		    [ map { $self->object($_) } split(/\n\t?/, $predecessors) ];
+	    }
+	    if (exists $wanted{successors})
+	    {
+		$hash{successors} = 
+		    [ map { $self->object($_) } split(/\n\t?/, $successors) ];
+	    }
+	}
+
+	push @result, $wantarray ? [ @hash{@keywords} ] : \%hash;
+    }
+
+    return \@result;
+}
+
 sub history_arrayref
 {
     my ($self, $file_spec, @keywords) = @_;
-    my $ary_ref = $self->history_hashref($file_spec, @keywords);
-    return unless $ary_ref;
+    return $self->set_error("no file_spec supplied") unless defined $file_spec;
+    return $self->set_error("no keywords supplied") unless @keywords;
  
-    return [ map { [ @$_{@keywords} ] } @$ary_ref ];
+    return $self->_history($file_spec, 1, @keywords);
 }
 
 
@@ -1274,39 +1349,7 @@ sub history_hashref
     return $self->set_error("no file_spec supplied") unless defined $file_spec;
     return $self->set_error("no keywords supplied") unless @keywords;
 
-    # turn special keyword `object' into `objectname'
-    my %want;
-    $want{$_} = $_ eq 'object' ? 'objectname' : $_ foreach(@keywords);
-
-    my $format = join("\a", map { '%'.$want{$_} } @keywords);
-    my $chunks = $self->history('-f', $format, $file_spec);
-    return undef unless $chunks;
-
-    my @history;
-    foreach (@$chunks)
-    {
-	my ($description, $predecessors, $successors) =
-	    /\A(.*)\n
-	     ^Predecessors:(.*)
-	     ^Successors:(.*)
-	    /msx;
-	my %hash;
-	@hash{@keywords} = map { $_ eq '<void>' ? undef : $_ } 
-			       split(/\a/, $description);
-
-	# handle special keywords
-	$hash{object} = $self->object($hash{object})
-	    if $want{object};
-	$hash{predecessors} =
-	    [ map { $self->object($_) } split(' ', $predecessors) ] 
-	    if $want{predecessors};
-	$hash{successors} =
-	    [ map { $self->object($_) } split(' ', $successors) ] 
-	    if $want{successors};
-	
-	push @history, \%hash;
-    }
-    return \@history;
+    return $self->_history($file_spec, 0, @keywords);
 }
 
 =item C<finduse>
@@ -1423,16 +1466,21 @@ sub findpath
 =item C<attribute>
 
   $value = $ccm->attribute($attr_name, $file_spec);
-  $old_value = $ccm->attribute($attr_name, $file_spec, $new_value);
+  $ccm->attribute($attr_name, $file_spec, $value);
 
-Returns the attribute C<$attr_name> for C<$file_spec>.
-The attribute value is always returned as a string, regardless
-of the CM Synergy type of the attribute.
+Gets or sets an attribute associated with an object.
 
-Returns undef in case of error, e.g. if the attribute
-C<$attr_name> doesn't exist.
+The first form gets the value of the attribute C<$attr_name> for
+C<$file_spec> (using (B<ccm attribute -show>).  If C<RaiseError> is not
+set and an error occurs (e.g.  attribute C<$attr_name> does not exist
+on object C<$file_spec>), C<undef> will be returned.
 
-FIXME set attr (3 arg form)
+The second form sets the value of the attribute C<$attr_name>
+for C<$file_spec> to C<$value> (using (B<ccm attribute -modify>).
+This works for all types of attributes, even those of type B<text> or
+derived from B<text>.  Returns C<$value> on success.  If C<RaiseError>
+is not set and an error occurs (e.g. attribute C<$attr_name> does not
+exist on object C<$file_spec>), C<undef> will be returned.
 
 =cut
 
@@ -1441,29 +1489,25 @@ sub attribute
     my $self = shift;
     return $self->set_error("illegal number of arguments") unless @_ == 2 || @_ == 3;
 
-    my ($attr_name, $file_spec, $new_value) = @_;
-    my $old_value;
+    my ($attr_name, $file_spec, $value) = @_;
 
-    # no need to get old value if we are called in void context
-    if (defined wantarray)
+    if (@_ == 2)
     {
+	# get attribute
 	my ($rc, $out, $err) = 
 	    $self->ccm(qw(attribute -show), $attr_name, $file_spec);
-	return undef unless $rc == 0;
-	$old_value = $out;	# FIXME "(unset)" possible?
+	return $rc == 0 ? $out : undef;
     }
 
-    if (@_ == 3)
-    {
 	# set attribute
 	my $attrs = $self->attributes($file_spec);
 	return undef unless $attrs;
 
-	if ($attrs->{$attr_name} =~ /^(up)?text$/)
+    if ($self->_attype_is_text($attrs->{$attr_name}))
 	{
 	    # use ye olde text_editor trick
 	    my ($fh, $tempfile) = tempfile();
-	    print $fh $new_value;
+	print $fh $value;
 	    close($fh);
 
 	    my ($rc, $out, $err) = $self->_with_local_option(
@@ -1478,19 +1522,31 @@ sub attribute
 	{
 	    my ($rc, $out, $err) = 
 		$self->ccm(qw(attribute -modify), $attr_name, 
-		           qw(-value), $new_value, $file_spec);
+		       qw(-value), $value, $file_spec);
 	    return undef unless $rc == 0;
 	}
+    return $value;
     }
 
-    return $old_value;
+# determine whether attribute type is (ultimately) text
+sub _attype_is_text
+{
+    my ($self, $attype) = @_;
+    unless (exists $self->{attypes}->{$attype})
+    {
+	my $super_type = $self->attribute('super_type', $self->object($attype, qw(1 attype base)));
+
+        $self->{attypes}->{$attype} = $self->_attype_is_text($super_type);
+    }
+
+    return $self->{attypes}->{$attype};
 }
 
 =item C<attributes>
 
   $hash_ref = $ccm->attributes($file_spec);
 
-Lists all attributes for C<$file_spec> (i.e. executes B<ccm attr -la>).
+Lists all attributes for C<$file_spec> (using B<ccm attribute -la>).
 Returns a reference to a hash containing pairs of attribute name
 and attribute type (e.g. C<string>, C<time>).
 Returns C<undef> in case of error.
@@ -1512,7 +1568,7 @@ sub attributes
 
   @types = $ccm->types;
 
-B<ccm show -types>
+Returns an array of types from B<ccm show -types>.
 
 =cut
 
@@ -1522,9 +1578,42 @@ sub types
     my ($rc, $out, $error) = $self->ccm(qw(show -types));
     return undef unless $rc == 0;
 
-    return split(/n/, $out);
+    return split(/\n/, $out);
 }
 
+
+=item C<error>
+
+  $last_session_error = $ccm->error;
+  $last_cmsynergy_error = VCS::CMSynergy->error;
+
+Returns the last error that occured in the session or in any
+C<VCS::CMSynergy> session, resp.
+
+=cut
+
+sub error
+{
+    my $this = shift;
+    return ref $this ? $this->{error} : $Error;
+}
+
+
+=item C<ccm_command>
+
+  $last_session_command = $ccm->ccm_command;
+  $last_cmsynergy_command = VCS::CMSynergy->ccm_command;
+
+Returns the last CM Synergy command invoked in the session  or in any
+C<VCS::CMSynergy> session, resp.
+
+=cut
+
+sub ccm_command
+{
+    my $this = shift;
+    return ref $this ? $this->{ccm_command} : $Ccm_command;
+}
 
 =item C<ls>
 
@@ -1684,7 +1773,7 @@ sub ls_hashref
 
 Get or sets the value of an option.
 
-In the first form it return the value of C<$option>. If the option is unset,
+In the first form it returns the value of C<$option>. If the option is unset,
 C<undef> is returned (whereas B<ccm set> would print C<"(unset)"> in this case).
 
 In the second form, the C<$option> is set to C<$new_value>, the previous
@@ -1743,7 +1832,7 @@ sub set
 # would like to call _with_local_option with a BLOCK as the
 # first argument; however, this would rely on a sub prototype and
 # prototypes aren't used for method calls :) OTOH _with_local_option
-# must be a method because it must manipulate RaiseError/PrinError/error
+# must be a method because it must manipulate RaiseError/PrintError/error
 sub _with_local_option
 {
     my ($self, $option, $new_value, $method, @method_args) = @_;
@@ -1791,7 +1880,7 @@ match I<all> the corresponding values. Note that in contrast to the
 B<ccm ps> command, you can filter on multiple fields simultaneously.
 
 This method can also be called as a class method,
-i.e. C<VCS::CMSynergy->E<gt>C<ps>, as it does not need
+i.e. C<< VCS::CMSynergy->ps >>, as it does not need
 an established session.
 
 Here's an example of the value returned by C<ps> 
@@ -1927,7 +2016,7 @@ sub ps					# class/instance method
 Returns an array containing the names of all known CM Synergy databases. 
 
 This method can also be called as a class method,
-i.e. C<VCS::CMSynergy->E<gt>C<databases>,
+i.e. C<< VCS::CMSynergy->databases >>,
 as it does not need an established session.
 
 =cut
@@ -1985,7 +2074,7 @@ a possible empty array of applied CM Synergy patches
 =back
 
 This method can also be called as a class method,
-i.e. C<VCS::CMSynergy->E<gt>C<version> 
+i.e. C<< VCS::CMSynergy->version >> 
 as it does not need an established session.
 
 =cut
@@ -2040,7 +2129,7 @@ for C<database> has a trailing C<"/db">. This makes it consistent
 with the session attribute C<database> and the return value of L</ps>.
 
 This method can also be called as a class method,
-i.e. C<VCS::CMSynergy->E<gt>C<status>, as it does not need
+i.e. C<< VCS::CMSynergy->status >>, as it does not need
 an established session.
 
 Here's an example of the value returned by C<status> 
@@ -2182,7 +2271,7 @@ level. For example:
 
 sub trace
 {
-    my ($self, $trace_level, $trace_filename) = @_;
+    my ($this, $trace_level, $trace_filename) = @_;
     return $debug unless defined $trace_level;
     ($debug, $trace_level) = ($trace_level, $debug);
     if (@_ == 3)				# $trace_filename present
@@ -2198,7 +2287,9 @@ sub trace
 	$newfh->setvbuf(undef, _IOLBF, 0);	# make line-buffered
 	close($debugfh) if defined $debugfh && $debugfh != \*STDERR;
 	$debugfh = $newfh;
+	$this->trace_msg(__PACKAGE__ . " version $VERSION: trace started\n") if $debug;
     }
+    $this->trace_msg("trace level set to $debug\n") if $debug;
     return $trace_level;
 }
 
@@ -2208,7 +2299,7 @@ sub trace
   $ccm->trace_msg($message_text, $min_level);
 
 Writes C<$message_text> to the trace file if trace is enabled.
-Can also be called as C<VCS::CMSynergy->E<gt>C<trace_msg($msg)>.
+Can also be called as C<< VCS::CMSynergy->trace_msg($msg) >>.
 See L</trace>.
 
 If C<$min_level> is defined, then the message is output only if the trace
@@ -2218,9 +2309,9 @@ level is equal to or greater than that level. C<$min_level> defaults to 1.
 
 sub trace_msg
 {
-    my ($self, $message, $min_level) = @_;
+    my ($this, $message, $min_level) = @_;
     $min_level ||= 1;
-    print $debugfh "[$self] $message" if $debug >= $min_level;
+    print $debugfh "[$this] $message" if $debug >= $min_level;
 }
 
 
@@ -2251,7 +2342,7 @@ lots of CM Synergy operations.
 If C<use_ccm_coprocess> is in effect, only one ccm process per CM Synergy
 session is used. C<VCS::CMSynergy->new> starts an "interactive" B<ccm> process,
 funnels commands to its input and reads back the output
-(up to the next C<"ccmE<gt>"> prompt). This avoids the startup
+(up to the next C<< "ccm>" >> prompt). This avoids the startup
 overhead, but may run into other problems, e.g. restrictions
 on the length of the B<ccm> command line.
 
@@ -2295,20 +2386,19 @@ sub set_error
 {
     my ($this, $error, $method, $rv, @rv) = @_;
 
-    ref $this ? $this->{error} : $VCS::CMSynergy::error = $error;
-
-    my ($package, undef, undef, $subroutine) = caller(1);
-    ($method) = $subroutine =~ /::(.*?)$/ unless defined $method;
-
+    $method = (caller(1))[3] unless defined $method;
+    $Error = $error;
     if (ref $this)
     {
+	$this->{error} = $error;
+
 	# try the HandleError routine if one was provided;
 	# consider the error handled if it returns true
 	# NOTE: the handler may change the value of $rv
 	my $handler = $this->{HandleError};
 	return 1 if $handler and &$handler($error, $this, $rv);
 
-	my $msg = "$package $method: $error";
+	my $msg = "$method: $error";
 	croak($msg) if $this->{RaiseError};	# die if RaiseError is set
 	carp($msg)  if $this->{PrintError};	# warn if PrintError is set
     }
@@ -2340,6 +2430,14 @@ sub object
     return $self->set_error("invalid objectname `$_'");
 }
 
+# $ccm->object_other_version(object, version) => VCS::CMSynergy::Object
+#	new Object with same name/cvtype/instance as OBJECT, but version VERSION
+sub object_other_version
+{
+    my ($self, $object, $other_version) = @_;
+    return $self->object($object->name, $other_version, $object->cvtype, $object->instance);
+}
+
 =back
 
 =head1 TODO
@@ -2351,6 +2449,10 @@ sub object
 anything else?
 
 =back
+
+=head1 SEE ALSO
+
+L<VCS::CMSynergy::Users>
 
 =head1 AUTHORS
 

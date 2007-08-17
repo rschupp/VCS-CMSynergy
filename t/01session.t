@@ -4,7 +4,7 @@ use Test;
 BEGIN { plan tests => 7 }
 use t::util;
 
-my ($ccm_addr, $ccm_test_db);
+my ($ccm_addr, $ps);
 {
     # create a new CM Synergy session
     my $ccm = VCS::CMSynergy->new(%test_session);
@@ -12,11 +12,10 @@ my ($ccm_addr, $ccm_test_db);
     print "# using Expect\n" if defined $ccm->{exp};
     $ccm_addr = $ccm->{CCM_ADDR};
 
-    # new session should show up in `ccm status'
-    my $status = VCS::CMSynergy->status;
-    ok(ref $status, 'ARRAY');
-    my ($entry) = grep { $_->{rfc_address} eq $ccm_addr } @$status;
-    ok($entry->{database} eq $ccm->{database});
+    # new session should show up in `ccm ps'
+    $ps = VCS::CMSynergy->ps(rfc_address => $ccm_addr);
+    ok(ref $ps eq 'ARRAY' && @$ps == 1);
+    ok($ps->[0]->{database} eq $ccm->{database});
 
     # create another session object reusing the CM Synergy session
     my $ccm2 = VCS::CMSynergy->new(
@@ -27,14 +26,18 @@ my ($ccm_addr, $ccm_test_db);
     ok(ref $ccm2, 'VCS::CMSynergy');
     ok($ccm2->{CCM_ADDR} eq $ccm_addr);
 
-    # destroy it and check that the CM Synergy session is still there
+    # destroy it and check that the original CM Synergy session is still there
     $ccm2->DESTROY;
-    ok(grep { $_->{rfc_address} eq $ccm_addr } @$status);
+    $ps = VCS::CMSynergy->ps(rfc_address => $ccm_addr);
+    ok(ref $ps eq 'ARRAY' && @$ps == 1);
 
     # $ccm goes out of scope and session should be stopped
 }
 
-# session should now longer be listed in `ccm status'
-ok(all { $_->{rfc_address} ne $ccm_addr } @{ VCS::CMSynergy->status });
+# session should no longer show up in `ccm ps'
+$ps = VCS::CMSynergy->ps(rfc_address => $ccm_addr);
+ok(ref $ps eq 'ARRAY' && @$ps == 0);
+
+# FIXME test: simultaneous session using second user (Windows or ESD only)?
 
 exit 0;

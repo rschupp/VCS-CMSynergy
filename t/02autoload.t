@@ -5,7 +5,7 @@ use t::util;
 
 my $ccm = VCS::CMSynergy->new(%test_session);
 isa_ok($ccm, "VCS::CMSynergy");
-diag("using Expect") if defined $ccm->{exp};
+diag("using coprocess") if defined $ccm->{coprocess};
 
 # test that autoloaded methods spring into existence
 ok(!exists &VCS::CMSynergy::foo);

@@ -9,13 +9,13 @@ use t::util;
 sub unix2native
 {
     local $_ = shift;
-    s{/}{\\}g if $^O eq 'MSWin32' || $^O eq 'cygwin';
+    s{/}{\\}g if $VCS::CMSynergy::Is_MSWin32;
     return $_;
 }
 	
 my $ccm = VCS::CMSynergy->new(%test_session);
 isa_ok($ccm, "VCS::CMSynergy");
-diag("using Expect") if defined $ccm->{exp};
+diag("using coprocess") if defined $ccm->{coprocess};
 
 my $q_expected = [
   {

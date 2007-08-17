@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.10 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.12 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -32,12 +32,13 @@ VCS::CMSynergy - Perl interface to Telelogic CM Synergy (aka Continuus/CM)
   $ary_ref = $ccm->ls_arrayref($file_spec, @keywords);
   $ary_ref = $ccm->ls_hashref($file_spec, @keywords);
 
-  $value = $ccm->attribute($attr_name, $file_spec);
-  $ccm->attribute($attr_name, $file_spec, $value);
-  $hash_ref = $ccm->attributes($file_spec);
+  $value = $ccm->get_attribute($attr_name, $file_spec);
+  $ccm->set_attribute($attr_name, $file_spec, $value);
+  $hash_ref = $ccm->list_attributes($file_spec);
 
   $delim = $ccm->delimiter;
   $database = $ccm->database;
+  $ENV{CCM_ADDR} = $ccm->ccm_addr;
   @types = $ccm->types;
 
   $last_error = $ccm->error;
@@ -69,10 +70,6 @@ described in the L<VCS::CMSynergy::Users> documentation.
     print "$_->{displayname} $->{modify_time}\n" foreach (@$csrcs);
   }
 
-=head1 METHODS
-
-=over 4
-
 =cut
 
 use 5.006_000;				# i.e. v5.6.0
@@ -80,14 +77,14 @@ use strict;
 use Carp;
 
 use Config;
-use Cwd qw(realpath);
+use Cwd;
 use File::Spec;
 use File::Basename;
 use IPC::Open3;
 use POSIX qw(_exit);
 
 # Unix only
-use IO::Handle qw(_IOLBF);
+use IO::Handle;
 use IO::Select;
 use IO::File;
 use IO::Pipe;				# make ActiveState PerlApp happy
@@ -96,9 +93,8 @@ use File::Temp qw(tempfile);		# in Perl core v5.6.1 and later
 
 
 our $ccm_prompt = qr/^ccm> /;		# NOTE the trailing blank
-our $use_ccm_coprocess = 0;
-our $osWindows = $^O eq 'MSWin32' || $^O eq 'cygwin';
-our ($debug, $debugfh, $Error, $Ccm_command, $AUTOLOAD);
+our $Is_MSWin32 = $^O eq 'MSWin32' || $^O eq 'cygwin';
+our ($debug, $debugfh, $Error, $Ccm_command, $AUTOLOAD, $Out, $Err);
 
 # hash of well known attributes types
 # (the starting point for _attype_is_text)
@@ -114,30 +110,6 @@ my %Attypes =
     time	=> 0,
 );
 
-# how to pass `VCS::CMSynergy->new(..., option => value, ...)'
-# to `ccm start ...':
-#   option is undef	=> option not passed at all
-#   option is sub ref	=> pass &sub(value) to `ccm start' 
-#			   (sub is evaluated in list context)
-my %StartOptions =
-(
-    CCM_HOME 		=> undef,
-    CCM_ADDR		=> undef,
-    PrintError		=> undef,
-    RaiseError		=> undef,
-    HandleError		=> undef,
-    KeepSession		=> undef,
-    database		=> sub { ("-d", shift); },
-    home		=> sub { ("-home", shift); },
-    host		=> sub { ("-h", shift); },
-    ini_file		=> sub { ("-f", shift); },
-    password		=> sub { ("-pw", shift); },
-    remote_client	=> sub { $_[0] ? ("-rc") : (); },
-    role		=> sub { ("-r", shift); },
-    ui_database_dir	=> sub { ("-u", shift); },
-    user		=> sub { ("-n", shift); },
-);
-
 {
     $debug = $ENV{CMSYNERGY_TRACE} || 0;
     $debugfh = IO::Handle->new_from_fd(\*STDERR, "w");
@@ -146,17 +118,17 @@ my %StartOptions =
 	if ($debug =~ /^\d+$/) 			# CMSYNERGY_TRACE="digits"
 	{ 
 	    # level=digits, tracefile=stderr
-	    VCS::CMSynergy->trace($debug, undef); 	
+	    __PACKAGE__->trace($debug, undef); 	
 	}
 	elsif ($debug =~ /^(\d+)=(.*)/) 	# CMSYNERGY_TRACE="digits=filename"
 	{
 	    # level=digits, tracefile=filename
-	    VCS::CMSynergy->trace($1, $2); 
+	    __PACKAGE__->trace($1, $2); 
 	}
 	else					# CMSYNERGY_TRACE="filename"
 	{
 	    # level=2, tracefile=filename
-	    VCS::CMSynergy->trace(2, $debug); 	
+	    __PACKAGE__->trace(2, $debug); 	
 	}
     }
 
@@ -166,7 +138,9 @@ my %StartOptions =
     *memoize = sub { 1; } if $@;
 }
 
-=item C<new>
+=head1 METHODS
+
+=head2 new
 
   my $ccm = VCS::CMSynergy->new( database => "/ccmdb/foo/db" )
               or die VCS::CMSynergy->error;
@@ -221,61 +195,6 @@ User's password.
 This attribute is required on Windows systems or when using
 ESD to connect to the CM Synergy engine.
 
-=item C<PrintError> (boolean)
-
-This attribute can be used to force errors to generate warnings (using
-L<Carp/carp>) in addition to returning error codes in the normal way.  
-When set to true, any method which results in an error occuring will cause
-the corresponding C<< $ccm->error >> to be printed to stderr.
-
-It defaults to "on".
-
-L</PrintError> and L</RaiseError> below are stolen from the excellent
-L<DBI> module.
-
-=item C<RaiseError> (boolean)
-
-This attribute can be used to force errors to raise exceptions 
-(using L<Carp/croak>) rather than simply return error codes in the normal way. 
-When set to true, any method which results in an error will cause
-effectively a C<die> with the actual C<< $ccm->error >>
-as the message. 
-
-It defaults to "off".
-
-If you turn C<RaiseError> on then you'd normally turn C<PrintError> off.
-If C<PrintError> is also on, then the C<PrintError> is done first (naturally).
-
-Typically C<RaiseError> is used in conjunction with C<eval { ... }>
-to catch the exception that's been thrown and followed by an
-C<if ($@) { ... }> block to handle the caught exception. 
-
-If you want to temporarily turn C<RaiseError> off (inside a library function
-that is likely to fail, for example), the recommended way is like this:
-
-  {
-    local $ccm->{RaiseError};  # localize and turn off for this block
-    ...
-  }
-
-The original value will automatically and reliably be restored by Perl,
-regardless of how the block is exited.
-The same logic applies to other attributes, including C<PrintError>.
-
-=item C<KeepSession> (boolean)
-
-If this attribute is "on" then destruction of the new session handle
-will not cause a B<ccm stop>. 
-
-This may be used if you want to
-create a new CM Synergy session in one program and then re-use it
-in another program (since session creation is a rather time consuming
-operation). In this case you should use C</ccm_addr> to extract
-the session's RFC address (after C</new> returns) and somehow pass it
-on to the other program.
-
-It defaults to "off" unless you also specify C<CCM_ADDR>.
-
 =item C<ini_file> (string)
 
 CM Synergy ini file to use. 
@@ -329,6 +248,151 @@ session as a remote client. This corresponds to the C<-rc> option for
 B<ccm start>. This option is only usefull on Unix systems. It defaults
 to "off".
 
+=item C<PrintError> (boolean)
+
+This attribute can be used to force errors to generate warnings (using
+L<carp|Carp/carp>) in addition to returning error codes in the normal way.  
+When set to true, any method which results in an error occuring will cause
+the corresponding C<< $ccm->error >> to be printed to stderr.
+
+It defaults to "on".
+
+Note: L</PrintError> and L</RaiseError> below are stolen from the excellent
+L<DBI> module.
+
+=item C<RaiseError> (boolean)
+
+This attribute can be used to force errors to raise exceptions 
+(using L<croak|Carp/croak>) rather than simply return error codes in the normal way. 
+When set to true, any method which results in an error will cause
+effectively a C<die> with the actual C<< $ccm->error >>
+as the message. 
+
+It defaults to "off".
+
+If you turn C<RaiseError> on then you'd normally turn C<PrintError> off.
+If C<PrintError> is also on, then the C<PrintError> is done first (naturally).
+
+Typically C<RaiseError> is used in conjunction with C<eval { ... }>
+to catch the exception that's been thrown and followed by an
+C<if ($@) { ... }> block to handle the caught exception. 
+
+If you want to temporarily turn C<RaiseError> off (inside a library function
+that is likely to fail, for example), the recommended way is like this:
+
+  {
+    local $ccm->{RaiseError};  # localize and turn off for this block
+    ...
+  }
+
+The original value will automatically and reliably be restored by Perl,
+regardless of how the block is exited.
+The same logic applies to other attributes, including C<PrintError>.
+
+=item C<HandleError> (code ref)
+
+This attribute can be used to provide your own
+alternative behaviour in case of errors. If set to a
+reference to a subroutine then that subroutine is called
+when an error is detected (at the same point that
+L</RaiseError> and L</PrintError> are handled).
+
+The subroutine is called with three parameters: the
+error message string that L</RaiseError> and L</PrintError>
+would use, the C<VCS::CMSynergy> object being used, and the 
+value being returned by the method that failed (typically undef).
+
+If the subroutine returns a false value then the
+L</RaiseError> and/or L</PrintError> attributes are checked
+and acted upon as normal. Otherwise the error is considered "handled"
+and execution proceeds normally with a return from the method.
+
+For example, to "die" with a full stack trace for any error:
+
+  use Carp;
+  $ccm->{HandleError} = sub { confess(shift) };
+
+=item C<KeepSession> (boolean)
+
+If this attribute is "on" then destruction of the new session handle
+will not cause a B<ccm stop>. 
+
+This may be used if you want to
+create a new CM Synergy session in one program and then re-use it
+in another program (since session creation is a rather time consuming
+operation). In this case you should use C</ccm_addr> to extract
+the session's RFC address (after C</new> returns) and somehow pass it
+on to the other program.
+
+It defaults to "off" unless you also specify C<CCM_ADDR>.
+
+=item C<UseCoprocess> (boolean)
+
+This feature is highly experimental, B<use it at your own risk>.
+
+B<You must have the L<Expect> module installed to use this feature.>
+(Since L<Expect> is not available for Win32 systems, 
+C<UseCoprocess> is ignored there.)
+
+If C<UseCoprocess> is "off", C<VCS::CMSynergy.pm> executes a separate
+C<ccm> process whenever it invokes the CM Synergy CLI, e.g.
+
+  $ccm->checkout('foo.c');
+  $ccm->set_attribute('color', 'foo.c', 'blue');
+  $csources = $ccm->query("name match '*.c'");
+
+results in the execution of the following three processes:
+
+  ccm checkout foo.c
+  ccm attribute -modify color -value blue foo.c
+  ccm query "name match '*.c'"
+
+In particular, we incur the startup overhead of B<ccm> three times.
+This overhead is noticable, esp. if you are doing 
+lots of CM Synergy operations.
+
+If C<UseCoprocess> is "on", only one B<ccm> process per CM Synergy
+session ever gets executed. The way it works is that
+C<< VCS::CMSynergy->new >> starts an "interactive"
+(i.e. one invoked without arguments) B<ccm> process in the background.
+Later invocations of the CM Synergy CLI pipe their commands to its input and 
+read back the output (up to the next C<< "ccm>" >> prompt). 
+The actual command is then followed in the same way by C<set error>
+to retrieve the success status. Destruction  of the session object
+will cause termination of this "coprocess" (via "stop" or "exit" depending
+on the setting of L</KeepSession>).
+
+The "coprocess" method avoids the startup overhead, but may run into 
+other problems:
+
+=over 4
+
+=item *
+
+The "interactive" B<ccm> imposes stricter limits 
+on the length of one CLI command (experimentally put at ~2000 bytes)
+than the "batch" B<ccm> (where the limit on the arguments of a process
+is typically imposed by the operating system). Moreover, it will
+silently truncate the command and not signal an error (unless the
+truncation causes a syntax error).
+
+=item *
+
+The current method to communicate with the "coprocess" does not allow
+for separation of its stdout and stderr.
+
+=item *
+
+FIXME: chdir problem
+
+=item *
+
+C<UseCoprocess> does not work under Win32 at all.
+
+=back
+
+The default value of C<UseCoprocess> is "off".
+
 =back
 
 =cut
@@ -337,48 +401,73 @@ sub new
 {
     my $class = shift;
     my %args = @_;
-    # FIXME: check %args for legal keys, currently
-    #	CCM_HOME CCM_ADDR database host ini_file role PrintError RaiseError
-    #   user password (Win32 only, FIXME)
-    #   required: database (Win32: user, password, host) except CCM_ADDR is given
 
     my $self = 
     {
-	CCM_HOME	=> $ENV{CCM_HOME},
+	HandleError	=> undef,
 	PrintError	=> 1,
 	RaiseError	=> 0,
-	HandleError	=> undef,
-	IgnoreError	=> undef,
+	KeepSession	=> undef,
+	ccm_command	=> undef,
 	error		=> undef,
+	env		=> 
+	{
+	    CCM_HOME	=> $class->ccm_home
+	},
     };	
     bless $self, $class;
 
-    while (my ($key, $value) = each %args)
+    my @start = qw(start -m -q -nogui);
+    while (my ($arg, $value) = each %args)
     {
-	return $self->set_error("unrecognized attribute `$key'") 
-	    unless exists $StartOptions{$key};
+	if (grep { $_ eq $arg } 
+	      qw(HandleError PrintError RaiseError KeepSession UseCoprocess))
+	{
+	    $self->{$arg} = $value;
+	    next;
+	}
+	if (grep { $_ eq $arg } qw(CCM_ADDR CCM_HOME))
+	{
+	    $self->{env}->{$arg} = $value;
+	    next;
+	}
 
-	$self->{$key} = $value;
+	$arg eq "database"	&& do { push @start, "-d", $value; next; };
+	$arg eq "home"		&& do { push @start, "-home", $value; next; };
+	$arg eq "host"		&& do { push @start, "-h", $value; next; };
+	$arg eq "ini_file"	&& do { $self->{ini_file} = $value; next; };
+	$arg eq "password"	&& do { push @start, "-pw", $value; next; };
+	$arg eq "remote_client" && do { push @start, "-rc" if $value; next; };
+	$arg eq "role"		&& do { push @start, "-r", $value; next; };
+	$arg eq "ui_database_dir" && do { push @start, "-u", $value; next; };
+	$arg eq "user"		&& do 
+	{
+	    $self->{user} = $value;
+	    push @start, "-n", $value; 
+	    next; 
+	};
+
+	return $self->set_error("unrecognized attribute `$arg'") 
     }
 
-    if ($self->{CCM_ADDR})
+    if (defined $self->ccm_addr)
     {
-	$self->{KeepSession} = 1 unless exists $self->{KeepSession};
-	$class->trace_msg("will keep session `$self->{CCM_ADDR}'\n") if $debug;
+	$self->{KeepSession} = 1 unless defined $self->{KeepSession};
+	$self->trace_msg("will keep session `".$self->ccm_addr."'\n") if $debug;
 
-	if ($osWindows)
+	if ($Is_MSWin32)
 	{
+
 	    # figure out user of session specified by CCM_ADDR
 	    {
-		local $ENV{CCM_HOME} = $self->{CCM_HOME};
 		$self->{user} = 
-		    VCS::CMSynergy->ps(rfc_address => $self->{CCM_ADDR})->[0]->{user};
+		    $self->ps(rfc_address => $self->ccm_addr)->[0]->{user};
 	    }
 
-	    # NOTE: $inifh will be closed when the variable goes out of scope
-	    my ($inifh, $initmp) = tempfile(SUFFIX => ".ini", UNLINK => 0);
+	    # create a minimal ini file (see below for an explanation)
+	    (my $inifh, $self->{ini_file}) = tempfile(SUFFIX => ".ini", UNLINK => 0);
 	    print $inifh "[UNIX information]\nUser = $self->{user}\n";
-	    $self->{ini_file} = $initmp;
+	    close($inifh);
 	    push @{ $self->{files_to_unlink} }, $self->{ini_file};
 	}
     }
@@ -386,14 +475,15 @@ sub new
     {
 	unless (defined $self->{ini_file})
 	{
-	    if ($osWindows)
+	    if ($Is_MSWin32)
 	    {
 		# NOTES: 
 		# (1) "ccm start -f nul ..." doesn't work on Windows
-		# (leads to ccm_seng error), so use an empty ini_file instead
+		#     (leads to error from ccm_seng), 
+		#     so use an empty ini_file instead
 		# (2) we can't use UNLINK=>1 with tempfile, because 
-		# the actual unlink may occur before the session is
-		# stopped and Windows refuses removing the "busy" file
+		#     the actual unlink may occur before the session is
+		#     stopped and Windows refuses removing the "busy" file
 		(undef, $self->{ini_file}) = tempfile(SUFFIX => ".ini", UNLINK => 0);
 		push @{ $self->{files_to_unlink} }, $self->{ini_file};
 	    }
@@ -402,59 +492,59 @@ sub new
 		$self->{ini_file} = File::Spec->devnull;
 	    }
 	}
+	push @start, "-f", $self->{ini_file};
 
-	my @start = qw(start -m -q -nogui);
-	while (my ($key, $value) = each %StartOptions)
-	{
-	    next unless defined $value && defined $self->{$key};
-	    push @start, &$value($self->{$key});
-	}
-	$Ccm_command = "@start";
-
+	$self->{ccm_command} = $Ccm_command = join(" ", @start);
 	my ($rc, $out, $err) = 
-	    _ccmexec($self->{CCM_HOME}, _ccm_exe($self->{CCM_HOME}), @start);
+	    _ccmexec($self->{env}, _ccm_exe($self->ccm_home), @start);
 	$self->trace_msg("<- ccm($Ccm_command) = " .
 			 ($debug >= 8 ? "($rc, '$out', '$err')" : $rc==0) .
 			 "\n") if $debug;
 	return $self->set_error($err || $out) unless $rc == 0;
 
-	$self->{CCM_ADDR} = $out;
-	$self->{ccm_command} = $Ccm_command;
-	$class->trace_msg("started session `$self->{CCM_ADDR}'\n") if $debug;
+	$self->{env}->{CCM_ADDR} = $out;
+	$self->trace_msg("started session `$out'\n") if $debug;
     }
 
+    # NOTE: Use of $CCM_INI_FILE fixes the annoying `Warning:
+    # Security violation.  User JLUSER is not authorized to the
+    # Continuus interface at ...'  when running on Windows.
+    #
+    # Background: The problem is the obsolete ccm.ini file in
+    # Windows' %SystemRoot%.  If ccm_gui or "ccm start ..." is
+    # invoked _without_ specifying an ini file it writes the
+    # Unix user (as given in the login popup or -n option, resp.)
+    # into this file. If $CCM_INI_FILE is not set, all other "ccm ..."
+    # invocations will read this file and check its "user"
+    # entry against the session identified by $CCM_ADDR. If
+    # they don't match, the above warning is issued and the
+    # command aborted.  If we already have have an ini_file we
+    # just set $CCM_INI_FILE to its name. Otherwise we fake
+    # a minimal ini file with the correct setting of "user"
+    # and set $CCM_INI_FILE to its name.
+    $self->{env}->{CCM_INI_FILE} = $self->{ini_file} if $Is_MSWin32;
 
-    if ($use_ccm_coprocess)
+    if ($self->{UseCoprocess})
     {
-	my $exp_err;
-	EXP:
+	if ($self->{coprocess} = $self->_spawn_coprocess)
 	{
-	    local $ENV{CCM_HOME} = $self->{CCM_HOME};
-	    local $ENV{CCM_ADDR} = $self->{CCM_ADDR};
-	    local $ENV{CCM_INI_FILE} = $self->{ini_file} if $osWindows;
-
-	    my $exp = Expect->new
-		or $exp_err = "Expect->new failed", last EXP;
-	    ($exp->log_stdout(0) && $exp->slave->stty(qw(-echo raw)))
-		or $exp_err = $exp->exp_error, last EXP;
-	    $exp->spawn(_ccm_exe($self->{CCM_HOME}))
-		or $exp_err = $exp->exp_error, last EXP;
-	    
-	    # look for initial "ccm> " prompt
-	    $exp->expect(undef, '-re', $ccm_prompt)
-		or $exp_err = $exp->exp_error, last EXP;
-	    $self->{exp} = $exp;
+	    $self->{cwd} = getcwd();	# remembers coprocess' working directory
+	    $self->trace_msg(
+		"spawned coprocess (pid=".$self->{coprocess}->pid.")\n", 8)
+		if $debug;
 	}
-	carp(__PACKAGE__ . " new: can't establish ccm coprocess: $exp_err - falling back to single shot ccm processes")
-	    unless $self->{exp};
-	# FIXME better fall back description
+	else
+	{
+	    carp(__PACKAGE__ . " new: can't establish coprocess: $self->{error}\n" .
+	         "-- ignoring UseCoprocess");
+	}
     }
 
     # cache some info from database; this also doubles as a test for a valid session
     {
-	my ($rc, $out, $err) = $self->ccm(qw(delimiter));
-	return undef unless $rc == 0;
-    $self->{delimiter} = $out;
+	my ($rc, $out, $err) = $self->_ccm(qw(delimiter));
+	return $self->set_error($err || $out) unless $rc == 0;
+	$self->{delimiter} = $out;
     }
 
     %{ $self->{attypes} } = %Attypes;
@@ -471,9 +561,40 @@ sub new
     return $self;
 }
 
+sub _spawn_coprocess
+{
+    my $self = shift;
+
+    eval { require Expect; import Expect 1.15; };
+    $self->{error} = $@, return undef if $@;
+
+    my $env = $self->{env};
+    local @ENV{keys %$env} = values %$env if defined $env;
+
+    my $exp = Expect->new
+	or $self->{error} = "Expect->new failed", return undef;
+    ($exp->log_stdout(0) && $exp->slave->stty(qw(-echo raw)))
+	or $self->{error} = $exp->exp_error, return undef;
+    $exp->spawn(_ccm_exe($self->ccm_home))
+	or $self->{error} = $exp->exp_error, return undef;
+    
+    # look for initial "ccm> " prompt
+    $exp->expect(undef, '-re', $ccm_prompt)
+	or $self->{error} = $exp->exp_error, return undef;
+
+    return $exp;
+}
+
+sub _kill_coprocess
+{
+    my $self = shift;
+    $self->{coprocess}->print("exit\n");
+    # FIXME: kill it just for paranoia (must save pid before line above!)
+    $self->{coprocess} = undef;
+}
 
 
-=item C<DESTROY>
+=head2 DESTROY
 
   $ccm->DESTROY;
 
@@ -523,7 +644,7 @@ RFC address (i.e. attribute CCM_ADDR), while the second form leaves you with an
 sub DESTROY 
 {
     my $self = shift;
-    return unless $self->{CCM_ADDR};	# session not yet established
+    return unless $self->ccm_addr;	# session not yet established
 
     # NOTE: DESTROY might be called implicitly while unwinding 
     # stack frames during exception processing, e.g.
@@ -546,19 +667,16 @@ sub DESTROY
     # offending methods.
     local $@;
     
-    local $self->{IgnoreError} = 1;
+    $self->_kill_coprocess if $self->{coprocess};
 
-    if ($self->{KeepSession})
+    unless ($self->{KeepSession})
     {
-	$self->ccm(qw(exit)) if $self->{exp};	# shutdown coprocess
-    }
-    elsif ($self->ccm(qw(stop)))
-    {
-	$self->trace_msg("stopped session $self->{CCM_ADDR}\n") if $debug;
+	$self->_ccm(qw(stop));
+	$self->trace_msg("stopped session ".$self->ccm_addr."\n") if $debug;
 
 	# on Windows, wait a little until CM Synergy
 	# really releases any files to unlink
-	sleep(2) if $osWindows && $self->{files_to_unlink};
+	sleep(2) if $Is_MSWin32 && $self->{files_to_unlink};
     }
 
     unlink(@{ $self->{files_to_unlink} }) if $self->{files_to_unlink};
@@ -566,7 +684,7 @@ sub DESTROY
     %$self = ();			# paranoia setting
 }
 
-=item C<ccm>
+=head2 ccm
 
   ($rc, $out, $err) = $ccm->ccm($command, @args);
 
@@ -618,84 +736,105 @@ This is accomplished by a suitable C<AUTOLOAD> method.
 
 sub ccm					# class/instance method
 {
-    my ($this, $cmd, @args) = @_;
-    $this->{error} = undef if ref $this;
+    my ($this, @list) = @_;
 
-    $Ccm_command = "$cmd @args";
-    $this->{ccm_command} = $Ccm_command if ref $this;
+    my ($rc, $out, $err) = $this->_ccm(@list);
 
-    my ($rc, $out, $err);
-
-    # NOTE: Certain comands (e.g. "ps") are not accepted from the "ccm>" prompt.
-    if (ref $this && $this->{exp} && $cmd !~ /^(ps|version)$/)
-    {
-	my $exp =  $this->{exp};
-	EXP: 
-	{
-	    my ($match, $set);
-
-	    # NOTE: "ccm>" command arguments that contain blanks must 
-	    # be quoted with double quotes. AFAICT there is no way 
-	    # to quote embedded quotes!
-	    $exp->print(join(" ", $cmd, map { "\"$_\"" } @args), "\n");
-	    ($match, $err, undef, $out, undef) =
-		$exp->expect(undef, '-re', $ccm_prompt);
-	    ($rc, $out, $err) = (_exitstatus(255), "", "expect error: $err"), last EXP 
-		unless $match;
-
-	    chomp($out);
-
-	    $exp->print("set error\n");
-	    ($match, $err, undef, $set, undef) =
-		$exp->expect(undef, '-re', $ccm_prompt);
-	    ($rc, $out, $err) = (_exitstatus(255), "", "expect error: $err"), last EXP 
-		unless $match;
-	    ($rc, $out, $err) = (_exitstatus(255), "", "unrecognized result from `set error': $set"), last EXP
-		unless ($rc) = $set =~ /^(\d+)/;
-	    ($rc, $err) = (_exitstatus($rc), "");
-	}
-    }
-    else
-    {
-	# NOTE: Use of $CCM_INI_FILE fixes the annoying `Warning:
-	# Security violation.  User JLUSER is not authorized to the
-	# Continbuus interface at ...'  when running on Windows.
-	#
-	# Background: The problem is the obsolete ccm.ini file in
-	# Windows' %SytemRoot%.  If ccm_gui or "ccm start ..." is
-	# invoked _without_ specifying an ini file it writes the
-	# Unix user (as given in the login popup or -n option, resp.)
-	# into this file. If $CCM_INI_FILE is not set, all other "ccm ..."
-	# invocations will read this file and check its "user"
-	# entry against the session identified by $CCM_ADDR. If
-	# they don't match, the above warning is issued and the
-	# command aborted.  If we already have have an ini_file we
-	# just set $CCM_INI_FILE to its name. Otherwise we fake
-	# a minimal ini file with the correct setting of "user"
-	# and set $CCM_INI_FILE to its name.
-	local $ENV{CCM_INI_FILE} = $this->{ini_file} if ref $this && $osWindows;
-
-	local $ENV{CCM_ADDR} = $this->{CCM_ADDR} if ref $this;
-
-	($rc, $out, $err) = 
-	    _ccmexec($this->_ccm_home, _ccm_exe($this->_ccm_home), $cmd, @args);
-    }
-    $this->trace_msg("<- ccm($Ccm_command) = " .
-                     ($debug >= 8 ? "($rc, '$out', '$err')" : $rc==0) .
-		     "\n") if $debug;
-
-    return wantarray ? ($rc, $out, $err) : 1 
-	if $rc == 0 || (ref $this && $this->{IgnoreError});
+    return wantarray ? ($rc, $out, $err) : 1 if $rc == 0;
     return $this->set_error($err || $out, undef, 0, $rc, $out, $err);
     # NOTE: most failing ccm commands issue there error messages on stdout!
 }
 
-
-# helper: return CCM_HOME in class/instance context
-sub _ccm_home					# class/instance method
+# helper: just do it (TM), returns ($rc, $out, $err) (regardless of context)
+sub _ccm					# class/instance method
 {
-    my $this = shift;
-    return ref $this ? $this->{CCM_HOME} : $ENV{CCM_HOME};
+    my ($this, $cmd, @args) = @_;
+    $this->{error} = undef if ref $this;
+
+    $Ccm_command = join(" ", $cmd, @args);
+    $this->{ccm_command} = $Ccm_command if ref $this;
+
+    my $rc;
+
+    my $use_coprocess = ref $this && $this->{coprocess};
+    COPROCESS:
+    {
+	last unless $use_coprocess;
+
+	# certain comands (e.g. "ps") are not accepted in "interactive" sessions
+	# FIXME OneArgFoo?
+	$use_coprocess = 0, last if $cmd =~ /^(ps|version)$/;
+
+	# arguments cannot contain newlines in "interactive" ccm sessions
+	# FIXME OneArgFoo?
+	$use_coprocess = 0, last if grep { /\n/ } @args;
+
+	# FIXME: calling getcwd for every _ccm may be expensive
+	if ($this->{cwd} ne (my $cwd = getcwd()))
+	{
+	    # working directory has changed since coprocess was spawned:
+	    # shut down coprocess and start a new one
+	    # NOTE: don´t call _ccm here (infinite recursion)
+	    $this->_kill_coprocess;
+	    if ($this->{coprocess} = $this->_spawn_coprocess)
+	    {
+		$this->{cwd} = $cwd;	# remembers coprocess' working directory	
+		$this->trace_msg(
+		    "spawned new coprocess because cwd changed (pid=".$this->{coprocess}->pid.")\n", 8)
+		    if $debug;
+	    }
+	    else
+	    {
+		carp(__PACKAGE__ . " _ccm: can't re-establish coprocess (because cwd changed): $this->{error}\n" .
+		     "-- ignoring UseCoprocess from now on");
+		    $use_coprocess = 0;
+	    }
+	}
+    }
+
+    if ($use_coprocess)
+    {
+	my ($match, $set);
+
+	# NOTE: "interactive" command arguments that contain blanks must 
+	# be quoted with double quotes; AFAICT there is no way 
+	# to quote embedded quotes!
+	# FIXME OneArgFoo?
+	$this->{coprocess}->print(join(" ", $cmd, map { "\"$_\"" } @args), "\n");
+
+	($match, $Err, undef, $Out, undef) =
+	    $this->{coprocess}->expect(undef, '-re', $ccm_prompt);
+	($rc, $Out, $Err) = _error("expect error: $Err"), last CLI 
+	    unless $match;
+	chomp($Out);
+
+	$this->{coprocess}->print("set error\n");
+	($match, $Err, undef, $set, undef) =
+	    $this->{coprocess}->expect(undef, '-re', $ccm_prompt);
+	($rc, $Out, $Err) = _error("expect error: $Err"), last CLI 
+	    unless $match;
+	($rc, $Out, $Err) = _error("unrecognized result from `set error': $set"), last CLI
+	    unless ($rc) = $set =~ /^(\d+)/;
+	($rc, $Err) = (_exitstatus($rc), "");
+    }
+    else
+    {
+	($rc, $Out, $Err) = _ccmexec(
+	    ref $this ? $this->{env} : { CCM_HOME => $this->ccm_home },
+	    _ccm_exe($this->ccm_home), $cmd, @args);
+	# FIXME OneArgFoo:
+	# if (ref $this && $this->{OneArgFoo} && @args == 0)
+	#	_ccmexec(..., _ccm_exe($this->ccm_home)." ".$cmd)
+	# else
+	#       _ccmexec(..., _ccm_exe($this->ccm_home), $cmd, @args)
+    }
+    $this->trace_msg(
+	"<- ccm($Ccm_command) = " .
+        ($debug >= 8 ? "($rc, `$Out', `$Err')" : $rc==0) .  "\n") if $debug;
+
+    ($this->{out}, $this->{err}) = ($Out, $Err) if ref $this;
+
+    return ($rc, $Out, $Err);
 }
 
 # helper (not a method, hence memoizable): 
@@ -709,13 +848,10 @@ sub _ccm_exe
 memoize('_ccm_exe');
 
 # helper (not a method):
-# execute a program with CCM_HOME set up appropriately
+# execute a program with environment set up appropriately
 sub _ccmexec
 {
-    my ($ccm_home, $prog, @args) = @_;
-    my ($rc, $out, $err) = (undef, "", "");
-
-    return (_exitstatus(255), "", "CCM_HOME not set") unless defined $ccm_home;
+    my ($env, $prog, @args) = @_;
 
     local (*NULL);			
     open(NULL, File::Spec->devnull) or die "can't open /dev/null: $!";
@@ -765,7 +901,7 @@ sub _ccmexec
     }
 
     # Disable possible outer SIGCHLD handler.
-    # FIXME: NOTE on SIGCHLD probs
+    # FIXME: add NOTE why we do this (SIGCHLD probs eg RPC::PlServer)
     # FIXME: works on MSWin32 ?
     my $outer_sigchld_handler = $SIG{CHLD};
     {
@@ -792,13 +928,13 @@ sub _ccmexec
 	    print STDERR $_[0]; 
 	    POSIX::_exit(255); 
 	};
-	local $ENV{CCM_HOME} = $ccm_home;
-
+	local @ENV{keys %$env} = values %$env if defined $env;
 	$pid = open3("<&NULL", $outfh, $errfh, $prog, @args);
     };
-    return (_exitstatus(255), "", $@) if $@;
+    return _error($@) if $@;
 
-    if ($^O eq 'MSWin32')
+    my ($rc, $out, $err) = (undef, "", "");
+    if ($Is_MSWin32)
     {
 	# select() does not work on pipes in Win32,
 	# hence IO::Select below is useless. In this case STDOUT and
@@ -838,12 +974,17 @@ sub _ccmexec
 	}
     }
 
-    return (_exitstatus(255), "", "waitpid returned unexpected value")
+    return _error("waitpid returned unexpected value")
 	if waitpid($pid, 0) != $pid;
     $rc = $?;
+    if (my $sig = $rc & 127)
+    {
+	($out, $err) = ("", "Killed by signal $sig");
+	$err .= " (core dumped)" if $rc & 128;
+    }
 
     # on Windows, treat output as if read in "text" mode
-    $out =~ s/\015\012/\012/g if $osWindows;
+    $out =~ s/\015\012/\012/g if $Is_MSWin32;
 
     chomp($out, $err);
 
@@ -879,12 +1020,27 @@ sub _ccmexec
 }
 
 # helper: inverse function of POSIX::WEXITSTATUS()
-sub _exitstatus
+sub _exitstatus { return $_[0] << 8; }
+
+# helper: return a triple ($rc, $out, $err)
+sub _error { return (_exitstatus(255), "", $_[0]) }
+
+# helper: check usage
+# check min ($minargs) and max ($maxargs) number of arguments 
+# (numbers include $self); use $maxargs=undef for unlimited arguments;
+# croak with message constructed from $usage
+sub _usage
 {
-    return $_[0] << 8;
+    my ($minargs, $maxargs, $usage, $argsref) = @_;
+    return if $minargs <= @$argsref && (!defined $maxargs || @$argsref <= $maxargs);
+    my $fullname = (caller(1))[3];
+    (my $method = $fullname) =~ s/^.*:://;
+    croak("$fullname: invalid number of arguments" .
+          "\n  usage: \$ccm->${method}(${usage})");
 }
 
-=item C<ccm_addr>
+
+=head2 ccm_addr
 
   print "CCM_ADDR=", $ccm->ccm_addr;
 
@@ -894,23 +1050,76 @@ Returns the session's RFC address.
 
 sub ccm_addr	
 { 
-    return shift->{CCM_ADDR}; 
+    return shift->{env}->{CCM_ADDR}; 
 }
 
-=item C<delimiter>
 
-  $delim = $ccm->delimiter;
+=head2 ccm_command
 
-Returns the database delimiter.
+  $last_session_command = $ccm->ccm_command;
+  $last_cmsynergy_command = VCS::CMSynergy->ccm_command;
+
+Returns the last CM Synergy command invoked in the session  or in any
+C<VCS::CMSynergy> session, resp.
 
 =cut
 
-sub delimiter	
-{ 
-    return shift->{delimiter}; 
+sub ccm_command
+{
+    my $this = shift;
+    return ref $this ? $this->{ccm_command} : $Ccm_command;
 }
 
-=item C<database>
+
+=head2 ccm_home
+
+  print "CCM_HOME=", $ccm->ccm_home;
+
+Returns the session's CCM_HOME. When invoked as a class method,
+simply returns C<$ENV{CCM_HOME}>
+
+=cut
+
+sub ccm_home					# class/instance method
+{
+    my $this = shift;
+    return ref $this ? $this->{env}->{CCM_HOME} : $ENV{CCM_HOME};
+}
+
+
+=head2 out
+
+Returns the raw standard output of the last CM Synergy command invoked
+in the session or in any C<VCS::CMSynergy> session, resp.
+In scalar context the output is returned as a possibly multi-line string.
+In list context it is returned as an array of pre-chomped lines.
+
+=cut
+
+sub out 					# class/instance method
+{
+    my $this = shift;
+    my $out = ref $this ? $this->{out} : $Out;
+    return wantarray ? split(/\n/, $out) : $out;
+}
+
+
+=head2 err
+
+Returns the raw standard error of the last CM Synergy command invoked
+in the session or in any C<VCS::CMSynergy> session, resp.
+The return value is a possibly multi-line string regardless of context.
+
+=cut
+
+sub err 					# class/instance method
+{
+    my $this = shift;
+    return ref $this ? $this->{err} : $Err;
+}
+
+
+=head2 database
 
   $database = $ccm->database;
 
@@ -925,8 +1134,9 @@ sub database
     unless (defined $self->{database})
     {
 	# determine database path (in canonical format) from `ccm ps´
-	my $ps = $self->ps(rfc_address => $self->{CCM_ADDR});
-	return $self->set_error("can't find session `$self->{CCM_ADDR}' in `ccm ps'") 
+	my $ccm_addr = $self->ccm_addr;
+	my $ps = $self->ps(rfc_address => $ccm_addr);
+	return $self->set_error("can't find session `$ccm_addr' in `ccm ps'") 
 	    unless $ps && @$ps > 0;
 	$self->{database} = $ps->[0]->{database};
     }
@@ -934,7 +1144,39 @@ sub database
     return $self->{database}; 
 }
 
-=item C<query>
+
+=head2 delimiter
+
+  $delim = $ccm->delimiter;
+
+Returns the database delimiter.
+
+=cut
+
+sub delimiter	
+{ 
+    return shift->{delimiter}; 
+}
+
+
+=head2 error
+
+  $last_session_error = $ccm->error;
+  $last_cmsynergy_error = VCS::CMSynergy->error;
+
+Returns the last error that occured in the session or in any
+C<VCS::CMSynergy> session, resp.
+
+=cut
+
+sub error
+{
+    my $this = shift;
+    return ref $this ? $this->{error} : $Error;
+}
+
+
+=head2 query
 
   $ary_ref = $ccm->query(@args);
 
@@ -972,17 +1214,17 @@ L</query_arrayref> and L</query_hashref> handle this case correctly.
 sub query
 {
     my $self = shift;
-    my ($rc, $out, $err);
-    {
-	# NOTE: if there are no hits, `ccm query' exits with status 1, 
-	# but produces no output on either stdout and stderr
-	local $self->{IgnoreError} = 1;
-	($rc, $out, $err) = $self->ccm(qw(query -u), @_);
-    }
+
+    my ($rc, $out, $err) = $self->_ccm(qw(query -u), @_);
+
+    # NOTE: if there are no hits, `ccm query' exits with status 1, 
+    # but produces no output on either stdout and stderr
+
     return [ split(/\n/, $out) ] if $rc == 0;
     return [ ] if $rc == _exitstatus(1) and $out eq "" and $err eq "";
     return $self->set_error($err || $out);
 }
+
 
 # helper: query with correct handling of multi-line attributes
 sub _query
@@ -996,23 +1238,13 @@ sub _query
     my $format = "\cD" . join("\cG", values %wanted) . "\cG";
     my @wanted = keys %wanted;
 
-    my ($rc, $out, $err);
-    {
-	# NOTE: if there are no hits, `ccm query' exits with status 1, 
-	# but produces no output on either stdout and stderr
-	local $self->{IgnoreError} = 1;
+    my ($rc, $out, $err) = exists $wanted{finduse} ?
+	$self->_ccm_with_option(
+	    Object_format => $format, qw(finduse -query), $query) :
+	$self->_ccm(qw(query -u -ns -nf -format), $format, $query);
 
-	if (exists $wanted{finduse})
-	{
-	    ($rc, $out, $err) = $self->_with_local_option(
-		Object_format => $format,
-		qw(ccm finduse -query), $query);
-	}
-	else
-	{
-	    ($rc, $out, $err) = $self->ccm(qw(query -u -ns -nf -format), $format, $query);
-	}
-    }
+    # NOTE: if there are no hits, `ccm query' exits with status 1, 
+    # but produces no output on either stdout and stderr
     return [ ] if $rc == _exitstatus(1) and $out eq "" and $err eq "";
     return $self->set_error($err || $out) unless $rc == 0;
 
@@ -1057,7 +1289,7 @@ sub _query
     return \@result;
 }
 
-=item C<query_object>
+=head2 query_object
 
   $ary_ref = $ccm->query_object($query);
 
@@ -1079,7 +1311,7 @@ suitable sub clauses of the C<$query> expression.
 sub query_object
 {
     my ($self, $query) = @_;
-    return $self->set_error("no query string supplied") unless defined $query;
+    _usage(2, 2, '$query', \@_);
 
     my $result =  $self->_query($query, 1, qw(object));
     return undef unless $result;
@@ -1088,7 +1320,7 @@ sub query_object
     return [ map { $_->{object} } @$result ];
 }
 
-=item C<query_arrayref>
+=head2 query_arrayref
 
   $ary_ref = $ccm->query_arrayref($query, @keywords);
 
@@ -1168,13 +1400,12 @@ suitable sub clauses of the C<$query> expression.
 sub query_arrayref
 {
     my ($self, $query, @keywords) = @_;
-    return $self->set_error("no query string supplied") unless defined $query;
-    return $self->set_error("no keywords supplied") unless @keywords;
+    _usage(3, undef, '$query, $keyword...', \@_);
 
     return $self->_query($query, 0, @keywords);
 }
 
-=item C<query_hashref>
+=head2 query_hashref
 
   $ary_ref = $ccm->query_hashref($query, @keywords);
 
@@ -1253,13 +1484,12 @@ suitable sub clauses of the C<$query> expression.
 sub query_hashref
 {
     my ($self, $query, @keywords) = @_;
-    return $self->set_error("no query string supplied") unless defined $query;
-    return $self->set_error("no keywords supplied") unless @keywords;
+    _usage(3, undef, '$query, $keyword...', \@_);
 
     return $self->_query($query, 1, @keywords);
 }
 
-=item C<history>
+=head2 history
 
   $ary_ref = $ccm->history(@args);
 
@@ -1285,13 +1515,13 @@ sub history
 {
     my ($self, @args) = @_;
 
-    my ($rc, $out, $err) = $self->ccm(qw(history), @args);
-    return undef unless $rc == 0;
+    my ($rc, $out, $err) = $self->_ccm(qw(history), @args);
+    return $self->set_error($err || $out) unless $rc == 0;
 
     return [ split(/^\*+\n?/m, $out) ];
 }
 
-=item C<history_arrayref>
+=head2 history_arrayref
 
   $ary_ref = $ccm->history_arrayref($file_spec, @keywords);
 
@@ -1350,7 +1580,7 @@ contain a leading C<%>. Example:
 # helper: history with correct handling of multi-line attributes
 sub _history
 {
-    my ($self, $file_spec, $wanthash, @keywords) = @_;;
+    my ($self, $file_spec, $wanthash, @keywords) = @_;
 
     my %wanted = map { ($_, "%$_") } @keywords;
     $wanted{object} = "%objectname"	if exists $wanted{object};
@@ -1359,7 +1589,7 @@ sub _history
 
     my $format = "\cD" . join("\cG", values %wanted) . "\cG";
 
-    my ($rc, $out, $err) = $self->ccm(qw(history -f), $format, $file_spec);
+    my ($rc, $out, $err) = $self->_ccm(qw(history -f), $format, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my @result;
@@ -1408,14 +1638,13 @@ sub _history
 sub history_arrayref
 {
     my ($self, $file_spec, @keywords) = @_;
-    return $self->set_error("no file_spec supplied") unless defined $file_spec;
-    return $self->set_error("no keywords supplied") unless @keywords;
+    _usage(3, undef, '$file_spec, $keyword...', \@_);
  
     return $self->_history($file_spec, 0, @keywords);
 }
 
 
-=item C<history_hashref>
+=head2 history_hashref
 
   $ary_ref = $ccm->history_hashref($file_spec, @keywords);
 
@@ -1470,13 +1699,12 @@ contain a leading C<%>. Example:
 sub history_hashref
 {
     my ($self, $file_spec, @keywords) = @_;
-    return $self->set_error("no file_spec supplied") unless defined $file_spec;
-    return $self->set_error("no keywords supplied") unless @keywords;
+    _usage(3, undef, '$file_spec, $keyword...', \@_);
 
     return $self->_history($file_spec, 1, @keywords);
 }
 
-=item C<finduse>
+=head2 finduse
 
   $ary_ref = $ccm->finduse(@args);
 
@@ -1528,7 +1756,8 @@ Example (recreate the output of the B<ccm finduse> command):
 sub finduse
 {
     my $self = shift;
-    my ($rc, $out, $error);
+
+    my ($rc, $out, $err) = $self->_ccm(qw(finduse), @_);
 
     # NOTE: `ccm finduse ...' without `-query' complains if some of 
     # the given objects do not exist (and exits with status 1 unless at least
@@ -1537,32 +1766,33 @@ sub finduse
     # stdout and stderr. (This is the same behaviour as for `ccm query ...'.) 
     # We will not produce an error in any case. However, the returned array
     # may contain fewer elements than file_specs given as arguments.
+
+    if ($rc == 0)
     {
-	local $self->{IgnoreError} = 1;
-	($rc, $out, $error) = $self->ccm(qw(finduse), @_);
+	my (@result, $uses);
+	foreach (split(/\n/, $out))
+	{
+	    # ignore complaints about non-existing objects 
+	    # and the dummy "use" line printed if object is not used anywhere
+	    # NOTE [DEPRECATE 4.5]: `Object not used'
+	    next if /Object version could not be identified|Object is not used in scope|Object not used/;
+
+	    # a usage line is matched by finduse_rx
+	    $uses->{$2} = $1, next if /$self->{finduse_rx}/;
+
+	    # otherwise the line describes an object satisfying the query
+	    # in the format given by option `Object_format' (default:
+	    # "%displayname %status %owner %type %project %instance %task")
+	    push(@result, [ $_, $uses = {} ]);
+	}
+	return \@result;
     }
-
-    my (@result, $uses);
-    foreach (split(/\n/, $out))
-    {
-	# ignore complaints about non-existing objects 
-	# and the dummy "use" line printed if object is not used anywhere
-	# NOTE [DEPRECATE 4.5]: `Object not used'
-	next if /Object version could not be identified|Object is not used in scope|Object not used/;
-
-	# a usage line is matched by finduse_rx
-	$uses->{$2} = $1, next if /$self->{finduse_rx}/;
-
-	# otherwise the line describes an object satisfying the query
-	# in the format given by option `Object_format' (default:
-	# "%displayname %status %owner %type %project %instance %task")
-	push(@result, [ $_, $uses = {} ]);
-    }
-    return \@result;
+    return [ ] if $rc == _exitstatus(1) and $out eq "" and $err eq "";
+    return $self->set_error($err || $out);
 }
 
 
-=item C<findpath>
+=head2 findpath
 
   $path = $ccm->findpath($file_spec, $proj_vers);
 
@@ -1593,100 +1823,252 @@ sub findpath
 }
 
 
-=item C<attribute>
+=head2 get_attribute
 
-  $value = $ccm->attribute($attr_name, $file_spec);
-  $ccm->attribute($attr_name, $file_spec, $value);
+  $value = $ccm->get_attribute($attr_name, $file_spec);
 
-Gets or sets an attribute associated with an object.
+Get the value of the attribute C<$attr_name> for
+C<$file_spec> (using (B<ccm attribute -show>). 
 
-The first form gets the value of the attribute C<$attr_name> for
-C<$file_spec> (using (B<ccm attribute -show>).  If C<RaiseError> is not
+If C<RaiseError> is not
 set and an error occurs (e.g.  attribute C<$attr_name> does not exist
 on object C<$file_spec>), C<undef> will be returned.
 
-The second form sets the value of the attribute C<$attr_name>
-for C<$file_spec> to C<$value> (using (B<ccm attribute -modify>).
-This works for all types of attributes, even those of type B<text> or
-derived from B<text>.  Returns C<$value> on success.  If C<RaiseError>
-is not set and an error occurs (e.g. attribute C<$attr_name> does not
-exist on object C<$file_spec>), C<undef> will be returned.
+Note the following differences from B<ccm attribute -show>:
+
+=over 4
+
+=item *
+
+Only one C<$file_spec> is allowed.
+
+=item *
+
+There is no C<-p> (project) option. If you want to get an attribute 
+of a project use the full objectname of the project for C<$file_spec>.
+
+=back
 
 =cut
 
-sub attribute
+sub get_attribute
 {
-    my $self = shift;
-    return $self->set_error("illegal number of arguments") unless @_ == 2 || @_ == 3;
+    my ($self, $attr_name, $file_spec) = @_;
+    _usage(3, 3, '$attr_name, $file_spec', \@_);
 
-    my ($attr_name, $file_spec, $value) = @_;
-
-    if (@_ == 2)
-    {
-	# get attribute
-	my ($rc, $out, $err) = 
-	    $self->ccm(qw(attribute -show), $attr_name, $file_spec);
-	return $rc == 0 ? $out : undef;
-    }
-
-	# set attribute
-	my $attrs = $self->attributes($file_spec);
-	return undef unless $attrs;
-
-    if ($self->_attype_is_text($attrs->{$attr_name}))
-	{
-	    # use ye olde text_editor trick
-	    my ($fh, $tempfile) = tempfile();
-	print $fh $value;
-	    close($fh);
-
-	    my ($rc, $out, $err) = $self->_with_local_option(
-		text_editor => "$Config{cp} $tempfile %filename",
-	        qw(ccm attribute -modify), $attr_name, $file_spec);
-
-	    unlink($tempfile);
-
-	    return undef unless $rc == 0;
-	}
-	else
-	{
-	    my ($rc, $out, $err) = 
-		$self->ccm(qw(attribute -modify), $attr_name, 
-		       qw(-value), $value, $file_spec);
-	    return undef unless $rc == 0;
-	}
-    return $value;
-    }
-
-# determine whether attribute type is (ultimately) text
-sub _attype_is_text
-{
-    my ($self, $attype) = @_;
-    unless (exists $self->{attypes}->{$attype})
-    {
-	my $super_type = $self->attribute('super_type', $self->object($attype, qw(1 attype base)));
-
-        $self->{attypes}->{$attype} = $self->_attype_is_text($super_type);
-    }
-
-    return $self->{attypes}->{$attype};
+    my ($rc, $out, $err) = $self->_ccm('attribute', -show => $attr_name, $file_spec);
+    return $self->set_error($err || $out) unless $rc == 0;
+    return $out;
 }
 
-=item C<attributes>
+=head2 set_attribute
 
-  $hash_ref = $ccm->attributes($file_spec);
+  $ccm->set_attribute($attr_name, $file_spec, $value);
+  $ccm->set_attribute($attr_name, $file_spec, $value, $is_text);
+
+Set the value of the attribute C<$attr_name>
+for C<$file_spec> to C<$value> (using (B<ccm attribute -modify>).
+
+Returns C<$value> on success.  If C<RaiseError>
+is not set and an error occurs (e.g. attribute C<$attr_name> does not
+exist on object C<$file_spec>), C<undef> will be returned.
+
+This works for B<all> types of attributes, even those of type I<text>
+(or derived from I<text>) and with C<$value>s that may contain
+multiple lines or are of arbitrary length. To implement this feature,
+we must know whether the attribute is of type I<text>. 
+If C<$is_text> is not specified we do
+B<ccm attribute -la $file_spec> first. If you want to avoid this
+slight overhead and know the attribute type in advance, 
+you can specify the boolean C<$is_text>. 
+
+Note the following differences from B<ccm attribute -modify>:
+
+=over 4
+
+=item *
+
+Only one C<$file_spec> is allowed.
+
+=item *
+
+There is no C<-p> (project) option. If you want to set an attribute 
+of a project use the full objectname of the project for C<$file_spec>.
+
+=back
+
+=cut
+
+sub set_attribute
+{
+    my ($self, $attr_name, $file_spec, $value, $is_text) = @_;
+    _usage(3, 4, '$attr_name, $file_spec, $value [, $is_text]', \@_);
+
+    # FIXME this is not needed in all cases:
+    # one may also set 'text' values with '-value', even
+    # multi-line values (this does NOT work if UseCoprocess) -
+    # maybe use ye olde text_editor trick only if $value
+    # is big or contains certain characters or if UseCoprocess 
+
+    unless (@_ == 4)		# $is_text not specified
+    {
+	my $attypes = $self->list_attributes($file_spec) or return undef;
+	$is_text = $self->_attype_is_text($attypes->{$attr_name});
+    }
+
+    my ($rc, $out, $err);
+    if ($is_text)
+    {
+	($rc, $out, $err) = $self->_ccm_with_text_editor($value, 
+	    'attribute', -modify => $attr_name, $file_spec);
+    }
+    else
+    {
+	($rc, $out, $err) = $self->_ccm(
+	    'attribute', -modify => $attr_name, 
+	                 -value => $value, $file_spec);
+    }
+    return $self->set_error($err || $out) unless $rc == 0;
+    return $value;
+}
+
+=head2 create_attribute
+
+  $ccm->create_attribute($attr_name, $type, $value, @file_specs);
+
+Create attribute C<$attr_name> of type C<$type> on all objects
+given by C<@file_specs> (using B<ccm attribute -create>).
+You may also set an initial value
+by passing something other than C<undef> for C<$value>.
+
+Note the following differences from B<ccm attribute -create>:
+
+=over 4
+
+=item *
+
+There is no C<-p> (project) option. If you want to set an attribute 
+of a project use the full objectname of the project for C<$file_spec>.
+
+=back
+
+FIXME: allow multiple attr_names as in copy_attribute?
+
+=cut
+
+sub create_attribute
+{
+    my ($self, $attr_name, $type, $value, @file_specs) = @_;
+    _usage(5, undef, '$attr_name, $type, $value, $file_spec...', \@_);
+
+    return $self->ccm('attribute', -create => $attr_name, 
+	defined $value ? (-value => $value) : (), -type => $type, @file_specs);
+}
+
+=head2 delete_attribute
+
+  $ccm->delete_attribute($attr_name, @file_specs);
+
+Delete attribute C<$attr_name> from all objects
+given by C<@file_specs> (using B<ccm attribute -delete>).
+
+
+Note the following differences from B<ccm attribute -create>:
+
+=over 4
+
+=item *
+
+There is no C<-p> (project) option. If you want to set an attribute 
+of a project use the full objectname of the project for C<$file_spec>.
+
+=back
+
+FIXME: allow multiple attr_names as in copy_attribute?
+
+=cut
+
+sub delete_attribute
+{
+    my ($self, $attr_name, @file_specs) = @_;
+    _usage(3, undef, '$attr_name, $file_spec...', \@_);
+
+    return $self->ccm('attribute', -delete => $attr_name, @file_specs);
+}
+
+=head2 copy_attribute
+
+  $ccm->copy_attribute($attr_name, $flags, $from_file_spec, @to_file_specs);
+
+Copy attribute C<$attr_name> from C<$from_file_spec>
+by objects given by C<@to_file_specs> (using B<ccm attribute -copy>).
+
+You can specify multiple attributes to copy by passing
+a reference to an array of attribute names as C<$attr_name>.
+
+C<$flags> may be C<undef> or a reference to an array containing
+a subset of the following strings: C<"append">, C<"subproj">,
+C<"suball">, e.g.
+
+  $ccm->copy_attribute($attr_name, [ qw(subproj suball) ], 
+  	               "proja-1.0:project:1", "projb-1.0:project:1");
+
+Cf. the CM Synergy documentation on the I<attribute command>
+for the meaning of these flags.
+
+Note the following differences from B<ccm attribute -create>:
+
+=over 4
+
+=item *
+
+There is no C<-p> (project) option. If you want to set an attribute 
+of a project use the full objectname of the project for C<$file_spec>.
+
+=back
+
+=cut
+
+sub copy_attribute
+{
+    my ($self, $attr_name, $flags, $from_file_spec, @to_file_specs) = @_;
+    _usage(5, undef, '$attr_name, \%flags, $from_file_spec, $to_file_spec...', \@_);
+
+    $attr_name = join(':', @$attr_name) if ref $attr_name;
+
+    return $self->ccm('attribute', -copy => $attr_name,
+        $flags ? map { "-$_" } @$flags : (),
+	$from_file_spec, @to_file_specs);
+}
+
+=head2 list_attributes
+
+  $hash_ref = $ccm->list_attributes($file_spec);
 
 Lists all attributes for C<$file_spec> (using B<ccm attribute -la>).
+
 Returns a reference to a hash containing pairs of attribute name
 and attribute type (e.g. C<string>, C<time>).
 Returns C<undef> in case of error.
 
+Note the following differences from B<ccm attribute -modify>:
+
+=over 4
+
+=item *
+
+Only one C<$file_spec> is allowed.
+
+=back
+
 =cut
 
-sub attributes
+sub list_attributes
 {
     my ($self, $file_spec) = @_;
-    my ($rc, $out, $err) = $self->ccm(qw(attribute -la), $file_spec);
+    _usage(2, 2, '$file_spec', \@_);
+
+    my ($rc, $out, $err) = $self->_ccm('attribute', -la => $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my %attrs = $out =~ /^(\S+) \s* \( (.*?) \)/gmx;
@@ -1694,7 +2076,22 @@ sub attributes
 }
 
 
-=item C<types>
+# determine whether attribute type is (ultimately) text
+sub _attype_is_text
+{
+    my ($self, $attype) = @_;
+    unless (exists $self->{attypes}->{$attype})
+    {
+	my $super_type = $self->get_attribute(super_type => $self->object($attype, qw(1 attype base)));
+
+        $self->{attypes}->{$attype} = $self->_attype_is_text($super_type);
+    }
+
+    return $self->{attypes}->{$attype};
+}
+
+
+=head2 types
 
   @types = $ccm->types;
 
@@ -1705,47 +2102,14 @@ Returns an array of types from B<ccm show -types>.
 sub types
 {
     my $self = shift;
-    my ($rc, $out, $error) = $self->ccm(qw(show -types));
-    return undef unless $rc == 0;
+    my ($rc, $out, $err) = $self->_ccm(qw(show -types));
+    return $self->set_error($err || $out) unless $rc == 0;
 
     return split(/\n/, $out);
 }
 
 
-=item C<error>
-
-  $last_session_error = $ccm->error;
-  $last_cmsynergy_error = VCS::CMSynergy->error;
-
-Returns the last error that occured in the session or in any
-C<VCS::CMSynergy> session, resp.
-
-=cut
-
-sub error
-{
-    my $this = shift;
-    return ref $this ? $this->{error} : $Error;
-}
-
-
-=item C<ccm_command>
-
-  $last_session_command = $ccm->ccm_command;
-  $last_cmsynergy_command = VCS::CMSynergy->ccm_command;
-
-Returns the last CM Synergy command invoked in the session  or in any
-C<VCS::CMSynergy> session, resp.
-
-=cut
-
-sub ccm_command
-{
-    my $this = shift;
-    return ref $this ? $this->{ccm_command} : $Ccm_command;
-}
-
-=item C<ls>
+=head2 ls
 
   $ary_ref = $ccm->ls(@args);
 
@@ -1771,13 +2135,13 @@ sub ls
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->ccm(qw(ls), @_);
-    return undef unless $rc == 0;
+    my ($rc, $out, $err) = $self->_ccm(qw(ls), @_);
+    return $self->set_error($err || $out) unless $rc == 0;
 
     return [ split(/\n/, $out) ];
 }
 
-=item C<ls_object>
+=head2 ls_object
 
   $ary_ref = $ccm->ls_object($file_spec);
 
@@ -1799,7 +2163,7 @@ sub ls_object
 }
 
 
-=item C<ls_arrayref>
+=head2 ls_arrayref
 
   $ary_ref = $ccm->ls_arrayref($file_spec, @keywords);
 
@@ -1840,7 +2204,7 @@ sub ls_arrayref
 }
 
 
-=item C<ls_hashref>
+=head2 ls_hashref
 
   $ary_ref = $ccm->ls_hashref($file_spec, @keywords);
 
@@ -1873,8 +2237,7 @@ contain a leading C<%>. Example:
 sub ls_hashref
 {
     my ($self, $file_spec, @keywords) = @_;
-    return $self->set_error("no file_spec supplied") unless defined $file_spec;
-    return $self->set_error("no keywords supplied") unless @keywords;
+    _usage(3, undef, '$file_spec, $keyword...', \@_);
 
     my $format = join("\a", map { "%$_" } @keywords);
 
@@ -1894,7 +2257,7 @@ sub ls_hashref
 }
 
 
-=item C<set>
+=head2 set
 
   $value = $ccm->set($option);
   $old_value = $ccm->set($option, $new_value);
@@ -1915,14 +2278,13 @@ of all currently defined options as keys and their respective values.
 
 sub set
 {
-    my $self = shift;
-    return $self->set_error("too many arguments") unless @_ <= 2;
+    my ($self, $option, $value) = @_;
+    _usage(1, 3, '[$option [, $value]]', \@_);
 
-    my ($rc, $out, $err);
-    if (@_ == 0)
+    if (@_ == 1)
     {
-	my ($rc, $out, $err) = $self->ccm(qw(set));
-	return undef unless $rc == 0;
+	my ($rc, $out, $err) = $self->_ccm(qw(set));
+	return $self->set_error($err || $out) unless $rc == 0;
 
 	my %options;
 	while ($out =~ /^(\S+) = (.*)$/gm)
@@ -1932,60 +2294,106 @@ sub set
 	return \%options;
     }
 
-    my ($option, $new_value) = @_;
+    my ($rc, $out, $err);
     my $old_value;
 
     # no need to get old value if we are called in void context
     if (defined wantarray)
     {
-	($rc, $out, $err) = $self->ccm(qw(set), $option);
-	return undef unless $rc == 0;
-	$old_value = $out eq "(unset)" ? undef : $out;
+	my ($rc, $out, $err) = $self->_set($option);
+	return $self->set_error($err || $out) unless $rc == 0;
+	$old_value = $out;
     }
 
-    if (@_ == 2)
+    if (@_ == 3)
     {
-	($rc, $out, $err) = defined $new_value ?
-	    $self->ccm(qw(set), $option, $new_value) :
-	    $self->ccm(qw(unset), $option);
-	return undef unless $rc == 0;
+	my ($rc, $out, $err) = $self->_set($option, $value);
+	return $self->set_error($err || $out) unless $rc == 0;
     }
     
     return $old_value;
 }
-# FIXME: unset method or $ccm->set($option, undef)?
 
-
-# helper: ccm set foo value; ccm quux ... ; ccm set foo oldvalue
-# NOTE: instead of the clumsy ($method, @method_args) I really
-# would like to call _with_local_option with a BLOCK as the
-# first argument; however, this would rely on a sub prototype and
-# prototypes aren't used for method calls :) OTOH _with_local_option
-# must be a method because it must manipulate RaiseError/PrintError/error
-sub _with_local_option
+sub _set
 {
-    my ($self, $option, $new_value, $method, @method_args) = @_;
-    my (@result, $method_error);
+    my ($self, $option, $new_value) = @_;
 
-    my $old_value = $self->set($option, $new_value);
-    return undef if $self->{error};
-
+    if (@_ == 2)
     {
-	local $self->{IgnoreError} = 1;
-	if (wantarray)	{ @result    = $self->$method(@method_args); }
-	else            { $result[0] = $self->$method(@method_args); }
-	$method_error = $self->{error};	
+	my ($rc, $out, $err) = $self->_ccm(qw(set), $option);
+	$out = undef if $rc == 0 &&  $out eq "(unset)";
+	return ($rc, $out, $err);
     }
 
-    $self->set($option, $old_value);
-    return undef if $self->{error};
-
-    return $self->set_error($method_error) if $method_error;
-    return wantarray ? @result : $result[0];
+    if (@_ == 3)
+    {
+	my ($rc, $out, $err) = defined $new_value ?
+	    $self->_ccm(qw(set), $option, $new_value) :
+	    $self->_ccm(qw(unset), $option);
+	return ($rc, $out, $err);
+    }
+    
+    return _error("wrong number of arguments");
 }
 
 
-=item C<ps>
+# helper: save value of $option, set it to $new_value, 
+#  call _ccm(@args), restore $option; returns ($rc, $out, $err)
+#  (usually the return value from _ccm(@args) except there were errors
+#  in setting the option)
+sub _ccm_with_option
+{
+    my ($self, $option, $new_value, @args) = @_;
+
+    my ($rc, $out, $err) = $self->_set($option);
+    return ($rc, $out, $err) unless $rc == 0;
+    my $old_value = $out;
+
+    ($rc, $out, $err) = $self->_set($option, $new_value);
+    return ($rc, $out, $err) unless $rc == 0;
+
+    my ($ccm_rc, $ccm_out, $ccm_err) = $self->_ccm(@args);
+
+    ($rc, $out, $err) = $self->_set($option, $old_value);
+
+    return ($ccm_rc, $ccm_out, $ccm_err) if $rc == 0;
+    return ($rc, $out, $err);
+}
+
+# helper: implements ye olde text_editor trick for ccm commands
+# that would interactively open an editor in order to let the user modify
+# some (text) value; _ccm_with_text_editor writes $text_value 
+# to a temporary file, then calls _ccm_with_option with
+# text_editor="cp temporary_file %filename" and returns its results
+# calls $self->_ccm(@args).
+
+sub _ccm_with_text_editor
+{
+    my ($self, $text_value, @args) = @_;
+
+    my $text_file = $self->{text_file};
+    unless (defined $text_file)
+    {
+	(undef, $text_file) = tempfile(SUFFIX => ".dat");
+	return _error("can't create temp file to set text value: $!")
+	    unless defined $text_file;
+
+	push @{ $self->{files_to_unlink} }, $text_file;
+	$self->{text_file} = $text_file;
+    }
+
+    local *TEXT;
+    open(TEXT, ">", $text_file)
+	or return _error("can't open temp file `$text_file' to set text value: $!");
+    print TEXT $text_value;
+    close(TEXT);
+
+    return $self->_ccm_with_option(
+	text_editor => "$Config{cp} $text_file %filename", @args);
+}
+
+
+=head2 ps
 
   $ary_ref = $ccm->ps;
   $ary_ref = $ccm->ps(user => "jdoe", process => "gui_interface", ...);
@@ -2110,7 +2518,7 @@ sub ps					# class/instance method
 	push @pscmd, "-$filter[0]", $filter[1];
 	splice(@filter, 0, 2);
     }
-    ($rc, $out, $err) = $this->ccm(@pscmd);
+    ($rc, $out, $err) = $this->_ccm(@pscmd);
     return $this->set_error($err || $out) unless $rc == 0;
 
     my @ps = ();
@@ -2146,7 +2554,7 @@ sub ps					# class/instance method
 }
 
 
-=item C<databases>
+=head2 databases
 
   @databases = $ccm->databases;
   @databases = $ccm->databases($servername);
@@ -2167,12 +2575,14 @@ sub databases					# class/instance method
 
     my @ccmdb_server = 
     (
-	File::Spec->catfile($this->_ccm_home, qw(bin ccmdb_server)),
+	File::Spec->catfile($this->ccm_home, qw(bin ccmdb_server)),
 	'-status'
     );
     push @ccmdb_server, $servername if defined $servername;
 
-    my ($rc, $out, $err) = _ccmexec($this->_ccm_home, @ccmdb_server);
+    my ($rc, $out, $err) = 
+	_ccmexec(ref $this ? $this->{env} : { CCM_HOME => $this->ccm_home },
+	         @ccmdb_server);
     return ref $this ?
 	$this->set_error($err || $out) : undef unless $rc == 0;
 
@@ -2183,7 +2593,7 @@ sub databases					# class/instance method
 }
 
 
-=item C<version>
+=head2 version
 
   ($ccm, $schema, $informix, @patches) = $ccm->version;
 
@@ -2221,7 +2631,7 @@ sub version					# class/instance method
 {
     my $this = shift;
 
-    my ($short_version, @full_version) = _version($this->_ccm_home);
+    my ($short_version, @full_version) = _version($this->ccm_home);
     return wantarray ? @full_version : $short_version;
 }
 
@@ -2233,8 +2643,9 @@ sub _version
 
     local $ENV{CCM_HOME} = $ccm_home;	# because we're going to call a class method
 
-    my ($rc, $out, $err) = VCS::CMSynergy->ccm(qw(version -all));
-    return undef unless $rc == 0;
+    # FIXME will work, but unclean wrt CCM_HOME
+    my ($rc, $out, $err) = __PACKAGE__->_ccm(qw(version -all));
+    return __PACKAGE__->set_error($err || $out) unless $rc == 0;
 
     my $cmsynergy_rx = qr/(?:Continuus|CM Synergy)/;
     my ($version, $short_version) = $out =~ /^$cmsynergy_rx Version\s+((\d+\.\d+).*)$/imo;
@@ -2248,7 +2659,7 @@ sub _version
 memoize('_version');
 
 
-=item C<status>
+=head2 status
 
   $ary_ref = $ccm->status;
 
@@ -2303,8 +2714,8 @@ as formatted by L<Data::Dumper>:
 sub status					# class/instance method
 {
     my $this = shift;
-    my ($rc, $out, $err) = $this->ccm(qw(status));
-    return undef unless $rc == 0;
+    my ($rc, $out, $err) = $this->_ccm(qw(status));
+    return $this->set_error($err || $out) unless $rc == 0;
 
     my (@sessions, $session, $user);
     foreach (split(/\n/, $out))
@@ -2345,26 +2756,61 @@ sub status					# class/instance method
 # 	$ccm->ccm("foo", @args)
 # in fact, we create a method `foo' on the fly with this definition
 #
-# FIXME: this should an optional feature, maybe enabled by some
+# FIXME: this should be an optional feature, maybe enabled by some
 # 	use VCS::CMSynergy ':wrapper';
 sub AUTOLOAD
 {
+    my ($this) = @_;
+
     # NOTE: the fully qualified name of the method has been placed in $AUTOLOAD
-    return if $AUTOLOAD =~ /::DESTROY$/;
-    
-    (my $method = $AUTOLOAD) =~ s/^.*:://;
-    $_[0]->trace_msg("autoloading method `$method'\n") if $debug;
+    my ($class, $method) = $AUTOLOAD =~ /^(.*)::([^:]*)$/;
+    return if $method eq 'DESTROY'; 
+
+    # we don't allow autoload of class methods
+    croak "Can't locate class method `$method' via class `$class'"
+	unless ref $this;
+    $this->trace_msg("autoloading method `$method'\n") if $debug; 
 
     # create the new method on the fly
     no strict 'refs';
-    *{$method} = sub { shift->ccm($method, @_) };
+    *{$method} = sub { shift->ccm($method, @_) }; 
+    # FIXME OneArgFoo:
+    # *{$method} = sub 
+    # {
+    #    my $self = shift;
+    #    if ($self->{OneArgFoo} && @_ == 1)
+    #        return $self->ccm(join(" ", $method, @_));
+    #    else
+    #        return $self->ccm($method, @_)
+    # }; 
 
     # call it w/o pushing a new stack frame (with same parameters)
     goto &$method;
 }
 
+sub mkInstallation		# FIXME need better name
+{
+    my ($this, $ccm_home) = @_;
 
-=item C<trace>
+    (my $class = $ccm_home) =~ s/\W/_/g;
+    my $package = __PACKAGE__;
+    $class = "${package}::${class}";
+
+    eval <<"";
+	package $class;
+	use vars '\@ISA';
+	\@ISA = ('$package');
+	sub ccm_home 
+	{
+	    my \$this = shift;
+	    return ref \$this ? \$this->{env}->{CCM_HOME} : '$ccm_home';
+	}
+
+    return $class;
+}
+
+
+=head2 trace
 
   VCS::CMSynergy->trace($trace_level);
   VCS::CMSynergy->trace($trace_level, $trace_filename);
@@ -2424,7 +2870,7 @@ sub trace
 	    carp(__PACKAGE__ . " trace: can't open trace file `$trace_filename'");
 	    return $trace_level;
 	}
-	$newfh->setvbuf(undef, _IOLBF, 0);	# make line-buffered
+	$newfh->autoflush(1);
 	close($debugfh);
 	$debugfh = $newfh;
 	$this->trace_msg(__PACKAGE__ . " version $VERSION: trace started\n") if $debug;
@@ -2433,7 +2879,7 @@ sub trace
     return $trace_level;
 }
 
-=item C<trace_msg>
+=head2 trace_msg
 
   $ccm->trace_msg($message_text);
   $ccm->trace_msg($message_text, $min_level);
@@ -2455,73 +2901,27 @@ sub trace_msg
 }
 
 
-=item C<use_ccm_coprocess>
+=head2 set_error
 
-  VCS::CMSynergy->use_ccm_coprocess;
+  $ccm->set_error($error);
+  $ccm->set_error($error, $method);
+  $ccm->set_error($error, $method, $rv, @rv);
 
-This feature is highly experimental, B<use it at your own risk>.
-You must have the L<Expect> module installed to use this feature.
-(Since L<Expect> is not available for Win32 systems, 
-this feature cannot be used there.)
+Set the L</error> value for the session to C<$error>.
+This will trigger the normal DBI error handling
+mechanisms, such as L</RaiseError> and L</HandleError>, if
+they are enabled.  This method is typically only used internally.
 
-In its default operating mode, C<VCS::CMSynergy.pm> invokes a separate
-C<ccm> process for most simple methods, e.g. 
+The C<$method> parameter provides an alternate method name
+for the L</RaiseError>/L</PrintError> error string.
+Normally the method name is deduced from C<caller(1)>.
 
-  $ccm->checkout('foo.c');
-  $ccm->checkout('bar.c');
-
-results in the execution of
-
-  ccm checkout foo.c
-  ccm checkout bar.c
-
-Hence we incur the startup overhead of B<ccm> for most method 
-invocations. This overhead is noticable, esp. if you are doing 
-lots of CM Synergy operations.
-
-If C<use_ccm_coprocess> is in effect, only one ccm process per CM Synergy
-session is used. C<VCS::CMSynergy->new> starts an "interactive" B<ccm> process,
-funnels commands to its input and reads back the output
-(up to the next C<< "ccm>" >> prompt). This avoids the startup
-overhead, but may run into other problems, e.g. restrictions
-on the length of the B<ccm> command line.
+The L</set_error> method normally returns C<undef>.  The C<$rv>and C<@rv>
+parameters provides an alternate return value if L</set_error> was
+called in scalar or in list context, resp.
 
 =cut
 
-sub use_ccm_coprocess			# class method
-{
-    my $class = shift;
-    # NOTE: Expect versions 1.11 and 1.13 have a different interface for
-    # setting things up. Also, 1.13 drops the `exp_' prefix on most methods
-    # (though the old names are still recognized).
-    # 
-    ### 1.11
-    # my $exp = Expect->spawn(...);
-    # $exp->exp_stty('-echo raw');		# single parameter, modes separeted by whitespace
-    # $exp->log_stdout(0);
-    # ...
-    # $exp->exp_before...
-    # $exp->exp_error...
-    ### 1.15
-    # my $exp = new Expect;
-    # $exp->log_stdout(0);
-    # $exp->slave->stty(qw(raw -echo));		# paramter list of modes
-    # $exp->spawn(...);
-    # ...
-    # $exp->before...
-    # $exp->error...
-    eval { require Expect; import Expect 1.15; };
-    croak(__PACKAGE__ . " use_ccm_coprocess: $@") if $@;
-
-    $use_ccm_coprocess = 1;
-}
-
-
-# (from DBI):
-# $error	new error message
-# $method	alternative merthod name (instead of caller's name)
-# $rv		return value from set_error (in scalar or void context)
-# @rv		return value in list context (if given)
 sub set_error 
 {
     my ($this, $error, $method, $rv, @rv) = @_;
@@ -2552,7 +2952,9 @@ sub object
 {
     my $self = shift;
 
-    return $self->set_error("illegal number of arguments")
+    croak(__PACKAGE__."::object: invalid number of arguments" .
+          "\n  usage: \$ccm->(\$name, \$version, \$cvtype, \$instance)" .
+          "\n  or     \$ccm->('name-version:cvtype:version')")
 	unless @_ == 1 || @_ == 4;
     
     return VCS::CMSynergy::Object->new(@_, $self->{delimiter}) if @_ == 4;
@@ -2577,8 +2979,6 @@ sub object_other_version
     return $self->object($object->name, $other_version, $object->cvtype, $object->instance);
 }
 
-=back
-
 =head1 TODO
 
 =over 4
@@ -2587,7 +2987,7 @@ sub object_other_version
 
 anything else?
 
-=back
+=back 
 
 =head1 SEE ALSO
 
@@ -2595,12 +2995,12 @@ L<VCS::CMSynergy::Users>
 
 =head1 AUTHORS
 
-Roderich Schupp, argumentum GmbH E<lt>F<schupp@argumentum.de>E<gt>
+Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 
-=head1 COPYRIGHT
+=head1 COPYRIGHT AND LICENSE
 
-Copyright (c) 2001-2002 argumentum GmbH, F<http://www.argumentum.de>.
-All rights reserved.
+The VCS::CMSynergy module is Copyright (c) 2001-2003 argumentum GmbH, 
+L<http://www.argumentum.de>.  All rights reserved.
 
 You may distribute it under the terms of either the GNU General Public
 License or the Artistic License, as specified in the Perl README file.

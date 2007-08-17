@@ -13,9 +13,10 @@ BEGIN
 	PrintError	=> 0,
 	RaiseError	=> 1,
 	database	=> $ENV{CCM_TEST_DB},
+	UseCoprocess	=> $ENV{CCM_USE_COPROCESS},
     );
 
-    if ($^O eq 'MSWin32' || $^O eq 'cygwin')
+    if ($VCS::CMSynergy::Is_MSWin32)
     {
 	# CCM_TEST_USER=user/password@host (Oracle style :)
 	die "CCM_TEST_USER not set in environment" unless $ENV{CCM_TEST_USER};

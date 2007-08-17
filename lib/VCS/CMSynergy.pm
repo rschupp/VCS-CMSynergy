@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.26.4 % =~ /(\d+)\.(\d+)/);
+our $VERSION = do { (my $v = q%version: 1.26.6 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -433,11 +433,11 @@ sub _query
     return $self->set_error($err || $out) unless $rc == 0;
 
     my @result;
-    foreach (split(/\cA/, $out))	# split into records 
+    foreach (split(/\cA/, $out))		# split into records 
     {
-	next unless length($_);		# skip empty leading record
+	next unless length($_);			# skip empty leading record
 
-	my @cols = split(/\cD/, $_);
+	my @cols = split(/\cD/, $_, -1);	# don't strip empty trailing fields
 	my %finduse;
 
 	if ($want_finduse)
@@ -666,7 +666,7 @@ sub _history
     {
 	next unless length($_);			# skip empty leading record
 
-	my @cols = split(/\cD/, $_);
+	my @cols = split(/\cD/, $_, -1);	# don't strip empty trailing fields
 	
 	# history information is the last "column"
 	my $history = pop @cols;
@@ -1309,7 +1309,7 @@ sub ls_hashref
     my ($self, $file_spec, @keywords) = @_;
     _usage(3, undef, '$file_spec, $keyword...', \@_);
 
-    my $format = join("\a", map { "%$_" } @keywords);
+    my $format = join("\cD", map { "%$_" } @keywords);
 
     my $rows = $self->ls(qw/-f/, $format, $file_spec);
     return unless $rows;
@@ -1319,7 +1319,7 @@ sub ls_hashref
     {
 	my %hash;
 	@hash{@keywords} = map { $_ eq "<void>" ? undef : $_ } 
-			       split(/\a/, $_);
+			       split(/\cD/, $_, -1);
 
 	push(@result, \%hash);
     }

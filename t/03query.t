@@ -2,6 +2,7 @@
 
 use Test::More tests => 24;
 use Test::Deep 0.093;
+use End;
 use t::util;
 use strict;
 
@@ -12,7 +13,6 @@ BEGIN
 }
 
 my @cleanup;			# cleanup actions
-END { &{ pop @cleanup } while @cleanup; }
 
 
 my $ccm = VCS::CMSynergy->new(%::test_session);
@@ -33,7 +33,7 @@ cmp_deeply($e_got, [], q[query with no match returns empty array]);
     my $rx_created = qr/Created folder (.*?)\./;
     like($out, $rx_created, "Created folder ...");
     my ($folder) = $ccm->folder_object($out =~ $rx_created);
-    push @cleanup, sub { $ccm->folder(qw/-delete -quiet -y/, $folder) };
+    push @cleanup, end { $ccm->folder(qw/-delete -quiet -y/, $folder) };
 
     my @stooges = qw(larry moe curly);
     $ccm->create_attribute($_, string => "", $folder) foreach @stooges;

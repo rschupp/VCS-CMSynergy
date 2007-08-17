@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 54;
+use Test::More tests => 61;
+use End;
 use t::util;
 use strict;
 
@@ -18,7 +19,6 @@ BEGIN
 }
 
 my @cleanup;			# cleanup actions
-END { &{ pop @cleanup } while @cleanup; }
 
 my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
@@ -47,15 +47,15 @@ my $rx_created = qr/Created folder (.*?)\./;
 like($out, $rx_created, "Created folder ...");
 my ($fno) = $out =~ $rx_created;
 my ($folder) = $ccm->folder_object($fno);
-push @cleanup, sub { $ccm->folder(qw/-delete -quiet -y/, $folder) };
+push @cleanup, end { $ccm->folder(qw/-delete -quiet -y/, $folder) };
 
 my @values=
 (
-    gmtime()." the quick brown fox jumps over the lazy dog", # simple string
-    gmtime().join("-" x 10, 1..100),		# long string
-    join("\n", gmtime(), 1..10),		# string with newlines
-    join(" ", map { qq["$_"] } gmtime(), 1..10), # string with embedded quotes
-    ""						# empty string
+    [ "simple string" =>	gmtime()." the quick brown fox jumps over the lazy dog" ],
+    [ "long string" =>		gmtime().join("-" x 10, 1..100) ],
+    [ "multi-line string" =>	join("\n", scalar gmtime(), 1..10) ],
+    [ "embedded quotes" =>	join(" ", map { qq["$_"] } scalar gmtime(), 1..10) ],
+    [ "empty string"		=> "" ],
 );
 
 # test with V::C methods
@@ -64,16 +64,17 @@ ok($ccm->create_attribute("blurfl", text => "initial value", $folder),
 ok(exists $ccm->list_attributes($folder)->{blurfl}, q[attribute was really created]);
 
 # NOTE: 2 tests per $value 
-foreach my $value (@values)
+foreach (@values)
 {
     SKIP:
     {
+	my ($desc, $value) = @$_;
 	skip "setting an attribute to an empty value doesn't work on Windows", 2
 		if VCS::CMSynergy::Client::is_win32 && $value eq "";
 	is($ccm->set_attribute(blurfl => $folder, $value), $value,
-	    q[set_attribute (V::C)]);
+	    qq[set_attribute (V::C): $desc]);
 	is($ccm->get_attribute(blurfl => $folder), $value,
-	    q[re-get_attribute (V::C) and compare]);
+	    qq[re-get_attribute (V::C) and compare: $desc]);
     }
 }
 is($ccm->property(displayname => $folder), $fno,
@@ -95,31 +96,28 @@ SKIP:
 }
 
 # NOTE: 4 tests per $value 
-foreach my $value (@values)
+foreach (@values)
 {
     SKIP:
     {
+	my ($desc, $value) = @$_;
 	skip "setting an attribute to an empty value doesn't work on Windows", 4
 		if VCS::CMSynergy::Client::is_win32 && $value eq "";
 	is($folder->set_attribute(blurfl => $value), $value,
-	    q[set_attribute (V::C::O)]);
+	    qq[set_attribute (V::C::O): $desc]);
 	is($folder->get_attribute('blurfl'), $value,
-	    q[re-get_attribute (V::C::O) and compare]);
+	    qq[re-get_attribute (V::C::O) and compare: $desc]);
 	is($ccm->get_attribute(blurfl => $folder), $value,
-	    q[re-get_attribute (V::C) and compare]);
+	    qq[re-get_attribute (V::C) and compare: $desc]);
 	SKIP:
 	{
 	    skip "not using :cached_attributes", 1 
 		unless VCS::CMSynergy::use_cached_attributes();
 	    is($folder->_private->{acache}->{blurfl}, $value,
-		q[check cached attribute value]);
+		qq[check cached attribute value: $desc]);
 	}
     }
 }
-is($folder->property("displayname"), $fno,
-    q[check for expected displayname with V::C::O::property()]);
-is($folder->displayname, $fno,
-    q[check for expected displayname with V::C::O::displayname()]);
 
 ok($folder->delete_attribute("blurfl"), q[delete attribute]);
 ok(!exists $folder->list_attributes->{blurfl}, q[attribute was deleted]);
@@ -129,6 +127,43 @@ SKIP:
     skip "not using :cached_attributes", 1 
 	unless VCS::CMSynergy::use_cached_attributes();
     ok(!defined $folder->_private->{acache}->{blurfl}, q[attribute no longer cached]);
+}
+
+# check that $obj->set_attribute implicitly does "ccm attr -create -force"
+# for an inherited attribute
+my $inherited = "type_description";
+is(attribute_origin($folder, $inherited), "inherited", 
+    qq[attribute $inherited is inherited]);
+my $inherited_value = $folder->get_attribute($inherited);
+my $local_value = "forced to local";
+ok(defined $folder->set_attribute($inherited => $local_value),
+    q[V::C::O::set_attribute() works for inherited attribute]);
+is(attribute_origin($folder, $inherited), "local", 
+    qq[attribute $inherited is now local]);
+is($folder->get_attribute($inherited), $local_value,
+    q[check local attribute value]);
+ok($folder->delete_attribute($inherited),
+    q[delete local attribute]);
+is(attribute_origin($folder, $inherited), "inherited", 
+    qq[attribute $inherited reverted to inherited]);
+is($folder->get_attribute($inherited), $inherited_value,
+    q[check inherited attribute value]);
+
+
+is($folder->property("displayname"), $fno,
+    q[check for expected displayname with V::C::O::property()]);
+is($folder->displayname, $fno,
+    q[check for expected displayname with V::C::O::displayname()]);
+
+sub attribute_origin
+{
+    my ($file_spec, $attr_name) = @_;
+
+    my ($rc, $out, $err) = $ccm->_ccm(qw/attribute -la/, $file_spec);
+    return undef unless $rc == 0;
+
+    my %attrs = $out =~ /^(\S+) \s* \( .*? \) \s* \( (.*?) \)/gmx;
+    return $attrs{$attr_name};
 }
 
 exit 0;

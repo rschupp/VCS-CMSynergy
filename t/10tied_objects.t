@@ -1,6 +1,7 @@
 #!/usr/bin/perl
 
 use Test::More tests => 50;
+use End;
 use t::util;
 use strict;
 
@@ -18,7 +19,6 @@ BEGIN
 }
 
 my @cleanup;			# cleanup actions
-END { &{ pop @cleanup } while @cleanup; }
 
 
 my $ccm = VCS::CMSynergy->new(%::test_session);
@@ -32,7 +32,7 @@ ok($rc == 0, q[create folder]);
 my ($fno) = $out =~ /Created folder (\d+)\./;
 ok(defined $fno, q[expected ouput]);
 my $folder = $fno . $ccm->delimiter . "1:folder:probtrac";
-push @cleanup, sub { $ccm->folder(qw/-delete -quiet -y/, $folder) };
+push @cleanup, end { $ccm->folder(qw/-delete -quiet -y/, $folder) };
 
 my @values=
 (

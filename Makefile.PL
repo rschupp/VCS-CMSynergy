@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# %version: 11 %
+# %version: 12 %
 
 use inc::Module::Install;
 use Config;
@@ -67,9 +67,11 @@ requires	'Filesys::CygwinPaths'	=> 0 if $^O eq 'cygwin';
 
 build_requires	'Test::More'		=> 0;
 build_requires	'Test::Deep'		=> '0.093';
+build_requires	'End'			=> 0;
 
 include_deps	'Test::More';
 include_deps	'Test::Deep';
+include_deps	'End';
 
 clean_files	't/zz_*.t';
 

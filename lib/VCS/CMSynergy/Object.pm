@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.21 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 7 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -76,7 +76,7 @@ sub new
     unless (@_ == 6)
     {
 	carp(__PACKAGE__ . " new: illegal number of arguments");
-	return undef;
+	return;
     }
     my $class = shift;
     my $ccm = shift;

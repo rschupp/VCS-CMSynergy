@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.26.3 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.26.4 % =~ /(\d+)\.(\d+)/);
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -354,7 +354,7 @@ sub query_object
     _usage(2, 2, '$query', \@_);
 
     my $result =  $self->_query($query, 1, qw(object));
-    return undef unless $result;
+    return unless $result;
 
     # slice out the single "object" column
     return [ map { $_->{object} } @$result ];
@@ -368,7 +368,7 @@ sub query_object_with_attributes
     return $self->query_object($query) unless use_cached_attributes();
 
     my $result =  $self->_query($query, 1, qw(object), @attributes);
-    return undef unless $result;
+    return unless $result;
 
     # prime caches of the result objects
     my @objects;
@@ -751,7 +751,7 @@ sub findpath
 {
     my ($self, $file_spec, $proj_vers) = @_;
     my $finduse = $self->finduse($file_spec);
-    return undef unless defined $finduse;
+    return unless defined $finduse;
     return $self->set_error("`$file_spec' matches more than one object") unless @$finduse == 1;
     return $finduse->[0]->[1]->{$proj_vers};
 }
@@ -961,7 +961,7 @@ sub get_attribute
 
     my ($rc, $out, $err) = $self->_ccm(0, qw/attribute -show/, $attr_name, $file_spec);
     return $out if $rc == 0;
-    return undef if ($err || $out) =~ /Attribute .* does not exist on object/;
+    return if ($err || $out) =~ /Attribute .* does not exist on object/;
     return $self->set_error($err || $out);
 }
 
@@ -1289,7 +1289,7 @@ sub ls_object
     $file_spec = '.' unless defined $file_spec;
 
     my $rows = $self->ls(qw/-f %objectname/, $file_spec);
-    return undef unless $rows;
+    return unless $rows;
     return [ map { $self->object($_) } @$rows ];
 }
 
@@ -1312,7 +1312,7 @@ sub ls_hashref
     my $format = join("\a", map { "%$_" } @keywords);
 
     my $rows = $self->ls(qw/-f/, $format, $file_spec);
-    return undef unless $rows;
+    return unless $rows;
 
     my @result;
     foreach (@$rows)

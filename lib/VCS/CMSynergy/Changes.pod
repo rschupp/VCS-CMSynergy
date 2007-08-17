@@ -14,6 +14,22 @@ Known problems:
 
 =head1 CHANGES
 
+=head2 Changes in Version 1.30
+
+  Ported CM/Synergy 6.5: the product is now called "Telelogic Synergy".
+  Also some changes to the test suite, but it still requires 
+  the "tutorial" database from CCM 6.4 before SP1 (upgraded, of course,
+  to your Synergy version).
+
+  examples/project_diff in --terse mode will now mark ("~") items
+  that have different cvtypes (e.g. directory vs regular file)
+  or instances in both projects.
+
+  Small cleanups. It is now checked that certain special keywords,
+  e.g. "task_objects", can only be used in query-type methods
+  when the result data structure is a hash or an array ref (i.e.
+  _not_ a VCS::CMSynergy::Object).
+
 =head2 Changes in Version 1.29
 
   Implemented get_member_info_hashref() and get_member_info_object() 

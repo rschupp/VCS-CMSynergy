@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = sprintf("%d.%02d", q%version: 7 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 8 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -238,7 +238,7 @@ sub _ccm
     if ($Debug)
     {
 	my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
-	if ($Debug > 8)
+	if ($Debug >= 8)
 	{
 	    $this->trace_msg("<- ccm($this->{ccm_command})\n");
 	    $this->trace_msg("-> rc = $rc [$elapsed sec]\n");

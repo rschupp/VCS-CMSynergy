@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 use Test;
-BEGIN { plan tests => 7 }
+BEGIN { plan tests => 8 }
 use t::util;
 
 my $ccm = VCS::CMSynergy->new(%test_session);
@@ -58,39 +58,53 @@ ok(eqarray($h0_exp, $h0_result));
 
 my $h1_exp = [
    {
+     'object' => 'bufcolor.c-1:csrc:2',
      'task' => undef,
-     'objectname' => 'bufcolor.c-1:csrc:2',
-     'project' => 'sandbox',
+     'status_log' => 'Fri Sep  5 08:38:16 1997: Status set to \'working\' by ccm_root in role ccm_admin
+Fri Sep  5 08:53:24 1997: Status set to \'released\' by ccm_root in role ccm_admin
+',
+     'predecessors' => [],
      'successors' => [ 'bufcolor.c-2:csrc:2' ]
    },
    {
+     'object' => 'bufcolor.c-2:csrc:2',
      'task' => '25',
-     'objectname' => 'bufcolor.c-2:csrc:2',
-     'project' => 'sandbox',
+     'status_log' => 'Fri Sep  5 09:04:57 1997: Status set to \'working\' by ccm_root in role ccm_admin
+Fri Sep  5 09:06:02 1997: Status set to \'integrate\' by ccm_root in role ccm_admin
+',
+     'predecessors' => [ 'bufcolor.c-1:csrc:2' ],
      'successors' => [ 'bufcolor.c-3:csrc:2' ]
    },
    {
+     'object' => 'bufcolor.c-3:csrc:2',
      'task' => '26',
-     'objectname' => 'bufcolor.c-3:csrc:2',
-     'project' => 'sandbox',
+     'status_log' => 'Fri Sep  5 09:06:20 1997: Status set to \'working\' by ccm_root in role ccm_admin
+Fri Sep  5 09:06:48 1997: Status set to \'integrate\' by ccm_root in role ccm_admin
+',
+     'predecessors' => [ 'bufcolor.c-2:csrc:2' ],
      'successors' => []
    }
 ];
 my $h1_result = $ccm->history_hashref(
-    "bufcolor.c-3:csrc:2", qw(objectname successors task project));
+    "bufcolor.c-3:csrc:2", qw(object predecessors successors task status_log));
 verbose('h1_result', $h1_result);
 ok(ref $h1_result, 'ARRAY');
 ok(all { ref $_ eq 'HASH' } @$h1_result);
-ok(all { 
-    all { ref $_ eq "VCS::CMSynergy::Object" } @{ $_->{successors} } 
+ok(all { ref $_->{object} eq "VCS::CMSynergy::Object" } @$h1_result);
+ok(all 
+    { 
+	all { ref $_ eq "VCS::CMSynergy::Object" } 
+	    @{ $_->{predecessors} }, @{ $_->{successors} } 
     } @$h1_result);
+# stringisize Objects in $h1_result for following comparison
+foreach my $row (@$h1_result)
+{
+    $row->{object} = "$row->{object}";
+    $_ = "$_" foreach (@{ $row->{predecessors} }); 
+    $_ = "$_" foreach (@{ $row->{successors} }); 
+}
 ok(eqarray(
     $h1_exp, $h1_result,
-    sub { $a->{objectname} cmp $b->{objectname} }, # sort on objectname
-    sub { 
-	# stringize Objects in $h1_result for comparison
-	$_ = "$_" foreach (@{ $_[1]->{successors} }); 
-	eqhash($_[0], $_[1], successors => \&eqarray);
-    }));
-
+    sub { $a->{object} cmp $b->{object} } # sort on key object
+    ));
 exit 0;

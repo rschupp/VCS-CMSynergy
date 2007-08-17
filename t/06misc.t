@@ -141,7 +141,7 @@ ok($ccm->traverse_project(
       push @trav_object_got, $_;
       return if $_->is_project;
 
-      my $path = join("/", map { $_->name } @VCS::CMSynergy::Traversal::dirs, $_);
+      my $path = VCS::CMSynergy::Traversal::path();
       push @trav_path_got, $path;
       $trav_tree_expected->{$path} = $_;
     },

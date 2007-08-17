@@ -23,12 +23,15 @@ isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
 
+# if Synergy version is 6.4 check for SP1 and higher
+# (full version 6.4.nnnn with nnnn >= 3410)
+my $micro_version = (split(/\./, ($ccm->version)[0]))[2];
+
 my $from_exp = [
     {
 	to => {
 	    objectname => 'calculator-1.0:project:1',
-	    status_log => 'Wed Aug 13 15:26:09 1997: Status set to \'working\' by ccm_root in role ccm_admin
-Wed Aug 13 16:29:00 1997: Status set to \'released\' by ccm_root in role ccm_admin',
+	    status_log => "Wed Aug 13 15:26:09 1997: Status set to 'working' by ccm_root in role ccm_admin\nWed Aug 13 16:29:00 1997: Status set to 'released' by ccm_root in role ccm_admin",
 	    task_number => undef
 	},
 	from => { objectname => 'calculator-int:project:1' },
@@ -38,8 +41,7 @@ Wed Aug 13 16:29:00 1997: Status set to \'released\' by ccm_root in role ccm_adm
     {
 	to => {
 	    objectname => '4-1:folder:probtrac',
-	    status_log => 'Mon Nov 25 17:56:37 2002: Status set to \'working_folder\' by ccm_root in role ccm_admin
-Mon Nov 25 17:56:38 2002: Status set to \'prep_folder\' by ccm_root in role ccm_admin',
+	    status_log => "Mon Nov 25 17:56:37 2002: Status set to 'working_folder' by ccm_root in role ccm_admin\nMon Nov 25 17:56:38 2002: Status set to 'prep_folder' by ccm_root in role ccm_admin",
 	    task_number => undef
 	},
 	from => { objectname => 'calculator-int:project:1' },
@@ -49,7 +51,7 @@ Mon Nov 25 17:56:38 2002: Status set to \'prep_folder\' by ccm_root in role ccm_
     {
 	to => {
 	    objectname => 'Toolkit%002f2.0%003aintegrate-1:recon_temp:1',
-	    status_log => 'Mon Dec 16 16:46:17 2002: Status set to \'working_recon_temp\' by steveh in role ccm_admin',
+	    status_log => "Mon Dec 16 16:46:17 2002: Status set to 'working_recon_temp' by steveh in role ccm_admin",
 	    task_number => undef
 	},
 	from => { objectname => 'calculator-int:project:1' },
@@ -59,8 +61,7 @@ Mon Nov 25 17:56:38 2002: Status set to \'prep_folder\' by ccm_root in role ccm_
     {
 	to => {
 	    objectname => 'task37-1:task:probtrac',
-	    status_log => 'Mon Jun 16 14:13:46 2003: Status set to \'registered\' by ccm_root in role ccm_admin
-Mon Jun 16 14:13:46 2003: Status set to \'task_automatic\' by ccm_root in role ccm_admin',
+	    status_log => "Mon Jun 16 14:13:46 2003: Status set to 'registered' by ccm_root in role ccm_admin\nMon Jun 16 14:13:46 2003: Status set to 'task_automatic' by ccm_root in role ccm_admin",
 	    task_number => '37'
 	},
 	from => { objectname => 'calculator-int:project:1' },
@@ -70,8 +71,7 @@ Mon Jun 16 14:13:46 2003: Status set to \'task_automatic\' by ccm_root in role c
     {
 	to => {
 	    objectname => 'task38-1:task:probtrac',
-	    status_log => 'Mon Jun 16 14:13:46 2003: Status set to \'registered\' by ccm_root in role ccm_admin
-Mon Jun 16 14:13:46 2003: Status set to \'task_automatic\' by ccm_root in role ccm_admin',
+	    status_log => "Mon Jun 16 14:13:46 2003: Status set to 'registered' by ccm_root in role ccm_admin\nMon Jun 16 14:13:46 2003: Status set to 'task_automatic' by ccm_root in role ccm_admin",
 	    task_number => '38'
 	},
 	from => { objectname => 'calculator-int:project:1' },
@@ -79,6 +79,19 @@ Mon Jun 16 14:13:46 2003: Status set to \'task_automatic\' by ccm_root in role c
 	create_time => ignore(),
     }
 ];
+
+push @$from_exp,
+    {
+	to => {
+	      objectname => 'Toolkit%002f2.0%003aintegrate-1:project_grouping:1',
+	      status_log => "Thu Mar 10 10:32:53 2005: Status set to 'working' by ccm_root\nThu Mar 10 10:32:53 2005: Status set to 'prep' by ccm_root",
+	      task_number => undef
+	},
+	from => { objectname => 'calculator-int:project:1' },
+	name => 'project_grouping',
+	create_time => ignore(),
+    }
+    if $ccm->version == 6.4 && $micro_version >= 3410;	# 6.4 SP1 and higher
 	
 my $from_got = $ccm->relations_hashref(
     from		=> "calculator-int:project:1",
@@ -97,8 +110,7 @@ my $to_exp = [
 	to => { objectname => 'calculator-int:project:1' },
 	from => {
 	    objectname => 'task37-1:task:probtrac',
-	    status_log => 'Mon Jun 16 14:13:46 2003: Status set to \'registered\' by ccm_root in role ccm_admin
-Mon Jun 16 14:13:46 2003: Status set to \'task_automatic\' by ccm_root in role ccm_admin',
+	    status_log => "Mon Jun 16 14:13:46 2003: Status set to 'registered' by ccm_root in role ccm_admin\nMon Jun 16 14:13:46 2003: Status set to 'task_automatic' by ccm_root in role ccm_admin",
 	    task_number => '37'
 	},
 	name => 'associated_cv',
@@ -107,27 +119,26 @@ Mon Jun 16 14:13:46 2003: Status set to \'task_automatic\' by ccm_root in role c
     {
 	to => { objectname => 'calculator-int:project:1' },
 	from => {
-	    objectname => 'Toolkit%002f2.0%003aintegrate-1:project_grouping:1',
-	    status_log => 'Thu Mar 10 10:32:53 2005: Status set to \'working\' by ccm_root
-Thu Mar 10 10:32:53 2005: Status set to \'prep\' by ccm_root',
-	    task_number => undef
-	},
-	name => 'project_in_pg',
-	create_time => ignore(),
-    },
-    {
-	to => { objectname => 'calculator-int:project:1' },
-	from => {
 	    objectname => 'calculator-int_20021125:project:1',
-	    status_log => 'Mon Nov 25 18:36:31 2002: Status set to \'working\' by ccm_root in role build_mgr
-Mon Nov 25 18:36:32 2002: Status set to \'prep\' by ccm_root in role build_mgr
-Mon Nov 25 18:36:39 2002: Status set to \'integrate\' by ccm_root in role build_mgr',
+	    status_log => "Mon Nov 25 18:36:31 2002: Status set to 'working' by ccm_root in role build_mgr\nMon Nov 25 18:36:32 2002: Status set to 'prep' by ccm_root in role build_mgr\nMon Nov 25 18:36:39 2002: Status set to 'integrate' by ccm_root in role build_mgr",
 	    task_number => undef
 	},
 	name => 'successor',
 	create_time => ignore(),
     }
 ];
+push @$to_exp, 
+    {
+	to => { objectname => 'calculator-int:project:1' },
+	from => {
+	    objectname => 'Toolkit%002f2.0%003aintegrate-1:project_grouping:1',
+	    status_log => "Thu Mar 10 10:32:53 2005: Status set to 'working' by ccm_root\nThu Mar 10 10:32:53 2005: Status set to 'prep' by ccm_root",
+	    task_number => undef
+	},
+	name => 'project_in_pg',
+	create_time => ignore(),
+    } 
+    if $ccm->version == 6.4 && $micro_version < 3410;	# 6.4 before SP1
 
 my $to_got = $ccm->relations_hashref(
     to			=> "calculator-int:project:1",

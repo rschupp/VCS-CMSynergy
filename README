@@ -16,11 +16,18 @@ Solaris 2.6, Perl 5.6.1                 Solaris 2.6, CM Synergy 5.1
 
 Solaris 9, Perl 5.8.0			Solaris 9, CM Synergy 6.3 SP4
 
-Linux 2.6, Perl 5.8.7			Linux 2.6, CM Synergy 6.4
+Linux 2.6, Perl 5.8.8			Linux 2.6, CM Synergy 6.4 SP1[1]
 
 Windows XP SP2, ActiveState Perl 5.8.7	Solaris 9, CM Synergy 6.3 SP4
 
 Windows XP SP2, Cygwin Perl 5.8.7       Solaris 9, CM Synergy 6.3 SP4
+
+NOTES: 
+[1] `make test' currently fails for Synergy 6.4 SP1 if you run it against
+the tutorial database that comes with SP1 (this is due to the total
+makeover of the tutorial database in 6.4 SP1). It succeeds
+when run against a pre-SP1 tutorial database (upgraded to 6.4-SP1), though.
+
 
 
 BUILDING

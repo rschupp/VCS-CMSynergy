@@ -50,12 +50,9 @@ Successors:
 my $h0_result = $ccm->history("bufcolor.c-1:csrc:2");
 verbose('h0_result', $h0_result);
 isa_ok($h0_result, "ARRAY", "history()");
-# sigh, CCM_DATETIME_FMT doesn't work with Windows clients
-if (VCS::CMSynergy::Client::is_win32)
-{
-    s/^Created:.*$/Created:/m foreach (@$h0_exp);
-    s/^Created:.*$/Created:/m foreach (@$h0_result);
-}
+# sigh, datetimes can't be handled reliably (cf. README.datetime)
+s/^Created:.*$/Created:/m foreach (@$h0_exp);
+s/^Created:.*$/Created:/m foreach (@$h0_result);
 ok(eq_set($h0_result, $h0_exp),
    q[$ccm->history("bufcolor.c-1:csrc:2")]);
 

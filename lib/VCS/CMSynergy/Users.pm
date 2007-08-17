@@ -31,13 +31,11 @@ NOTE: This interface is subject to change.
 
 =head1 METHODS
 
-=over 4
-
 =cut
 
 package VCS::CMSynergy;
 
-=item users
+=head2 users
 
   $hash_ref = $ccm->users;
   $ccm->users($hash_ref);
@@ -52,12 +50,22 @@ the user's roles, e.g.
     ...
     };
 
-You can use this form with any role (because it is I<not> implemented
-via B<ccm users>).
+You need not be in the I<ccm_admin> role to use this form
+(because it is I<not> implemented via B<ccm users>).
 
 The second form replaces the existing table of users and their roles
-with the contents of C<$hashref>. You must have the B<ccm_admin> role
-to use this form. For typical CM Synergy administrator usage
+with the contents of C<$hashref>. Duplicate roles will be removed
+from C<$hashref>'s values before writing back the table.
+You must be in the B<ccm_admin> role to use this form. 
+
+Note that
+
+  $ccm->users($ccm->users);
+
+results in a functionally equivalent, though probably not identical
+users table as before (due to hash key ordering etc).
+
+Note: For typical CM Synergy administrator usage
 it is usually more convenient to use one of the methods below.
 
 =cut
@@ -80,7 +88,8 @@ sub users
 	{
 	    my ($user, $roles) = /^ \s* user \s+ (\S+) \s* = \s* (.*) ;/x;
 	    next unless defined $user;
-	    $users->{$user} = [ split(" ", $roles) ];
+	    my @roles =  split(" ", $roles);
+	    $users->{$user} = \@roles;
 	}
 
 	return $users;
@@ -91,15 +100,18 @@ sub users
 	unless ref $users eq "HASH";
 
     my $text = "";
-    while (my ($user, $roles) = each %$users)
+    foreach my $user (sort keys %$users)
     {
+	my $roles = $users->{$user};
 	return $self->set_error("illegal value for user `$user' (array ref expected)")
 	    unless ref $roles eq "ARRAY";
 	return $self->set_error("no roles defined for user `$user´")
 	    unless @$roles;
 
-	local $" = " ";
-	$text .= "user $user = @$roles;\n";
+	# remove duplicates
+	my %roles = map { $_ => 1 } @$roles;
+
+	$text .= "user $user = " . join(" ", sort keys %roles) . ";\n";
     }
 
     my ($rc, $out, $err) = $self->ccm_with_text_editor($text, qw(users));
@@ -107,7 +119,7 @@ sub users
     return $users;
 }
 
-=item C<add_user>
+=head2 add_user
 
   $ccm->add_user($user, @roles);
 
@@ -123,12 +135,12 @@ sub add_user
     my $users = $self->users;
     return undef unless $users;
 
-    $users->{$user} = [ @roles ];
+    $users->{$user} = \@roles;
 
     $self->users($users);
 }
 
-=item C<delete_user>
+=head2 delete_user
 
   $ccm->delete_user($user);
 
@@ -148,7 +160,7 @@ sub delete_user
     $self->users($users);
 }
 
-=item C<add_roles>
+=head2 add_roles
 
   $ccm->add_roles($user, @roles);
 
@@ -165,16 +177,14 @@ sub add_roles
     return undef unless $users;
 
     return $self->set_error("user `$user' doesn't exist")
-	unless exists $users->{$user};
+	unless $users->{$user};
 
-    my %roles;
-    $roles{$_}++ foreach (@{ $users->{$user} }, @roles);
-    $users->{$user} = [ keys %roles ];
+    push @{ $users->{$user} }, @roles;
 
     $self->users($users);
 }
 
-=item C<delete_roles>
+=head2 delete_roles
 
   $ccm->delete_roles($user, @roles);
 
@@ -192,17 +202,14 @@ sub delete_roles
 
     return $self->set_error("user `$user' doesn't exist")
 	unless exists $users->{$user};
-
-    my %roles;
-    $roles{$_}++ foreach (@{ $users->{$user} });
-    delete $roles{$_} foreach (@roles);
-
-    $users->{$user} = [ keys %roles ];
+ 
+    my %to_be_deleted = map { $_ => 1 } @roles;
+    @{ $users->{$user} } = grep { !$to_be_deleted{$_} } @{ $users->{$user} };
 
     $self->users($users);
 }
 
-=item C<get_roles>
+=head2 get_roles
 
   @roles = $ccm->get_roles($user);
 
@@ -216,10 +223,29 @@ sub get_roles
     my ($self, $user) = @_;
 
     my $users = $self->users;
-    return defined $users ? @{ $users->{$user} } : ();
+    return undef unless $users;
+
+    my $roles = $users->{$user};
+    return $roles ? @$roles : ();
 }
 
-=back
+=head1 SEE ALSO
+
+L<VCS::CMSynergy> 
+L<VCS::CMSynergy::Object>, 
+L<VCS::CMSynergy::Client>,
+
+=head1 AUTHORS
+
+Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
+
+=head1 COPYRIGHT AND LICENSE
+
+The VCS::CMSynergy::Users module is Copyright (c) 2001-2005 argumentum GmbH, 
+L<http://www.argumentum.de>.  All rights reserved.
+
+You may distribute it under the terms of either the GNU General Public
+License or the Artistic License, as specified in the Perl README file.
 
 =cut
 

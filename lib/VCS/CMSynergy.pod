@@ -467,7 +467,7 @@ of strings is returned.
 
 If there a no hits, a reference to an empty
 array is returned. (Note that B<ccm query> considers this an error,
-but the VCS::CMSynergy module does not.) 
+but VCS::CMSynergy does not.) 
 
 If there was an error, C<undef> is returned.
 
@@ -1142,9 +1142,11 @@ See F<examples/project_diff> for a complete working program.
 Get the value of the attribute C<$attr_name> for
 C<$file_spec> (using B<ccm attribute -show>). 
 
+If the attribute isn't defined for C<$file_spec>, C<undef> is returned.
+
 If C<RaiseError> is not
-set and an error occurs (e.g.  attribute C<$attr_name> does not exist
-on object C<$file_spec>), C<undef> will be returned.
+set and an error occurs (e.g. object C<$file_spec> doesn't exist), 
+C<undef> will be returned.
 
 Note the following differences from B<ccm attribute -show>:
 
@@ -1158,6 +1160,12 @@ Only one C<$file_spec> is allowed.
 
 There is no C<-p> (project) option. If you want to get an attribute 
 of a project use the full objectname of the project for C<$file_spec>.
+
+=item *
+
+It is I<not> an error to get the value of an attribute that isn't defined
+for the particular object. Instead, check the return value of L</get_attribute>
+with C<defined> as an attribute's value can never be C<undef>.
 
 =back
 
@@ -1197,14 +1205,17 @@ of a project use the full objectname of the project for C<$file_spec>.
 
 Create attribute C<$attr_name> of type C<$type> on all objects
 given by C<@file_specs> (using B<ccm attribute -create>).
-You may also set an initial value
-by passing something other than C<undef> for C<$value>.
+You must specify an initial value (something other than C<undef>) as C<$value>.
 
 Returns true on success and C<undef> on failure.
 
 Note the following differences from B<ccm attribute -create>:
 
 =over 4
+
+=item *
+
+The initial value is mandatory.
 
 =item *
 
@@ -1722,7 +1733,7 @@ Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 
 =head1 COPYRIGHT AND LICENSE
 
-The VCS::CMSynergy module is Copyright (c) 2001-2004 argumentum GmbH, 
+The VCS::CMSynergy module is Copyright (c) 2001-2005 argumentum GmbH, 
 L<http://www.argumentum.de>.  All rights reserved.
 
 You may distribute it under the terms of either the GNU General Public

@@ -11,6 +11,7 @@ Makefile.PL
 MANIFEST
 META.yml
 README
+README.IPC-Run3
 t/01session.t
 t/02autoload.t
 t/03query.t

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 51;
+use Test::More tests => 50;
 use t::util;
 use strict;
 
@@ -47,17 +47,9 @@ isa_ok($fobj, "VCS::CMSynergy::Object");
 is($fobj->objectname, $folder, q[check objectname()]);
 
 # test with V::C::O methods
-ok($fobj->create_attribute("blurfl", "text", "initial value"),
-    q[create attribute]);
-ok(exists $fobj->list_attributes->{blurfl}, q[attribute was created]);
+ok($ccm->create_attribute("blurfl", text => "initial value", $folder), q[create attribute]);
+ok(defined $ccm->get_attribute(blurfl => $folder), q[attribute was created]);
 ok(exists $ccm->list_attributes($folder)->{blurfl}, q[attribute was really created]);
-SKIP:
-{
-    skip "not using :cached_attributes", 1 
-	unless VCS::CMSynergy::use_cached_attributes();
-    ok(exists $fobj->_private->{acache}->{blurfl}, q[attribute was cached]);
-}
-
 
 foreach my $value (@values)
 {
@@ -87,24 +79,24 @@ SKIP:
 {
     skip "not using :cached_attributes", 1 
 	unless VCS::CMSynergy::use_cached_attributes();
-    ok(!exists $fobj->_private->{acache}->{blurfl}, q[attribute no longer cached]);
+    ok(!defined $fobj->_private->{acache}->{blurfl}, q[attribute no longer cached]);
 }
 
 # retest with tied object methods
-ok($fobj->create_attribute("blurfl", "text", "initial value"),
-    q[create attribute]);
-ok(exists $fobj->{blurfl}, q[attribute was created]);
-ok(exists $ccm->list_attributes($folder)->{blurfl}, q[attribute was really created]);
+ok($fobj->create_attribute("frobozz", text => "initial value"), q[create attribute]);
+ok(defined $fobj->{frobozz}, q[attribute was created]);
+ok(exists $fobj->list_attributes->{frobozz}, q[attribute was really created]);
 
 foreach my $value (@values)
 {
-    ok($fobj->{blurfl} = $value,
+    ok($fobj->{frobozz} = $value,
 	q[set_attribute (tied hash)]);
-    is($fobj->{blurfl}, $value,
+    is($fobj->{frobozz}, $value,
 	q[re-get_attribute (tied hash) and compare]);
-    is($ccm->get_attribute(blurfl => $folder), $value,
+    is($ccm->get_attribute(frobozz => $folder), $value,
 	q[re-get_attribute (V::C) and compare]);
 }
+
 is($fobj->property("displayname"), $fno,
     q[check for expected displayname with tied hash property()]);
 is($fobj->displayname, $fno,

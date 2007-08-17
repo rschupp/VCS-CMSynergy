@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 52;
+use Test::More tests => 54;
 use t::util;
 use strict;
 
@@ -24,6 +24,13 @@ my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
+
+my $frobozz = eval { $ccm->get_attribute(frobozz => $ccm->base_model); };
+ok(!$@, 
+    "get_attribute() of non-existent attribute doesn't throw exception");
+ok(!defined $frobozz, 
+    "get_attribute() of non-existent attribute returns undef");
+
 
 # test set_attribute with different values
 # we need a modifiable object...
@@ -117,7 +124,7 @@ SKIP:
 {
     skip "not using :cached_attributes", 1 
 	unless VCS::CMSynergy::use_cached_attributes();
-    ok(!exists $fobj->_private->{acache}->{blurfl}, q[attribute no longer cached]);
+    ok(!defined $fobj->_private->{acache}->{blurfl}, q[attribute no longer cached]);
 }
 
 exit 0;

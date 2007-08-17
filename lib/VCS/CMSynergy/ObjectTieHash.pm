@@ -24,8 +24,7 @@ sub STORE
 sub EXISTS
 {
     my ($self, $key) = @_;
-    my $attributes = $self->list_attributes;
-    return exists $attributes->{$key};
+    return defined $self->set_attribute($key);
 }
 
 sub FIRSTKEY

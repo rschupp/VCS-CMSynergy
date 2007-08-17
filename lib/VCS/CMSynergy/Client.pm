@@ -1021,7 +1021,7 @@ Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 
 =head1 COPYRIGHT AND LICENSE
 
-The VCS::CMSynergy::Client module is Copyright (c) 2001-2004 argumentum GmbH, 
+The VCS::CMSynergy::Client module is Copyright (c) 2001-2005 argumentum GmbH, 
 L<http://www.argumentum.de>.  All rights reserved.
 
 You may distribute it under the terms of either the GNU General Public

@@ -14,13 +14,13 @@ OS, Perl version			OS, CM Synergy version
 
 Solaris 2.6, Perl 5.6.1                 Solaris 2.6, CM Synergy 5.1
 
-Solaris 9, Perl 5.8.0			Solaris 9, CM Synergy 6.3 SP3
+Solaris 9, Perl 5.8.0			Solaris 9, CM Synergy 6.3 SP4
 
-Linux 2.6, Perl 5.8.4			Linux 2.6, CM Synergy 6.3 SP4
+Linux 2.6, Perl 5.8.7			Linux 2.6, CM Synergy 6.3 SP4
 
-Windows XP, ActiveState Perl 5.8.4	Solaris 9, CM Synergy 6.3 SP3
+Windows XP SP2, ActiveState Perl 5.8.7	Solaris 9, CM Synergy 6.3 SP4
 
-Windows XP, Cygwin Perl 5.8.5	        Solaris 9, CM Synergy 6.3 SP3
+Windows XP SP2, Cygwin Perl 5.8.6       Solaris 9, CM Synergy 6.3 SP4
 
 
 BUILDING
@@ -73,7 +73,7 @@ If everything looks OK, install the module with
 COPYRIGHT AND LICENSE
 
 The VCS::CMSynergy module was written by Roderich Schupp, <schupp@argumentum.de>
-Copyright (c) 2001-2004 argumentum GmbH, 
+Copyright (c) 2001-2005 argumentum GmbH, 
 <http://www.argumentum.de>.  All rights reserved.
 
 You may distribute it under the terms of either the GNU General Public

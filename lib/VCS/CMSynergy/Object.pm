@@ -26,7 +26,7 @@ VCS::CMSynergy::Object - convenience wrapper to treat objectnames as an object
   #   use VCS::CMSynergy ':cached_attributes'
   print $obj->get_attribute('comment');
   $obj->set_attribute(comment => "blurfl");
-  $obj->create_attribute(foo => "some text");
+  $obj->create_attribute("foo", string => "some text");
   $obj->delete_attribute("foo");
   $hashref = $obj->list_attributes;	# always caches result
 
@@ -135,24 +135,21 @@ sub get_attribute
     my ($self, $attr_name) = @_;
 
     my $private = $self->_private;
-    return $private->{acache}->{$attr_name} 
-	if VCS::CMSynergy::use_cached_attributes() 
-	   && exists $private->{acache}->{$attr_name};
-
-    my $value = $private->{ccm}->get_attribute($attr_name, $private->{objectname});
 
     if (VCS::CMSynergy::use_cached_attributes())
     {
-	if (defined $value)
-	{
-	    $private->{acache}->{$attr_name} = $value;	# update cache
-	}
-	else
-	{
-	    delete $private->{acache}->{$attr_name};	# invalidate cache
-	}
+	my $acache = $private->{acache};
+	return $acache->{$attr_name} if exists $acache->{$attr_name};
+
+	# actually get attribute and update cache 
+	# (even if undef, i.e. non-existent)
+	return $acache->{$attr_name} = 	
+	    $private->{ccm}->get_attribute($attr_name, $private->{objectname});
     }
-    return $value;
+    else
+    {
+	return $private->{ccm}->get_attribute($attr_name, $private->{objectname});
+    }
 }
 
 sub set_attribute
@@ -162,15 +159,16 @@ sub set_attribute
     my $private = $self->_private;
     my $rc = $private->{ccm}->set_attribute($attr_name, $private->{objectname}, $value);
 
+    # update cache if necessary
     if (VCS::CMSynergy::use_cached_attributes())
     {
 	if ($rc)
 	{
-	    $private->{acache}->{$attr_name} = $value;	# update cache
+	    $private->{acache}->{$attr_name} = $value;	# update
 	}
 	else
 	{
-	    delete $private->{acache}->{$attr_name};	# invalidate cache
+	    delete $private->{acache}->{$attr_name};	# invalidate
 	}
     }
     return $rc;
@@ -183,14 +181,20 @@ sub create_attribute
     
     my $rc = $self->ccm->create_attribute($attr_name, $type, $value, $self);
 
-    # update caches if necessary
-    if ($rc)
+    # update cache and atrribute list if necessary
+    my $private = $self->_private;
+    $private->{attributes}->{$attr_name} = $type
+	if $rc && $private->{attributes};
+    if (VCS::CMSynergy::use_cached_attributes())
     {
-	my $private = $self->_private;
-	$private->{attributes}->{$attr_name} = $type
-	    if $private->{attributes};
-	$private->{acache}->{$attr_name} = $value
-	    if VCS::CMSynergy::use_cached_attributes() && defined $value;
+	if ($rc)
+	{
+	    $private->{acache}->{$attr_name} = $value;	# update
+	}
+	else
+	{
+	    delete $private->{acache}->{$attr_name};	# invalidate
+	}
     }
     return $rc;
 }
@@ -202,14 +206,21 @@ sub delete_attribute
 
     my $rc = $self->ccm->delete_attribute($attr_name, $self);
 
-    # update caches if necessary
-    if ($rc)
+    # update cache and attribute list if necessary
+    my $private = $self->_private;
+    delete $private->{attributes}->{$attr_name}
+	if $rc && $private->{attributes};
+    if (VCS::CMSynergy::use_cached_attributes())
     {
-	my $private = $self->_private;
-	delete $private->{attributes}->{$attr_name}
-	    if $private->{attributes};
-	delete $private->{acache}->{$attr_name}
-	    if VCS::CMSynergy::use_cached_attributes();
+	$private->{acache}->{$attr_name} = undef;
+	if ($rc)
+	{
+	    $private->{acache}->{$attr_name} = undef;	# update
+	}
+	else
+	{
+	    delete $private->{acache}->{$attr_name};	# invalidate
+	}
     }
     return $rc;
 }

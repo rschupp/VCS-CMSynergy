@@ -44,7 +44,6 @@ my $recursive;
 (GetOptions(
     'r|recursive'	=> \$recursive,		# include subprojects
 ) && @ARGV == 1) or pod2usage(2);
-my ($project) = @ARGV;
 
 my @attributes = qw(owner modify_time);		# just an example
 
@@ -53,10 +52,12 @@ my $ccm = VCS::CMSynergy->new(
     RaiseError	=> 1,
     PrintError	=> 0);
 
+my $project = $ccm->object($ccm->full_project_spec($ARGV[0]));
+
 my Tree::Simple $root;	# the root of the project tree
 my Tree::Simple $top;	# node corresponding to top of Traversal::dirs stack
 
-$ccm->traverse_project(
+$project->traverse(
     {
 	subprojects	=> $recursive,
 	attributes	=> \@attributes,
@@ -83,9 +84,7 @@ $ccm->traverse_project(
 	    # because traversal will immediately descent into it
 	    $top = $node if $_->cvtype eq "dir";
 	},
-    },
-    $project
-);
+    });
 
 
 {

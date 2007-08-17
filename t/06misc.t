@@ -85,7 +85,7 @@ SKIP:
 	q[check release table]);
 }
 
-my $project = 'toolkit-1.0:project:1';
+my $project = $ccm->object('toolkit-1.0:project:1');
 my @trav_path_expected = qw(
   toolkit
   toolkit/calculator
@@ -131,13 +131,13 @@ my @trav_path_expected = qw(
 );
 my @trav_depth_expected = map { tr:/:/: } @trav_path_expected;
 my @trav_object_expected = (
-    $ccm->object($project),	# because recursive_is_member_of() does NOT include the project itself
-    @{ $ccm->query_object({ recursive_is_member_of => [ $project, 'none' ] })}
+    $project,		# because recursive_is_member_of() does NOT include the project itself
+    @{ $project->recursive_is_member_of }
 );
 
 my (@trav_path_got, @trav_depth_got, @trav_object_got, $trav_tree_expected);
 my ($npre, $npost);
-ok($ccm->traverse_project(
+ok($project->traverse(
   {
     wanted => sub {
       push @trav_object_got, $_;
@@ -151,20 +151,19 @@ ok($ccm->traverse_project(
     subprojects	=> 1,
     preprocess	=> sub { $npre++; return sort { $a->name cmp $b->name } @_; },
     postprocess => sub { $npost++; }
-  },
-  $project), 
-  qq[traverse_project($project)]);
+  }),
+  qq[traverse $project]);
 
 cmp_bag(\@trav_object_got, [ map { vco($_->objectname) } @trav_object_expected ],
-  q[traverse_project: check objects]);
+  q[traverse: check objects]);
 cmp_deeply(\@trav_path_got, \@trav_path_expected,
-  q[traverse_project: check pathnames]);
+  q[traverse: check pathnames]);
 cmp_deeply(\@trav_depth_got, \@trav_depth_expected,
-  q[traverse_project: check depth]);
+  q[traverse: check depth]);
 ok($npre == $npost, 
-  q[traverse_project: compare number of preprocess and postprocess calls]);
+  q[traverse: compare number of preprocess and postprocess calls]);
 ok($npre == (grep { $_->cvtype =~ /^(dir|project)$/ } @trav_object_expected),
-  q[traverse_project: compare number of preprocess calls to projects/dirs traversed]);
+  q[traverse: compare number of preprocess calls to projects/dirs traversed]);
 
 my $trav_tree_got = $ccm->project_tree(
   { subprojects => 1, pathsep => "/" }, $project);
@@ -178,26 +177,25 @@ my @trav2_expected =
   'readme-1:ascii:1',
 );
 my @trav2_got;
-$ccm->traverse_project(
+$project->traverse(
   sub { push @trav2_got, $_; },
-  $project, $ccm->object('misc-1:dir:1'));
+  $ccm->object('misc-1:dir:1'));
 ok(are_vcos(\@trav2_got),
-  q[visited traverse_project(): isa V::C::O]);
+  q[visited by traverse: isa V::C::O]);
 ok(eq_set(objectnames(\@trav2_got), \@trav2_expected),
-  q[visited by traverse_project()]);
+  q[visited by traverse: check objects]);
 
 my @trav3_expected = grep { $_->is_project } @trav_object_expected;
 my @trav3_got;
-$ccm->traverse_project(
+$project->traverse(
   {
     wanted => sub { push @trav3_got, $_ if $_->is_project; },
     subprojects	=> 1,
-  },
-  $project);
+  });
 all_ok { $_->is_project } \@trav3_got,
-  q[traverse_project(subprojects => 1): is_project];
+  q[traverse(subprojects => 1): is_project];
 ok(eq_set(objectnames(\@trav3_got), objectnames(\@trav3_expected)),
-  q[traverse_project(subprojects => 1)]);
+  q[traverse(subprojects => 1)]);
 
 
 BEGIN { use_ok('VCS::CMSynergy::Users'); }

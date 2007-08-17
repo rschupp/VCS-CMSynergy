@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 17 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 18 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -49,6 +49,8 @@ This synopsis only lists the major methods.
 
 =cut 
 
+use strict;
+
 use base qw(Class::Accessor::Fast);
 __PACKAGE__->mk_ro_accessors(qw/objectname ccm name version cvtype instance/);
 
@@ -64,6 +66,13 @@ use overload
     fallback	=> 1;
 
 my $have_weaken = eval "use Scalar::Util qw(weaken); 1";
+
+my %cv2vco_type = map 
+{ 
+    my $class = "VCS::CMSynergy::$_"; 
+    (my $pm = "$class.pm") =~ s#::#/#g;
+    (lc $_ => { class => $class, pm => $pm });
+} qw/Project/;
 
 
 # VCS::CMSynergy::Object->new(ccm, name, version, cvtype, instance)
@@ -87,6 +96,12 @@ sub new
     $fields{ccm} = $ccm;
     Scalar::Util::weaken($fields{ccm}) if $have_weaken;
     $fields{acache} = {} if VCS::CMSynergy::use_cached_attributes();
+
+    if (my $vco_type = $cv2vco_type{$fields{cvtype}})
+    {
+	require $vco_type->{pm};
+	$class = $vco_type->{class};
+    }
 
     my $self;
     if (VCS::CMSynergy::use_tied_objects())
@@ -276,21 +291,6 @@ sub cvid
     return $self->_private->{cvid} ||= $self->property('cvid');
 }
 
-
-sub recursive_is_member_of
-{
-    my $self = shift;
-    return $self->ccm->query_object_with_attributes(
-	"recursive_is_member_of('$self',depth)", @_);
-}
-
-
-sub hierarchy_project_members
-{
-    my $self = shift;
-    return $self->ccm->query_object_with_attributes(
-	"hierarchy_project_members('$self',depth)", @_);
-}
 
 
 # $obj->is_foo_of: short for $ccm->query_object({is_foo_of => [ $obj ]})

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Project;
 
-our $VERSION = do { (my $v = q%version: 3 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 4 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -58,15 +58,14 @@ sub is_child_of
 
 # NOTE: takes either string (relative path) or array ref of path components
 # FIXME needs test
-sub path_to_object
+sub object_from_path
 {
     _usage(2, undef, '{ $path | \\@path_components }, @keywords', \@_);
     my ($self, $path, @keywords) = @_;
 
     $path = join("/", @$path) if ref $path; # FIXME use native path delim here
 
-    return $self->ccm->_property(
-	"$path\@$self", [ object => @keywords ], ROW_OBJECT);
+    return $self->ccm->_property("$path\@$self", [ object => @keywords ], ROW_OBJECT);
     # NOTE/FIXME: no error if path isn't bound? possible errors:
     # Specified project not found in database: '$self'
     # Object version could not be identified from reference form: '$path'
@@ -148,31 +147,31 @@ sub traverse
     }
     elsif (ref $wanted eq 'HASH')
     {
-	return $self->ccm->set_error("argument 1: option `wanted' is mandatory")
+	croak(__PACKAGE__."::traverse: argument 1 (wanted hash ref): option `wanted' is mandatory")
 	    unless exists $wanted->{wanted};
 	while (my ($key, $type) = each %traverse_opts)
 	{
 	    next unless exists $wanted->{$key};
-	    return $self->ccm->set_error("argument 1: option `$key' must be a $type")
+	    croak(__PACKAGE__."::traverse: argument 1 (wanted hash ref): option `$key' must be a $type: $wanted->{$key}")
 		unless UNIVERSAL::isa($wanted->{$key}, $type);
 	}
     }
     else
     {
-	return $self->ccm->set_error("argument 1 must be a CODE or HASH ref");
+	croak(__PACKAGE__."::traverse: argument 1 (wanted) must be a CODE or HASH ref: $wanted");
     }
     $wanted->{attributes} ||= [];
 
     if (defined $dir)
     {
-	return $self->ccm->set_error("argument 2 `$dir' must be a VCS::CMSynergy::Object")
+	croak(__PACKAGE__."::traverse: argument 2 (dir) must be a VCS::CMSynergy::Object: $dir")
 	    unless UNIVERSAL::isa($dir, "VCS::CMSynergy::Object");
-	return $self->ccm->set_error("argument 2 `$dir' must have cvtype `dir'")
+	croak(__PACKAGE__."::traverse: argument 2 (dir) must have cvtype `dir': $dir")
 	    unless $dir->is_dir;
 
 	# check that $dir is member of $self
 	# FIXME there must be a better way to do this
-	my $result = $self->ccm->query_object_with_attributes(
+	my $result = $self->ccm->query_object(
 	    {
 		name		=> $dir->name,
 		cvtype		=> $dir->cvtype,

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 23 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 24 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -107,7 +107,7 @@ sub new
 
     while (my ($arg, $value) = each %args)
     {
-	return $self->set_error("unrecognized attribute `$arg'") 
+	croak(__PACKAGE__."::new: unrecognized argument: $arg") 
 	    unless exists $new_opts{$arg};
 
 	$self->{$arg} = $value;

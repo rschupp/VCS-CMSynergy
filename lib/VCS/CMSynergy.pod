@@ -14,7 +14,7 @@ VCS::CMSynergy - Perl interface to Telelogic SYNERGY/CM (aka Continuus/CM)
   $ary_ref = $ccm->query(@ccm_args);
   $ary_ref = $ccm->query_arrayref($query, @keywords);
   $ary_ref = $ccm->query_hashref($query, @keywords);
-  $ary_ref = $ccm->query_object($query);
+  $ary_ref = $ccm->query_object($query, @keywords);
 
   $ary_ref = $ccm->finduse(@args);
   $path = $ccm->findpath($file_spec, $proj_vers);
@@ -616,7 +616,7 @@ it to B<ccm query>.
 =head2 query_object, query_object_with_attributes
 
   $ary_ref = $ccm->query_object($query);
-  $ary_ref = $ccm->query_object_with_attributes($query, @attributes);
+  $ary_ref = $ccm->query_object_with_attributes($query, @keywords);
 
 Executes B<ccm query> with the query expression C<$query> 
 and returns a reference to an array of C<VCS::CMSynergy::Object>s 
@@ -640,9 +640,9 @@ C<query_object_with_attributes> is only useful when
 L</:cached_attributes> is in effect. 
 It returns the same result as C<query_object>,
 but the returned C<VCS::CMSynergy::Object>s have their attribute caches
-primed for the attributes listed in C<@attributes>. You could also
+primed for the attributes listed in C<@keywords>. You could also
 view it as a fancy form of C<query_hashref> where we don't store
-the attributes values of C<@attributes> in some anonymous hash,
+the attributes values of C<@keywords> in some anonymous hash,
 but rather in the corresponding object. Thus the loop
 
   for my $obj (@{ $ccm->query_object_with_attributes("...", qw(foo)) })
@@ -1817,7 +1817,7 @@ C<VCS::CMSynergy::Object>), but with the version C<$version>.
 
 =head2 object_from_cvid
 
-  $obj = $ccm->object_from_cvid($cvid);
+  $obj = $ccm->object_from_cvid($cvid, @keywords);
 
 Returns the C<VCS::CMSynergy::Object> corresponding to the
 cvid C<$cvid> (the internal primary identifier of a CM Synergy object).
@@ -1827,7 +1827,11 @@ This is handy, for example, when you're parsing certain CM Synergy
 log files that contain only the cvid and you want to identify 
 the corresponding object.
 
-C<object_from_cvid> uses
+The optional list of C<@keywords> may be used to prime the
+attribute cache of the returned C<VCS::CMSynergy::Object>
+(similar to the L</query_object> method).
+
+Note: C<object_from_cvid> uses something like
 
   $ccm->property(objectname => "\@=$cvid")
 

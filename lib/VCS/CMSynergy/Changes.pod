@@ -20,6 +20,9 @@ Known problems:
   is only kept as an alias for backward compatibility.
   FIXME still need to update POD
 
+  object_from_cvid() now takes an optional list of keywords (to prime
+  the object's attributes when using :cached_attributes.).
+
 =head2 Changes in Version 1.28
 
   INCOMPATIBLE CHANGE: set_attribute() doesn't fail anymore when

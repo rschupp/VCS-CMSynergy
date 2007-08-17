@@ -12,7 +12,7 @@ BEGIN
 	PrintError	=> 0,
 	RaiseError	=> 1,
 	database	=> $ENV{CCM_TEST_DB},
-	UseCoprocess	=> $ENV{CCM_USE_COPROCESS},
+	UseCoprocess	=> $ENV{CCM_USE_COPROCESS}||0,
     );
 
     if ($ENV{CCM_TEST_USER})
@@ -41,13 +41,29 @@ BEGIN
 sub all_ok(&$;$)
 {
     my ($block, $aref, $test_name) = @_;
-    foreach (@$aref)
+
+    local $Test::Builder::Level = 2;	# report failure for caller of all_ok
+
+    if (my @failed = grep { ! &$block($_) } @$aref)
     {
-	next if &$block($_);
-	fail("[$_] $test_name");
-	return;
+	fail("all: $test_name");
+	diag "\t$test_name failed for:\n";
+	diag("\t\t$_\n") foreach @failed;
     }
-    pass($test_name);
+    else
+    {
+	pass("all: $test_name");
+    }
+}
+
+# are_vcos AREF
+# check that AREF is a reference to an array of VCS::CMSynergy::Objects
+sub are_vcos($)
+{
+    my ($aref) = @_;
+
+    UNIVERSAL::isa($aref, "ARRAY")
+    && (grep { UNIVERSAL::isa($_, "VCS::CMSynergy::Object") } @$aref) == @$aref;
 }
 
 # stringify an array of VCS::CMSynergy::Object's

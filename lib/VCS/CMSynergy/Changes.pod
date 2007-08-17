@@ -14,7 +14,27 @@ Known problems:
 - traverse_project()
 	what about absolute subprojects (with subprojects => 1)
 
+
 =head1 CHANGES
+
+=head2 Changes in Version 1.24
+
+  Fix for bug reported by Robert Kirchner:
+  If a session (i.e. VCS::CMSynergy object) is implicitly DESTROYed
+  at program termination the script always exits with status 0,
+  regardless of any explicit status set with exit(). 
+  This was caused by an unlocalized $? in VCS::CMSynergy::Client::exec().
+
+=head2 Changes in Version 1.23 (not released)
+
+  Implemented query_count().
+
+  Implemented pseudo keyword "task_objects" (query_* and history_* methods).
+
+  The query string in query_*() methods may now contain newlines
+  to improve legibility. These will be replaced by blanks in _query().
+
+  Make set_attribute() work for empty string values.
 
 =head2 Changes in Version 1.22
 

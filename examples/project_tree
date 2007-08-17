@@ -1,8 +1,10 @@
 #!/usr/bin/perl -w
 
 # This sample script shows how to build up a project tree structure
-# using VC::CMSynergy::traverse_project. We use a simple minded
-# Node class for the tree structure.
+# using VC::CMSynergy::traverse_project. 
+
+# We use stevan little's excellent Tree::Simple module 
+# to describe the tree structure.
 # Kudos go to Anne Feldmeier for the simple tree building algorithm.
 
 =head1 NAME
@@ -34,24 +36,8 @@ use Getopt::Long qw(:config bundling);
 use Pod::Usage;
 use VCS::CMSynergy 1.18 qw(:cached_attributes :tied_objects);
 use VCS::CMSynergy::Helper; 
+use Tree::Simple;
 use strict;
-
-# a simple tree node class
-{
-    package Node;
-
-    sub new
-    {
-	my ($class, $object, $parent) = @_;
-	my $self = bless { object => $object, parent => $parent }, $class;
-	push @{ $parent->{children} }, $self if $parent;
-	$self;
-    }
-
-    sub object 		{ shift->{object}; }
-    sub parent 		{ shift->{parent}; }
-    sub children	{ shift->{children}; }
-}
 
 my %ccm_opts = VCS::CMSynergy::Helper::GetOptions;
 
@@ -68,8 +54,8 @@ my $ccm = VCS::CMSynergy->new(
     RaiseError	=> 1,
     PrintError	=> 0);
 
-my Node $root;		# the root of the project tree
-my Node $top;		# node corresponding to top of Traversal::dirs stack
+my Tree::Simple $root;	# the root of the project tree
+my Tree::Simple $top;	# node corresponding to top of Traversal::dirs stack
 
 $ccm->traverse_project(
     {
@@ -81,7 +67,7 @@ $ccm->traverse_project(
 
 	    unless ($root)
 	    {
-		$root = $top = Node->new($_);
+		$root = $top = Tree::Simple->new($_);
 		return;
 	    }
 
@@ -89,10 +75,10 @@ $ccm->traverse_project(
 	    # so $top may not correspond to the top of
 	    # the directory stack anymore
 	    my $topdir = $VCS::CMSynergy::Traversal::dirs[-1];
-	    $top = $top->parent while $top->object ne $topdir;
+	    $top = $top->getParent while $top->getNodeValue ne $topdir;
 
 	    # create a Node with $top as the parent
-	    my $node = Node->new($_, $top);
+	    my $node = Tree::Simple->new($_, $top);
 	    
 	    # move $top when we're on a directory,
 	    # because traversal will immediately descent into it
@@ -102,21 +88,20 @@ $ccm->traverse_project(
     $project
 );
 
-print_tree($root, "");
+
+{
+    # print root (because Tree::Simple::Traverse doesn't walk the node it's called on)
+    my $object = $root->getNodeValue;
+    print join(" ", $object->name, $object->cvtype, @$object{@attributes}), "\n";
+}
+$root->traverse(
+    sub 
+    {
+	my ($node) = @_;
+
+	my $object = $node->getNodeValue;
+	print "  " x ($node->getDepth + 1), 
+	      join(" ", $object->name, $object->cvtype, @$object{@attributes}), "\n";
+    });
 
 exit(0);
-
-# simple recursive tree walk
-sub print_tree
-{
-    my ($node, $indent) = @_;
-
-    my $obj = $node->object;
-    print $indent, join(" ", $obj->name, $obj->cvtype, @$obj{@attributes}), "\n";
-
-    if ($node->children)
-    {
-	$indent .= "  ";
-	print_tree($_, $indent) foreach @{ $node->children };
-    }
-}

@@ -14,15 +14,13 @@ OS, Perl version			OS, CM Synergy version
 
 Solaris 2.6, Perl 5.6.1                 Solaris 2.6, CM Synergy 5.1
 
-Solaris 8, Perl 5.6.1			Solaris 8, CM Synergy 6.2 SP1
-
-Solaris 8, Perl 5.6.1			Solaris 8, CM Synergy 6.3 SP3
-
 Solaris 9, Perl 5.8.0			Solaris 9, CM Synergy 6.3 SP3
 
-Linux 2.6, Perl 5.8.4			Linux 2.6, CM Synergy 6.3 SP3
+Linux 2.6, Perl 5.8.4			Linux 2.6, CM Synergy 6.3 SP4
 
-Windows XP, ActiveState Perl 5.8.4	Solaris 8, CM Synergy 6.3 SP3
+Windows XP, ActiveState Perl 5.8.4	Solaris 9, CM Synergy 6.3 SP3
+
+Windows XP, Cygwin Perl 5.8.5	        Solaris 9, CM Synergy 6.3 SP3
 
 
 BUILDING

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 46;
+use Test::More tests => 52;
 use t::util;
 use strict;
 
@@ -40,6 +40,7 @@ my @values=
     gmtime().join("-" x 10, 1..100),		# long string
     join("\n", gmtime(), 1..10),		# string with newlines
     join(" ", map { qq["$_"] } gmtime(), 1..10), # string with embedded quotes
+    ""						# empty string
 );
 
 # test with V::C methods
@@ -47,12 +48,18 @@ ok($ccm->create_attribute("blurfl", "text", "initial value", $folder),
     q[create attribute]);
 ok(exists $ccm->list_attributes($folder)->{blurfl}, q[attribute was really created]);
 
+# NOTE: 2 tests per $value 
 foreach my $value (@values)
 {
-    ok($ccm->set_attribute(blurfl => $folder, $value),
-	q[set_attribute (V::C)]);
-    is($ccm->get_attribute(blurfl => $folder), $value,
-	q[re-get_attribute (V::C) and compare]);
+    SKIP:
+    {
+	skip "setting an attribute to an empty value doesn't work on Windows", 2
+		if VCS::CMSynergy::Client::is_win32 && $value eq "";
+	is($ccm->set_attribute(blurfl => $folder, $value), $value,
+	    q[set_attribute (V::C)]);
+	is($ccm->get_attribute(blurfl => $folder), $value,
+	    q[re-get_attribute (V::C) and compare]);
+    }
 }
 is($ccm->property(displayname => $folder), $fno,
     q[check for expected displayname with V::C::property()]);
@@ -76,20 +83,26 @@ SKIP:
     ok(exists $fobj->_private->{acache}->{blurfl}, q[attribute was cached]);
 }
 
+# NOTE: 4 tests per $value 
 foreach my $value (@values)
 {
-    ok($fobj->set_attribute(blurfl => $value),
-	q[set_attribute (V::C::O)]);
-    is($fobj->get_attribute('blurfl'), $value,
-	q[re-get_attribute (V::C::O) and compare]);
-    is($ccm->get_attribute(blurfl => $folder), $value,
-	q[re-get_attribute (V::C) and compare]);
     SKIP:
     {
-	skip "not using :cached_attributes", 1 
-	    unless VCS::CMSynergy::use_cached_attributes();
-	is($fobj->_private->{acache}->{blurfl}, $value,
-	    q[check cached attribute value]);
+	skip "setting an attribute to an empty value doesn't work on Windows", 4
+		if VCS::CMSynergy::Client::is_win32 && $value eq "";
+	is($fobj->set_attribute(blurfl => $value), $value,
+	    q[set_attribute (V::C::O)]);
+	is($fobj->get_attribute('blurfl'), $value,
+	    q[re-get_attribute (V::C::O) and compare]);
+	is($ccm->get_attribute(blurfl => $folder), $value,
+	    q[re-get_attribute (V::C) and compare]);
+	SKIP:
+	{
+	    skip "not using :cached_attributes", 1 
+		unless VCS::CMSynergy::use_cached_attributes();
+	    is($fobj->_private->{acache}->{blurfl}, $value,
+		q[check cached attribute value]);
+	}
     }
 }
 is($fobj->property("displayname"), $fno,

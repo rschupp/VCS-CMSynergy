@@ -110,9 +110,9 @@ my $q_got = $ccm->query_hashref("name = 'main.c'", qw(objectname finduse));
 verbose('q_got', $q_got);
 isa_ok($q_got, "ARRAY", q[query_hashref()]);
 all_ok { UNIVERSAL::isa($_, "HASH") } $q_got,
-   q[query_hashref() returns array ref of hash refs];
+   q[query_hashref(): isa HASH];
 all_ok { UNIVERSAL::isa($_->{finduse}, "HASH") } $q_got,
-   q[query_hashref(): keyword 'finduse' returns hash ref];
+   q[query_hashref(): query keyword "finduse" isa HASH];
 ok(eq_array(		# eq_set doesn't properly cope with refs
    [ sort { $a->{objectname} cmp $b->{objectname} } @$q_got ], 
    [ sort { $a->{objectname} cmp $b->{objectname} } @$q_expected ]), 
@@ -123,10 +123,13 @@ my $fu_got = $ccm->finduse(map { $_->{objectname} } @$q_expected);
 verbose('fu_got', $fu_got);
 $ccm->set("Object_format", $old_format);
 isa_ok($fu_got, "ARRAY", q[finduse()]);
-all_ok { UNIVERSAL::isa($_, "ARRAY") 
-         && @$_ == 2 && 
-	 UNIVERSAL::isa($_->[1], "HASH") } $fu_got,
-   q[finduse() returns array ref of [$description, %uses]];
+all_ok 
+    { 
+	UNIVERSAL::isa($_, "ARRAY") 
+        && @$_ == 2 
+	&& UNIVERSAL::isa($_->[1], "HASH") 
+    } $fu_got,
+    q[finduse(): is [$description, \%uses]];
 ok(eq_array(		# eq_set doesn't properly cope with refs
    [ sort { $a->[0] cmp $b->[0] } @$fu_got ], 
    [ sort { $a->[0] cmp $b->[0] } map { [ $_->{objectname}, $_->{finduse} ] } @$q_expected ]),

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Users;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.08 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.09 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -72,7 +72,7 @@ sub users
     # whereas "ccm users" requires the ccm_admin role.
     if (@_ == 0)
     {
-	my $text = $self->get_attribute(users => $self->object(qw(base 1 model base)));
+	my $text = $self->get_attribute(users => $self->base_model);
 	return undef unless defined $text;
 	
 	my $users = {};

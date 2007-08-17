@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.21 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.22 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -108,6 +108,8 @@ sub new
 	$self->{$arg} = $value;
     }
 
+    return $self->set_error("CCM_HOME is not set (neither as parameter to new() nor in environment")
+	unless defined $self->{CCM_HOME};
     $self->{env}->{CCM_HOME} = delete $self->{CCM_HOME};
     return $self->set_error("CCM_HOME = `$self->{env}->{CCM_HOME}' does not point to a valid CM Synergy installation")
 	unless -x $self->ccm_exe || ($^O eq 'cygwin' && -e $self->ccm_exe);
@@ -296,6 +298,10 @@ sub exec
     $this = __PACKAGE__->default unless ref $this;
 
     local @ENV{keys %{ $this->{env} }} = values %{ $this->{env} };
+
+    # don't screw up global $? (e.g. when being called 
+    # in VCS::CMSynergy::DESTROY at program termination)
+    local $?;			
 
     my ($out, $err);
 

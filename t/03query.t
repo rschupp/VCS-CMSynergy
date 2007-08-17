@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 24;
+use Test::More tests => 28;
 use t::util;
 use strict;
 
@@ -13,7 +13,7 @@ BEGIN
 my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
-diag("using cached_attributes") if VCS::CMSynergy::use_cached_attributes();
+diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
 
 my $e_got = $ccm->query_object("name match '*blurfl*'");
 ok(UNIVERSAL::isa($e_got, "ARRAY") && @$e_got == 0,
@@ -81,13 +81,16 @@ for (scalar $ccm->version)
     /^6\.(\d+)/			&& do { $b_expected = $b63_expected; last; };
     die "don't know anything about CM Synergy version $_";
 }
-my $b_got = $ccm->query_object("name match 'b*'");
+my $b_query = "name match 'b*'";
+my $b_got = $ccm->query_object($b_query);
 verbose('b_got', $b_got);
 isa_ok($b_got, "ARRAY", q[query_object()]);
 all_ok { UNIVERSAL::isa($_, "VCS::CMSynergy::Object") } $b_got,
-   q[query_object() returns array ref of V::C::Os];
+   q[query_object(): isa V::C::O];
 ok(eq_set($b_expected, objectnames($b_got)),
-   q[$ccm->query_object("name match 'b*'")]);
+   qq[$ccm->query_object($b_query)]);
+is(scalar @$b_expected, $ccm->query_count($b_query),
+   qq[$ccm->query_count($b_query)]);
 
 # test query_arrayref with a multi-line valued keyword
 my $ml_expected = 
@@ -122,7 +125,7 @@ my $ml_got = $ccm->query_arrayref(
 verbose('ml_got', $ml_got);
 isa_ok($ml_got, "ARRAY", q[query_arrayref()]);
 all_ok { UNIVERSAL::isa($_, "ARRAY") } $ml_got,
-   q[query_arrayref() returns array ref of array ref];
+   q[query_arrayref(): isa ARRAY];
 ok(eq_array(		# eq_set does not properly cope with refs
    [ sort { $a->[0] cmp $b->[0] } @$ml_got ], 
    [ sort { $a->[0] cmp $b->[0] } @$ml_expected ]),
@@ -142,13 +145,21 @@ my $sh2_expected =
   'guilib-1.0:project:1',
   'toolkit-1.0:project:1',
 ];
-my $sh2_got = $ccm->query_object({ hierarchy_project_members => [ 'toolkit-1.0:project:1', 'none' ] });
+my $sh2_got = $ccm->query_object(
+    { hierarchy_project_members => [ 'toolkit-1.0:project:1', 'none' ] });
 verbose('sh2_got', $sh2_got);
 isa_ok($sh2_got, "ARRAY", q[query_object()]);
 ok(eq_set($sh2_expected, objectnames($sh2_got)),
    q[shorthand query with hierarchy_project_members()]);
 
 # task6: Add some fonts to the GUI library for use in the editor
+my ($task6) = @{ $ccm->query_object(
+    {
+	type => "task",
+	task_synopsis => "Add some fonts to the GUI library for use in the editor"
+    }) };
+isa_ok($task6, "VCS::CMSynergy::Object", q[task 'Add some fonts...']);
+verbose('task6', $task6);
 my $sh3_expected =
 [
   'fonts.c-1:csrc:1',
@@ -162,11 +173,17 @@ my $sh3_expected =
   'readme-2:ascii:1',
   'sources-2:dir:2',
 ];
-my $sh3_got = $ccm->query_object({ task => 6 });
+my $sh3_got = $ccm->query_hashref(
+    { task => $task6->displayname }, qw(objectname task_objects));
 verbose('sh3_got', $sh3_got);
-isa_ok($sh3_got, "ARRAY", q[query_object()]);
-ok(eq_set($sh3_expected, objectnames($sh3_got)),
-   q[shorthand query with task]);
+isa_ok($sh3_got, "ARRAY", q[query_hashref()]);
+ok(eq_set($sh3_expected, [ map { $_->{objectname} } @$sh3_got ]),
+    q[shorthand query with task => ...]);
+all_ok { are_vcos($_->{task_objects}) } @$sh3_got,
+    q[query keyword "task_objects": isa ARRAY of V::C::Os];
+all_ok { grep { $_ eq $task6 } @$_ }
+    [ map { $_->{task_objects} } @$sh3_got ],
+    q[query keyword "task_objects": contains task6];
 
 my $complex_expected = 
 [
@@ -196,35 +213,36 @@ my $complex_got = $ccm->query_arrayref(
     "name match 't*' and not ( (cvtype = 'task' and status = 'task_automatic') or cvtype = 'baseline' or cvtype = 'recon_temp' or cvtype = 'releasedef' )", 
     qw(objectname displayname));
 verbose('complex_got', $complex_got);
-isa_ok($complex_got, "ARRAY", q[query_arrayref() returns array ref]);
+isa_ok($complex_got, "ARRAY", q[query_arrayref()]);
 all_ok { UNIVERSAL::isa($_, "ARRAY") } $complex_got, 
-   q[query_arrayref() returns array ref of array refs];
+    q[query_arrayref(): isa ARRAY];
 ok(eq_array(			# sort by first array element (object, i.e. objectname)
-   [ sort { $a->[0] cmp $b->[0] } @$complex_expected ],
-   [ sort { $a->[0] cmp $b->[0] } @$complex_got ]),
-   q[query "name match 't*'"]);
+    [ sort { $a->[0] cmp $b->[0] } @$complex_expected ],
+    [ sort { $a->[0] cmp $b->[0] } @$complex_got ]),
+    q[query "name match 't*' ..."]);
 all_ok { $ccm->property(displayname => $_->[0]) eq $_->[1] } $complex_got,
-   q[check for property(displayname)];
+    q[property "displayname" == query keyword "displayname"];
 
 # test query with attribute caching
-my $bc_got = $ccm->query_object_with_attributes(
-    "name match 'b*'", qw(create_time owner status_log super_type));
+my @bc_attrs = qw(create_time owner status_log super_type);
+my $bc_got = $ccm->query_object_with_attributes($b_query, @bc_attrs);
 verbose('bc_got', $bc_got);
 isa_ok($bc_got, "ARRAY", q[query_object_with_attributes()]);
 all_ok { UNIVERSAL::isa($_, "VCS::CMSynergy::Object") } $bc_got,
-   q[query_object_with_attributes() returns array ref of V::C::Os];
+   q[query_object_with_attributes(): isa V::C::O];
 ok(eq_set($b_expected, objectnames($bc_got)),
-   q[$ccm->query_object("name match 'b*'")]);
+   qq[$ccm->query_object_with_attributes($b_query)]);
 # check for actually cached attributes (type specific)
-all_ok {
-    my $acache = $_->_private->{acache};
-    my $list = $_->list_attributes;
-    foreach my $attr (qw(create_time owner status_log super_type))
+all_ok 
     {
-	return 0 if defined($list->{$attr}) xor defined($acache->{$attr});
-    }
-    return 1;
-} $bc_got,
-   qq[returned objects have cached attributes];
+	my $acache = $_->_private->{acache};
+	my $list = $_->list_attributes;
+	foreach my $attr (@bc_attrs)
+	{
+	    return 0 if defined($list->{$attr}) && !defined($acache->{$attr});
+	}
+	return 1;
+    } $bc_got,
+    qq[query_object_with_attributes(): actually cached attributes];
 
 exit 0;

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 17 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 18 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -182,25 +182,21 @@ sub _ccm
 		# arguments cannot contain newlines in "interactive" ccm sessions
 		last USE_COPROCESS if grep { /\n/ } @args;
 
-		# FIXME: calling getcwd for every _ccm may be expensive
-		if ($this->{cwd} ne (my $cwd = getcwd()))
+		my ($dev, $ino) = stat(".") or last USE_COPROCESS;
+		if ($this->{co_cwd_dev} != $dev || $this->{co_cwd_ino} != $ino)
 		{
 		    # working directory has changed since coprocess was spawned:
 		    # shut down coprocess and start a new one
 		    # NOTE: don't call _ccm here (infinite recursion)
 		    $this->_kill_coprocess;
-		    if ($this->{coprocess} = $this->_spawn_coprocess)
-		    {
-			$this->{cwd} = $cwd;	# remembers coprocess' working directory	
-			$Debug && $this->trace_msg(
-			    "spawned new coprocess because cwd changed (pid=".$this->{coprocess}->pid.")\n", 8);
-		    }
-		    else
+		    unless ($this->_spawn_coprocess)
 		    {
 			carp(__PACKAGE__ . " _ccm: can't re-establish coprocess (because cwd changed): $this->{error}\n" .
 			     "-- ignoring UseCoprocess from now on");
 			last USE_COPROCESS;
 		    }
+		    $Debug && $this->trace_msg(
+			"spawned new coprocess because cwd changed (pid=".$this->{coprocess}->pid.")\n", 8);
 		}
 
 		my ($match, $set);
@@ -280,7 +276,14 @@ sub _spawn_coprocess
     $exp->expect(undef, -re => $ccm_prompt)
 	or $Error = $self->{error} = $exp->exp_error, return;
 
-    return $exp;
+    $self->{coprocess} = $exp;
+
+    # remember coprocess' working directory
+    # (so that we can detect whether the current working directory
+    # of the main process has diverged)
+    @$self{qw/co_cwd_dev co_cwd_ino/} = stat(".");
+
+    return 1;
 }
 
 sub _kill_coprocess

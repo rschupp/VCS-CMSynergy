@@ -39,6 +39,10 @@ Known problems:
   a trailing newline from the command's stdout. Now we return "foo\nbar"
   in both cases.
 
+  Users.pm: Always try to preserve the order of a user's roles.
+  If an insertion preserving order tied hash class (e.g. Tie::IxHash)
+  is available, also preserve the order of user lines.
+
   Implemented folder_object() (similar to task_object()).
 
 =head2 Changes in Version 1.26

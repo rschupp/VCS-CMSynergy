@@ -40,11 +40,8 @@ my $ccm = VCS::CMSynergy->new(
     RaiseError => 1
 );
 
-$top_proj_vers .= ':project:' . $ccm->default_project_instance 
-    unless $top_proj_vers =~ /:project:/; 
-
 foreach my $member (@{ $ccm->query_object_with_attributes(
-    { hierarchy_project_members => [ $top_proj_vers, 'depth'] }, 
+    { hierarchy_project_members => [ $ccm->full_project_spec($top_proj_vers), 'depth'] }, 
     qw(status wa_path)) })
 {
     print "$member <$member->{status}> $member->{wa_path}\n";

@@ -318,11 +318,8 @@ my $ccm = VCS::CMSynergy->new(
     RaiseError	=> 1,
     PrintError	=> 0);
 
-my ($old_project, $new_project) = map 
-{
-    $_ .= ':project:' . $ccm->default_project_instance unless /:project:/; 
-    $ccm->object($_);
-} @ARGV;
+my ($old_project, $new_project) = 
+    map { $ccm->object($ccm->full_project_spec($_)) } @ARGV;
 
 my $diff_status;
 END { $? = defined $diff_status ? $diff_status : 2; }

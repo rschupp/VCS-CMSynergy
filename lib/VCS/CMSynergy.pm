@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.29 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.30 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -468,9 +468,7 @@ sub _query
 		    my ($path, $project) = /$self->{finduse_rx}/
 			or return $self->set_error(
 			    qq[unrecognizable line returned from "finduse -query": "$_"]);
-		    $project .= ':project:' . $self->default_project_instance
-			unless $project =~ /:project:/;
-		    $finduse{$project} = $path;
+		    $finduse{$self->full_project_spec($project)} = $path;
 		}
 	    }
 	}
@@ -760,9 +758,7 @@ sub finduse
 	    if (/$self->{finduse_rx}/)
 	    {
 		my ($path, $project) = ($1, $2);
-		$project .= ':project:' . $self->default_project_instance
-		    unless $project =~ /:project:/;
-		$uses->{$project} = $path;
+		$uses->{$self->full_project_spec($project)} = $path;
 		next;
 	    }
 
@@ -906,200 +902,6 @@ sub _relations
 }
 
 
-# tied array class that acts as a readonly front to a real array
-{
-    package Tie::ReadonlyArray;	
-
-    use Carp;
-
-    sub TIEARRAY	{ bless $_[1], $_[0]; }
-    sub FETCH		{ $_[0]->[$_[1]]; }
-    sub FETCHSIZE	{ scalar @{$_[0]}; }
-    sub AUTOLOAD	{ croak "attempt to modify a readonly array"; }
-}
-
-
-# put some items into the VCS::CMSynergy::Traversal namespace
-{
-    package VCS::CMSynergy::Traversal;
-
-    our (@_dirs, @_projects);			# private
-    our $_pathsep = $^O eq "MSWin32" ? "\\" : "/" ;
-
-    our (@dirs, @projects, $prune);		# public
-    tie @dirs,		"Tie::ReadonlyArray" => \@_dirs;
-    tie @projects,	"Tie::ReadonlyArray" => \@_projects;
-
-    sub path 
-    { 
-	my ($pathsep) = @_;
-	$pathsep = $_pathsep unless defined $pathsep;
-
-	return join($pathsep, map { $_->name } 
-	                          @VCS::CMSynergy::Traversal::_dirs, $_); 
-    }
-
-    sub depth 
-    { 
-	return scalar @VCS::CMSynergy::Traversal::_dirs; 
-    }
-}
-
-
-my %traverse_project_opts =
-(
-    wanted	=> "CODE",
-    preprocess	=> "CODE",
-    postprocess	=> "CODE",
-    attributes	=> "ARRAY",
-);
-
-sub traverse_project
-{
-    my ($self, $wanted, $project, $dir) = @_;
-    _usage(3, 4, '{ \\&wanted | \\%wanted }, $project [, $dir_object]', \@_);
-
-    if (ref $wanted eq 'CODE')
-    {
-	$wanted = { wanted => $wanted };
-    }
-    elsif (ref $wanted eq 'HASH')
-    {
-	return $self->set_error("argument 1: option `wanted' is mandatory")
-	    unless exists $wanted->{wanted};
-	while (my ($key, $type) = each %traverse_project_opts)
-	{
-	    next unless exists $wanted->{$key};
-	    return $self->set_error("argument 1: option `$key' must be a $type")
-		unless UNIVERSAL::isa($wanted->{$key}, $type);
-	}
-    }
-    else
-    {
-	return $self->set_error("argument 1 must be a CODE or HASH ref");
-    }
-    $wanted->{attributes} ||= [];
-
-    if (ref $project)
-    {
-	return $self->set_error("argument 2 `$project' must be a VCS::CMSynergy::Object")
-	    unless UNIVERSAL::isa($project, "VCS::CMSynergy::Object");
-	return $self->set_error("argument 2 `$project' must have type `project'")
-	    unless $project->is_project;
-    }
-    else
-    {
-	# treat $project as project_version string or an objectname
-	$project .= ':project:' . $self->default_project_instance
-	    unless $project =~ /:project:/;
-	$project = $self->object($project);
-    }
-
-    if (defined $dir)
-    {
-	return $self->set_error("argument 3 `$dir' must be a VCS::CMSynergy::Object")
-	    unless UNIVERSAL::isa($dir, "VCS::CMSynergy::Object");
-	return $self->set_error("argument 3 `$dir' must have cvtype `dir'")
-	    unless $dir->is_dir;
-
-	# check that $dir is member of $project
-	my $result = $self->query_object_with_attributes(
-	    {
-		name		=> $dir->name,
-		cvtype		=> $dir->cvtype,
-		instance	=> $dir->instance,
-		version		=> $dir->version,
-		is_member_of	=> [ $project ]
-	    },
-	    @{ $wanted->{attributes} });
-	return $self->set_error("directory `$dir' doesn't exist or isn't a member of `$project'")
-	    unless @$result;
-	$dir = $result->[0];
-    }
-    else
-    {
-	my $result = $self->query_object_with_attributes(
-	    { 
-		name		=> $project->name,
-		cvtype		=> $project->cvtype,
-		instance	=> $project->instance,
-		version		=> $project->version
-	    }, 
-	    @{ $wanted->{attributes} });
-	return $self->set_error("project `$project' doesn't exist")
-	    unless @$result;
-	$dir = $result->[0];
-    }
-
-    local @VCS::CMSynergy::Traversal::_projects = ($project);
-    local @VCS::CMSynergy::Traversal::_dirs = (); 
-    $self->_traverse_project($wanted, $project, $dir);
-}
-
-# helper method: grunt work of traverse_project
-sub _traverse_project
-{
-    my ($self, $wanted, $project, $parent) = @_;
-
-    my $children = $self->query_object_with_attributes(
-	{ is_child_of => [ $parent, $project ] }, 
-	@{ $wanted->{attributes} }) or return;
-
-    if ($wanted->{preprocess})
-    {
-        # make $_ the current dir/project during preprocess'ing 
-	local $_ = $parent;
-	{ $children = [ $wanted->{preprocess}->(@$children) ]; }
-    }
-
-    if (!$wanted->{bydepth}) 
-    {
-	local $_ = $parent;
-	local $VCS::CMSynergy::Traversal::prune = 0;
-	{ $wanted->{wanted}->(); }		# protect against wild "next"
-	return 1 if $VCS::CMSynergy::Traversal::prune;
-    }
-
-    push @VCS::CMSynergy::Traversal::_dirs, $parent unless $parent->is_project;
-
-    foreach (@$children)			# localizes $_
-    {
-	if ($_->is_project && $wanted->{subprojects})
-	{
-	    push @VCS::CMSynergy::Traversal::_projects, $_;
-	    $self->_traverse_project($wanted, $_, $_) or return;
-	    pop @VCS::CMSynergy::Traversal::_projects;
-	    next;
-	}
-	if ($_->is_dir)
-	{
-	    $self->_traverse_project($wanted, $project, $_) or return;
-	    next;
-	}
-
-	{ $wanted->{wanted}->(); }
-    }
-
-    pop @VCS::CMSynergy::Traversal::_dirs unless $parent->is_project;
-    
-    if ($wanted->{bydepth}) 
-    {
-        local $_ = $parent;
-        local $VCS::CMSynergy::Traversal::prune = 0;
-        { $wanted->{wanted}->(); }
-	return 1 if $VCS::CMSynergy::Traversal::prune;
-    }
-
-    if ($wanted->{postprocess})
-    {
-        # make $_ the current dir/project during postprocess'ing 
-	local $_ = $parent;
-	{ $wanted->{postprocess}->(); }
-    }
-
-    return 1;
-}
-
 
 sub project_tree
 {
@@ -1111,14 +913,14 @@ sub project_tree
 	unless ref $options eq "HASH";
     $options->{attributes} ||= [];
     my $mark_projects = delete $options->{mark_projects};
-  
-    # NOTE: $options->{attributes} and @projects will be checked 
-    # by traverse_project() below
+    # NOTE: $options->{attributes} will be checked by traverse() below
 
     my %tree;
-    foreach my $tag (0 .. @projects-1)
+    my $tag = 0;
+    foreach my $proj (
+	map { ref $_ ?  $_ : $self->object($self->full_project_spec($_)) } @projects)
     {
-	$self->traverse_project(
+	$proj->traverse(
 	    { 
 		subprojects	=> $options->{subprojects},
 		attributes	=> $options->{attributes},
@@ -1135,7 +937,8 @@ sub project_tree
 		    my $path = VCS::CMSynergy::Traversal::path($options->{pathsep});
 		    @projects == 1 ? $tree{$path} : $tree{$path}->[$tag] ||= $_;
 		},
-	    }, $projects[$tag]) or return;
+	    }) or return;
+	$tag++;
     }
 
     return \%tree;
@@ -1695,6 +1498,15 @@ sub default_project_instance
 	$self->dcm_database_id . $self->dcm_delimiter . '1' : '1';
 }
 __PACKAGE__->_memoize_method('default_project_instance');
+
+
+sub full_project_spec
+{
+    my ($self, $project) = @_;
+    $project .= ':project:' . $self->default_project_instance
+	unless $project =~ /:project:/;
+    return $project;
+}
 
 
 # generic wrapper for undefined method "foo":

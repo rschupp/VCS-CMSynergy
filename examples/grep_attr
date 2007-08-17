@@ -103,7 +103,7 @@ Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 
 use Getopt::Long qw(:config bundling);
 use Pod::Usage;
-use VCS::CMSynergy ':cached_attributes';
+use VCS::CMSynergy 1.27 ':cached_attributes';
 use VCS::CMSynergy::Helper; 
 use strict;
 

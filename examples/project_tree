@@ -34,7 +34,7 @@ project_tree [options] project
 
 use Getopt::Long qw(:config bundling);
 use Pod::Usage;
-use VCS::CMSynergy 1.18 qw(:cached_attributes :tied_objects);
+use VCS::CMSynergy 1.27 qw(:cached_attributes :tied_objects);
 use VCS::CMSynergy::Helper; 
 use Tree::Simple;
 use strict;

@@ -22,7 +22,7 @@ count_objects_by_type [ccm_options] [type...]
 
 =cut
 
-use VCS::CMSynergy;
+use VCS::CMSynergy 1.27;
 use Getopt::Long qw(:config bundling);
 use Pod::Usage;
 use VCS::CMSynergy::Helper; 

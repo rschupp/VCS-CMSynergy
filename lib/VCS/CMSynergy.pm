@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.26.1 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.26.2 % =~ /(\d+)\.(\d+)/);
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -104,7 +104,7 @@ sub _start
 	return $self->set_error("unrecognized attribute `$arg'") 
 	    unless exists $start_opts{$arg};
 
-	$self->{$arg} = $value;
+	$self->{$arg} = $value unless $arg eq "password";
 	push @start, $start_opts{$arg} => $value if defined $start_opts{$arg};
     }
 

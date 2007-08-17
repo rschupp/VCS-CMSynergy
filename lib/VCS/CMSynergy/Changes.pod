@@ -22,6 +22,9 @@ Known problems:
   Implemented V::C::Object methods recursive_is_member_of(), 
   hierarchy_project_members().
 
+  Add option "mark_projects" to project_tree(): list projects instead
+  of their top level directories.
+
   Convert tests to use Test::Deep.
 
 =head2 Changes in Version 1.27

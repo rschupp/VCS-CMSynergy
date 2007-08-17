@@ -1216,8 +1216,8 @@ of options for project traversal:
 
 =item C<subprojects> (boolean)
 
-If this option is set, the mapping will also include
-members of subprojects. It is "off" by default.
+If this option is set, the mapping will recurse into
+subprojects. It is "off" by default.
 It corresponds to the option of the same name for
 L</traverse_project>.
 
@@ -1234,6 +1234,17 @@ Use C<pathsep> as the separator for the path names (the keys of
 the returned hash). If you do not specify this, 
 C<project_tree> uses the path separator appropriate 
 for the operating system the script is running on.
+
+=item C<mark_projects> (boolean)
+
+This option is "off" by default.
+If a path corresponds to a (sub) project, the correspondig hash
+value refers to the (sub) project's top level directory 
+(a C<VCS::CMSynergy::Object> with C<< ->cvtype >> "dir");
+if this option is set, the hash value refers to the (sub) project itself
+(a C<VCS::CMSynergy::Object> with C<< ->cvtype >> "project").
+Note that in this case the top level directory is omitted from the 
+mapping (because it has the same path as its project).
 
 =back
 

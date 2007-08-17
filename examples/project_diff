@@ -22,10 +22,10 @@ project_diff [options] old_project new_project
 
   Options:
 
-  -s | --simple      simple diff listing (default)
+  -t | --terse       terse diff listing (default)
   -d | --diff        produce diff listing like "diff -ur"
   -p | --patch       produce patch listing like "diff -urN"
-  -h | --hide        hide contents of added/deleted subtrees (for --simple)
+  -h | --hide        hide contents of added/deleted subtrees (for --terse)
   -r | --recursive   recurse into sub projects
 
 =head1 DESCRIPTION
@@ -34,7 +34,7 @@ C<project_diff> shows the differences between two projects
 in terms of the workarea paths of the projects' members.
 It does I<not> need maintained workareas, though.
 
-=head2 C<--simple> listing (default)
+=head2 C<--terse> listing (default)
 
 C<project_diff> traverses both projects and outputs the differences in the
 following form:
@@ -126,7 +126,7 @@ Traverse also subprojects.
 
 =head2 C<-h>, C<--hide>
 
-Hide added/deleted subtrees in C<--simple> output format.
+Hide added/deleted subtrees in C<--terse> output format.
 
 =head2 CCM OPTIONS
 
@@ -147,24 +147,169 @@ use Getopt::Long qw(:config bundling);
 use Pod::Usage;
 use VCS::CMSynergy qw(:tied_objects);
 use VCS::CMSynergy::Helper; 
-use File::Basename;
 use strict;
 
 
-# diff program including options
-my @diff_prog = qw/diff -u/;		
+{
+    package Terse;
+
+    sub new		
+    {
+	my ($class, $ccm) = @_;
+	return bless {}, $class;
+    }
+
+    sub changed
+    {
+	my ($self, $path, $old, $new) = @_;
+	print "! $path $old $new\n";
+    }
+
+    sub only
+    {
+	my ($self, $in, $path, $obj) = @_;
+	print "", ("-", "+")[$in], " $path $obj\n";
+    }
+
+    sub meta	{ }
+}
+
+{
+    package Diff;
+
+    use base qw/Terse/;
+    use File::Temp qw/tempfile/;
+
+    # diff program including options
+    my @diff_prog = qw/diff -u/;		
+
+    sub new
+    {
+	my ($class, $ccm) = @_;
+
+	my $self = { ccm => $ccm };
+	(undef, $self->{temp}) = tempfile;
+
+	# NOTE: On Windows, CM Synergy executes cli_compare_cmd without
+	# using the command interpreter, hence redirections don't work.
+	# If we do not redirect it, the output of cli_compare_cmd
+	# goes into the bit-bucket (i.e. can't be captured from $ccm->diff).
+	# Hence, force the use of cmd.exe (this causes annoying
+	# "flashing" command windows, though).
+	$self->{saved_cli_compare_cmd} = $self->{ccm}->set(
+	    cli_compare_cmd => $^O eq "MSWin32" ? 
+		"cmd /c @diff_prog %file1 %file2 > $self->{temp}" :
+		# FIXME maybe better - no flicker?
+		# qq[$^X -e "open STDOUT, '>', pop \@ARGV; system \@ARGV;" @diff_prog %file1 %file2 $self->{temp_diff}]
+		qq[@diff_prog %file1 %file2 > $self->{temp}]);
+	    
+	return bless $self, $class;
+    }
+
+    sub DESTROY
+    {
+	my ($self) = @_;
+
+	$self->{ccm}->set(cli_compare_cmd => $self->{saved_cli_compare_cmd});
+	unlink($self->{temp}) if $self->{temp};
+    }
+
+    my @ab = ("a", "b");
+
+    sub changed
+    {
+	my ($self, $path, $old, $new) = @_;
+
+	unless ($old->is_dir || $new->is_dir)
+	{
+	    print "diff -u a/$path b/$path\n";
+	    $self->meta(0, $old);
+	    $self->meta(1, $new);
+
+	    # generate diff
+	    $self->{ccm}->diff($old, $new);
+
+	    open(my $fh, "<$self->{temp}");
+
+	    # eat and fake the two header lines (because they contain
+	    # pathnames that point either into the CM Synergy database's
+	    # cache area, the work area or a temp file)
+	    <$fh> foreach @ab;
+	    print "--- a/$path\n",
+		  "+++ b/$path\n";
+
+	    # copy through the rest
+	    print while <$fh>;
+
+	    close($fh);
+	    return;
+	}
+
+	# one or both of $old and $new are dir's
+	# NOTE: suppress output if both are dir's
+	print "File a/$path is a regular file while file b/$path is a directory\n" 
+	      unless $old->is_dir;
+	print "File a/$path is a directory while file b/$path is a regular file\n" 
+	      unless $new->is_dir;
+    }
+
+    sub only
+    {
+	my ($self, $in, $path, $obj) = @_;
+	
+	print "Only in $ab[$in]: $path\n";
+	$self->meta($in, $obj);
+
+    }
+
+    sub meta
+    {
+	my ($self, $in, $obj) = @_;
+	print "synergy $ab[$in]: $obj\t$obj->{modify_time}\n";
+    }
+}
+
+{
+    package Patch;
+
+    use base qw/Diff/;
+
+    sub only
+    {
+	my ($self, $in, $path, $obj) = @_;
+
+	print "diff -u a/$path b/$path\n";
+	$self->meta($in, $obj);
+
+	my $sign = ("-", "+")[$in];
+	my $contents;
+	$self->{ccm}->cat_object($obj, \$contents);
+	my $nlines = $contents =~ s/^/$sign/gm;
+
+	# fake a diff with /dev/null
+	my @range = ("0,0", "0,0");
+	$range[$in] = $nlines == 1 ? "1" : "1,$nlines";
+	print "--- a/$path\n",
+	      "+++ b/$path\n",
+	      "\@\@ -$range[0] +$range[1] \@\@\n",
+	      $contents;
+    }
+}
+
+
 
 # extract CCM start options first...
 my $ccm_opts = VCS::CMSynergy::Helper::GetOptions or pod2usage(2) ;
 
 # ...then script-specific options
+my $Diff = "Terse";
 my $recursive = 0;
-my $Diff = "Simple";
 my $hide_sub_trees = 0;
 (GetOptions(
     'r|recursive'	=> \$recursive,		# include subprojects
     'd|diff'		=> sub { $Diff = "Diff"; $hide_sub_trees = 1; },
     'p|patch'		=> sub { $Diff = "Patch"; $hide_sub_trees = 0; },
+    't|terse'		=> sub { $Diff = "Terse"; $hide_sub_trees = 0; },
     'h|hide'		=> \$hide_sub_trees,	# hide deleted/added sub trees
 ) && @ARGV == 2) or pod2usage(2);
 
@@ -183,15 +328,22 @@ my $diff_status;
 END { $? = defined $diff_status ? $diff_status : 2; }
 
 
-# print project header lines
-print "a ", join("\t", $old_project, $old_project->{modify_time}, $old_project->{status}), "\n",
-      "b ", join("\t", $new_project, $new_project->{modify_time}, $new_project->{status}), "\n";
+my $tree = $ccm->project_tree(
+    { 
+	subprojects => $recursive,
+	attributes  => [ qw/modify_time/ ],
+	pathsep     => "/"
+    }, 
+    $old_project, $new_project);
 
-my $tree = $ccm->project_tree({ subprojects => $recursive }, $old_project, $new_project);
 my $diff = $Diff->new($ccm);
 
+# print project header lines
+$diff->meta(0, $old_project);
+$diff->meta(1, $old_project);
+
 # NOTE: the hiding of subtrees depends on an ordering of keys %tree
-# that sorts path _after_ dirname(path)
+# that sorts "foo/bar/quux" _after_ "foo/bar"
 my %hide;			# paths of deleted/added dirs
 my $ndiffs = 0;			# number of differences found
 
@@ -207,10 +359,11 @@ foreach my $path (sort keys %$tree)
 	if ($hide_sub_trees)
 	{
 	    $hide{$path}++ if $old->is_dir;
-	    next if $hide{dirname($path)};
+	    (my $dirname = $path) =~ s:/[^/]*$::;
+	    next if $hide{$dirname};
 	}
 
-	$diff->only($path, $old, "-");
+	$diff->only(0, $path, $old);
 	next;
     }
     unless (defined $old)		# added object
@@ -221,10 +374,11 @@ foreach my $path (sort keys %$tree)
 	if ($hide_sub_trees)
 	{
 	    $hide{$path}++ if $new->is_dir;
-	    next if $hide{dirname($path)};
+	    (my $dirname = $path) =~ s:/[^/]*$::;
+	    next if $hide{$dirname};
 	}
 
-	$diff->only($path, $new, "+");
+	$diff->only(1, $path, $new);
 	next;
     }
     next if $old eq $new; 		# same object
@@ -236,126 +390,3 @@ foreach my $path (sort keys %$tree)
 
 $diff_status = $ndiffs ? 1 : 0;		# FIXME patch: always exit 0 
 
-
-package Simple;
-
-sub new		
-{
-    my ($class, $ccm) = @_;
-    return bless {}, $class;
-}
-
-sub changed
-{
-    my ($self, $path, $old, $new) = @_;
-    print "! $path $old $new\n";
-}
-
-sub only
-{
-    my ($self, $path, $obj, $sign) = @_;
-    print "$sign $path $obj\n";
-}
-
-
-package Diff;
-
-use base qw/Simple/;
-use File::Temp qw/tempfile/;
-use File::Spec::Functions;
-
-sub new
-{
-    my ($class, $ccm) = @_;
-
-    my $self = { ccm => $ccm };
-    (undef, $self->{temp}) = tempfile;
-
-    # NOTE: On Windows, CM Synergy executes cli_compare_cmd without
-    # using the command interpreter, hence redirections don't work.
-    # If we do not redirect it, the output of cli_compare_cmd
-    # goes into the bit-bucket (i.e. can't be captured from $ccm->diff).
-    # Hence, force the use of cmd.exe (this causes annoying
-    # "flashing" command windows, though).
-    $self->{saved_cli_compare_cmd} = $self->{ccm}->set(
-	cli_compare_cmd => $^O eq "MSWin32" ? 
-	    "cmd /c @diff_prog %file1 %file2 > $self->{temp}" :
-	    # FIXME maybe better - no flicker?
-	    # qq[$^X -e "open STDOUT, '>', pop \@ARGV; system \@ARGV;" @diff_prog %file1 %file2 $self->{temp_diff}]
-	    qq[@diff_prog %file1 %file2 > $self->{temp}]);
-	
-    return bless $self, $class;
-}
-
-sub DESTROY
-{
-    my ($self) = @_;
-
-    $self->{ccm}->set(cli_compare_cmd => $self->{saved_cli_compare_cmd});
-    unlink($self->{temp}) if $self->{temp};
-}
-
-sub changed
-{
-    my ($self, $path, $old, $new) = @_;
-
-    unless ($old->is_dir || $new->is_dir)
-    {
-	# generate diff
-	$self->{ccm}->diff($old, $new);
-
-	open(my $fh, "<$self->{temp}");
-
-	# fudge the two header lines:
-	# replace the file names (either something in the CM Synergy
-	# database's cache area or a temp file) with "[ab]/path" 
-	foreach (qw/a b/)
-	{
-	    (my $header = <$fh>) =~ s/([+-]{3} ).*?(?=\t|$)/$1.catfile($_, $path)/e;
-	    print $header;
-	}
-
-	# copy through the rest
-	print while <$fh>;
-
-	close($fh);
-	return;
-    }
-
-    # one or both of $old and $new are dir's
-    # NOTE: suppress output if both are dir's
-    print "File ", catfile(a => $path), " is a regular file ",
-          "while file ", catfile(b => $path), "is a directory\n" 
-	  unless $old->is_dir;
-    print "File ", catfile(a => $path), "is a directory ",
-          "while file ", catfile(b => $path), "is a regular file\n" 
-	  unless $new->is_dir;
-}
-
-sub only
-{
-    my ($self, $path, $obj, $sign) = @_;
-    my $ab = $sign eq "-" ? "a" : "b";
-    print "Only in $ab: $path\n";
-}
-
-package Patch;
-
-use base qw/Diff/;
-use File::Spec::Functions;
-
-sub only
-{
-    my ($self, $path, $obj, $sign) = @_;
-
-    my @lines;
-    $self->{ccm}->cat_object($obj, \@lines);
-
-    my $range = @lines == 1 ? "1" : "1,".@lines;
-    print "--- ", catfile(a => $path), "\n",
-          "+++ ", catfile(b => $path), "\n",
-          $sign eq "-" ? 
-	    "\@\@ -$range +0,0 \@\@\n" : "\@\@ -0,0 +$range \@\@\n";
-    
-    print $sign, $_ foreach @lines;
-}

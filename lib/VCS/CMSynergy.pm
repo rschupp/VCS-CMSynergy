@@ -1,14 +1,13 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.28.5 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.28.6 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
 
 use VCS::CMSynergy::Client qw(
     is_win32 $Debug $Error $Ccm_command %new_opts 
-    _exitstatus _error _usage
-    ROW_ARRAY ROW_HASH ROW_OBJECT);
+    _exitstatus _error _usage);
 our @ISA = qw(VCS::CMSynergy::Client);
 
 
@@ -17,6 +16,9 @@ use Config;
 use File::Spec;
 use File::Temp qw(tempfile);		# in Perl core v5.6.1 and later
 
+use constant ROW_ARRAY	=> 0;
+use constant ROW_HASH	=> 1;
+use constant ROW_OBJECT	=> 2;
 
 BEGIN
 {
@@ -341,37 +343,37 @@ sub query
 
 sub query_arrayref
 {
-    my ($self, $query, @keywords) = @_;
     _usage(2, undef, '$query, @keywords', \@_);
+    my ($self, $query) = splice @_, 0, 2;
 
-    return $self->_query($query, \@keywords, ROW_ARRAY);
+    return $self->_query($query, \@_, ROW_ARRAY);
 }
 
 
 sub query_hashref
 {
-    my ($self, $query, @keywords) = @_;
     _usage(2, undef, '$query, @keywords', \@_);
+    my ($self, $query) = splice @_, 0, 2;
 
-    return $self->_query($query, \@keywords, ROW_HASH);
+    return $self->_query($query, \@_, ROW_HASH);
 }
 
 
 sub query_object
 {
-    my ($self, $query, @attributes) = @_;
     _usage(2, undef, '$query, @attributes', \@_);
+    my ($self, $query) = splice @_, 0, 2;
 
     # FIXME illegal @attributes: object objectname task_object find_use
-    return $self->_query($query, [ object => @attributes ], ROW_OBJECT);
+    return $self->_query($query, [ object => @_ ], ROW_OBJECT);
 }
 
 *query_object_with_attributes = \&query_object;		# compatibility alias
 
 sub query_count
 {
-    my ($self, $query) = @_;
     _usage(2, 2, '$query', \@_);
+    my ($self, $query) = @_;
 
     my ($rc, $out, $err) = $self->_ccm(
 	qw/query -u -ns -nf -format X/, $self->_expand_query($query));
@@ -649,19 +651,19 @@ sub history
 
 sub history_arrayref
 {
-    my ($self, $file_spec, @keywords) = @_;
     _usage(2, undef, '$file_spec, @keywords', \@_);
+    my ($self, $file_spec) = splice @_, 0, 2;
 
-    return $self->_history($file_spec, \@keywords, ROW_ARRAY);
+    return $self->_history($file_spec, \@_, ROW_ARRAY);
 }
 
 
 sub history_hashref
 {
-    my ($self, $file_spec, @keywords) = @_;
     _usage(2, undef, '$file_spec, @keywords', \@_);
+    my ($self, $file_spec) = splice @_, 0, 2;
 
-    return $self->_history($file_spec, \@keywords, ROW_HASH);
+    return $self->_history($file_spec, \@_, ROW_HASH);
 }
 
 # helper: history with correct handling of multi-line attributes
@@ -893,8 +895,8 @@ sub _relations
 
 sub project_tree
 {
-    my ($self, $options, @projects) = @_;
     _usage(2, undef, '\\%options, @projects', \@_);
+    my ($self, $options, @projects) = @_;
 
     $options = {} unless defined $options;
     croak(__PACKAGE__."::project_tree: argument 1 (options) must be a HASH ref: $options")
@@ -935,8 +937,8 @@ sub project_tree
 
 sub get_attribute
 {
-    my ($self, $name, $file_spec) = @_;
     _usage(3, 3, '$attribute_name, $file_spec', \@_);
+    my ($self, $name, $file_spec) = @_;
 
     my ($rc, $out, $err) = $self->_ccm(qw/attribute -show/, $name, $file_spec);
     return $out if $rc == 0;
@@ -947,8 +949,8 @@ sub get_attribute
 
 sub set_attribute
 {
-    my ($self, $name, $file_spec, $value) = @_;
     _usage(4, 4, '$attribute_name, $file_spec, $value', \@_);
+    my ($self, $name, $file_spec, $value) = @_;
 
     # try "ccm attribute -modify ..." first
     my ($rc, $out, $err) = $self->_ccm_attribute(
@@ -1025,8 +1027,9 @@ sub _ccm_attribute
 
 sub create_attribute
 {
-    my ($self, $name, $type, $value, @file_specs) = @_;
     _usage(4, undef, '$name, $type, $value, @file_specs', \@_);
+    my ($self, $name, $type, $value, @file_specs) = @_;
+
     croak(__PACKAGE__.'::create_attribute: argument 3 (value) must be defined')
 	unless defined $value;
 
@@ -1039,8 +1042,8 @@ sub create_attribute
 
 sub delete_attribute
 {
-    my ($self, $name, @file_specs) = @_;
     _usage(2, undef, '$name, @file_specs', \@_);
+    my ($self, $name, @file_specs) = @_;
 
     return scalar $self->ccm(qw/attribute -delete/, $name, @file_specs);
 }
@@ -1048,8 +1051,8 @@ sub delete_attribute
 
 sub copy_attribute
 {
-    my ($self, $name, @file_specs) = @_;
     _usage(4, undef, '{ $name | \\@names }, [ \\@flags, ] $from_file_spec, $to_file_spec...', \@_);
+    my ($self, $name, @file_specs) = @_;
 
     $name = join(':', @$name) if UNIVERSAL::isa($name, 'ARRAY');
 
@@ -1062,8 +1065,8 @@ sub copy_attribute
 
 sub list_attributes
 {
-    my ($self, $file_spec) = @_;
     _usage(2, 2, '$file_spec', \@_);
+    my ($self, $file_spec) = @_;
 
     my ($rc, $out, $err) = $self->_ccm(qw/attribute -la/, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
@@ -1075,8 +1078,8 @@ sub list_attributes
 
 sub property
 {
-    my ($self, $keyword_s, $file_spec) = @_;
     _usage(3, 3, '{ $keyword | \@keywords }, $file_spec', \@_);
+    my ($self, $keyword_s, $file_spec) = @_;
 
     if (UNIVERSAL::isa($keyword_s, 'ARRAY'))
     {
@@ -1084,8 +1087,8 @@ sub property
     }
     else
     {
-	my $row = $self->_property($file_spec, [ $keyword_s ], ROW_HASH);
-	return $row && $row->{$keyword_s};
+	my $row = $self->_property($file_spec, [ $keyword_s ], ROW_HASH) or return;
+	return $row->{$keyword_s};
     }
 }
 
@@ -1109,8 +1112,9 @@ sub _property
 
 sub cat_object
 {
-    my ($self, $object, $destination) = @_;
     _usage(2, 3, '$object [, $destination]', \@_);
+    my ($self, $object, $destination) = @_;
+
     croak(__PACKAGE__."::cat_object: argument 1 (object) must be a VCS::CMSynergy::Object: $object")
 	unless UNIVERSAL::isa($object, "VCS::CMSynergy::Object");
 
@@ -1238,26 +1242,26 @@ sub ls
 
 sub ls_arrayref
 {
-    my ($self, $file_spec, @keywords) = @_;
     _usage(2, undef, '$file_spec, @keywords', \@_);
+    my ($self, $file_spec) = splice @_, 0, 2;
 
-    return $self->_ls($file_spec, \@keywords, ROW_ARRAY);
+    return $self->_ls($file_spec, \@_, ROW_ARRAY);
 }
 
 
 sub ls_hashref
 {
-    my ($self, $file_spec, @keywords) = @_;
     _usage(2, undef, '$file_spec, @keywords', \@_);
+    my ($self, $file_spec) = splice @_, 0, 2;
 
-    return $self->_ls($file_spec, \@keywords, ROW_HASH);
+    return $self->_ls($file_spec, \@_, ROW_HASH);
 }
 
 
 sub ls_object
 {
-    my ($self, $file_spec) = @_;
     _usage(1, 2, '[ $file_spec ]', \@_);
+    my ($self, $file_spec) = @_;
     $file_spec = '.' unless defined $file_spec;
 
     return $self->_ls($file_spec, [ qw/object/ ], ROW_OBJECT);
@@ -1290,8 +1294,8 @@ sub _ls
     
 sub set
 {
-    my ($self, $option, $value) = @_;
     _usage(1, 3, '[$option [, $value]]', \@_);
+    my ($self, $option, $value) = @_;
 
     if (@_ == 1)
     {
@@ -1448,8 +1452,8 @@ sub get_releases
 # [DEPRECATE < 6.3]
 sub set_releases
 {
-    my ($self, $releases) = @_;
     _usage(2, 2, '\\%releases', \@_);
+    my ($self, $releases) = @_;
 
     my $text = "";
     {
@@ -1619,25 +1623,48 @@ sub task_object
     return $self->object("task$num", qw(1 task), $instance);
 }
 
+
 # $ccm->object_other_version(object, version) => VCS::CMSynergy::Object
 #	new Object with same name/cvtype/instance as OBJECT, but version VERSION
 sub object_other_version
 {
-    my ($self, $object, $other_version) = @_;
     _usage(3, 3, '$object, $other_version', \@_);
+    my ($self, $object, $other_version) = @_;
+
     return $self->object($object->name, $other_version, $object->cvtype, $object->instance);
 }
+
 
 # $ccm->object_from_cvid(cvid) => VCS::CMSynergy::Object
 sub object_from_cvid
 {
-    my ($self, $cvid, @keywords) = @_;
     _usage(2, undef, '$cvid, @keywords', \@_);
+    my ($self, $cvid) = splice @_, 0, 2;
 
     # NOTE: if the cvid doesn't exist, "ccm property ..." has exit code 0, but 
     # "Warning: Object version representing type does not exist." on stderr
-    return $self->_property("\@=$cvid", [ object => @keywords ], ROW_OBJECT);
+    return $self->_property("\@=$cvid", [ object => @_ ], ROW_OBJECT);
 }
+
+
+# $ccm->object_from_proj_ref($path, $proj_spec) => VCS::CMSynergy::Object
+# NOTE: $path is either sa tring (wa relative path) 
+# or array ref of path components
+# FIXME needs test
+sub object_from_proj_ref
+{
+    _usage(3, undef, '{ $path | \\@path_components }, $proj_spec, @keywords', \@_);
+    my ($self, $path, $proj_spec) = splice @_, 0, 3;
+
+    $path = join("/", @$path) if ref $path; # FIXME use native path delim here
+
+    return $self->ccm->_property(
+	"$path\@$proj_spec,", [ object => @_ ], ROW_OBJECT);
+    # NOTE/FIXME: no error if path isn't bound? possible errors:
+    #   Specified project not found in database: '$self'
+    #   Object version could not be identified from reference form: '$path'
+}
+
 
 1;
 

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Project;
 
-our $VERSION = do { (my $v = q%version: 4 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 5 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -15,7 +15,7 @@ use strict;
 use base qw(VCS::CMSynergy::Object);
 
 use Carp;
-use VCS::CMSynergy::Client qw(_usage ROW_OBJECT);
+use VCS::CMSynergy::Client qw(_usage);
 use File::Spec;
 use Cwd;
 
@@ -40,7 +40,8 @@ sub hierarchy_project_members
 sub is_child_of
 {
     _usage(1, undef, '[{ $dir_object | undef }, @keywords]', \@_);
-    my ($self, $dir, @keywords) = @_;
+    my ($self, $dir) = splice @_, 0, 2;
+
     if (defined $dir)
     {
 	croak(__PACKAGE__."::is_child_of: argument 1 ($dir) must be a VCS::CMSynergy::Object")
@@ -52,23 +53,20 @@ sub is_child_of
     {
 	$dir = $self;
     }
-    return $self->ccm->query_object("is_child_of('$dir','$self')", @keywords);
+    return $self->ccm->query_object("is_child_of('$dir','$self')", @_);
 }
 
 
-# NOTE: takes either string (relative path) or array ref of path components
+# create V::C::O from a "project reference",
+# i.e. a project and a relative path
+# NOTE: takes either string (path) or array ref of path components
 # FIXME needs test
-sub object_from_path
+sub object_from_proj_ref
 {
     _usage(2, undef, '{ $path | \\@path_components }, @keywords', \@_);
-    my ($self, $path, @keywords) = @_;
+    my ($self, $path) = splice @_, 0, 2;
 
-    $path = join("/", @$path) if ref $path; # FIXME use native path delim here
-
-    return $self->ccm->_property("$path\@$self", [ object => @keywords ], ROW_OBJECT);
-    # NOTE/FIXME: no error if path isn't bound? possible errors:
-    # Specified project not found in database: '$self'
-    # Object version could not be identified from reference form: '$path'
+    return $self->ccm->object_from_proj_ref($path, $self);
 }
 
 

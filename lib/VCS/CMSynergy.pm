@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.26.9 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.26.10 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -1177,6 +1177,9 @@ sub cat_object
 	return $self->_cat_binary(@_);
     }
 
+    my $want_return = @_ == 2;
+    $destination = do { my $dummy; \$dummy; } if $want_return;
+
     $Error = $self->{error} = undef;
     $Ccm_command = $self->{ccm_command} = "cat $object";
 
@@ -1184,8 +1187,7 @@ sub cat_object
 
     local @ENV{keys %{ $self->{env} }} = values %{ $self->{env} };
     local $?;				# don't screw up global $?
-    my ($out, $err);
-    $destination = \$out if @_ == 2;	# i.e. return contents of $object
+    my $err;
 
     run3([ $self->ccm_exe, 'cat', $object ], \undef, $destination, \$err, 
 	 { binmode_stdout => 1, binmode_stderr => 1 });
@@ -1206,72 +1208,57 @@ sub cat_object
 	    $self->trace_msg("ccm($self->{ccm_command}) = $success [$elapsed sec]\n");
 	}
     }
-    return @_ == 2 ? $out : 1 if $rc == 0;
-    return $self->set_error($err || "`ccm cat $object' failed");
+    return $self->set_error($err || "`ccm cat $object' failed") unless $rc == 0;
+    return $want_return ? $$destination : 1;
 }
 
 # [DEPRECATE < 6.3]
 sub _cat_binary
 {
     my ($self, $object, $destination) = @_;
+    my $want_return = @_ == 2;
+    $destination = do { my $dummy; \$dummy; } if $want_return;
 
-    my ($out, $file);
-    $destination = \$out if @_ == 2;
-    my $type = ref $destination;
-    if ($type)
+    my $file;
+    if (ref $destination)	# scalar ref, code ref, ....
     {
-	# FIXME should cache it or re-use the one from ccm_with_text_editor
 	(undef, $file) = tempfile();
     }
-    else
+    else			# $destination is a filename
     {
-	# NOTE: Avoid a double copy if $destination is a string.
-	# But CCM executes foo_cli_view_cmd chdir'ed somewhere,
-	# hence convert $destination to an absolute pathname.
+	# avoid a double copy by writing directly to $destination
+	# NOTE: CCM executes foo_cli_view_cmd chdir'ed somewhere,
+	# convert $destination to an absolute pathname
 	$file = File::Spec->rel2abs($destination);
     }
 
     # NOTE: cli_view_cmd must be specific to $object's cvtype,
     # otherwise it won't override the view_cmd attached to the attype.
     my $view_cmd = $object->cvtype . "_cli_view_cmd";
-    unless ($self->ccm_with_option(
+
+    my ($rc, $out, $err) = $self->ccm_with_option(
 	$view_cmd => $^O eq 'MSWin32' ?
 	    qq[cmd /c copy /b /y %filename "$file"] :  	#/
 	    qq[$Config{cp} %filename '$file'],
-	qw/view/, $object))
+	view => $object);
+    unless ($rc == 0)
     {
-	unlink $file if $type;
-	return;
+	unlink $file if ref $destination;
+	return $self->set_error($err || $out);
     }
-    return 1 unless $type;
 
-    # the following code stolen from IPC::Run3
-    open my $fh, "<$file" 
-	or return $self->set_error("can't open `$file': $!");
-    binmode $fh;
-    if ($type eq "SCALAR")
+    if (ref $destination)
     {
-	$$destination = '';
-	1 while read $fh, $$destination, 10_000, length $$destination;
+	local $?;
+	run3([ $Config{cat}, $file ], \undef, $destination, \undef,
+	     { binmode_stdout => 1 });
+	unlink $file;
+	return $want_return ? $$destination : 1;
     }
-    elsif ($type eq "ARRAY")
+    else
     {
-	@$destination = <$fh>;
+	return 1;
     }
-    elsif ($type eq "CODE")
-    {
-	local $_;
-	$destination->($_) while <$fh>;
-    }
-    else	# assume its a file handle or a type glob
-    {
-	local $_;
-	print $destination while <$fh>;
-    }
-    close $fh;
-    unlink $file;
-
-    return @_ == 2 ? $out : 1;
 }
 
 # internal method

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 33;
+use Test::More tests => 45;
 use t::util;
 use strict;
 
@@ -74,7 +74,6 @@ my $binary_obj = $ccm->object("calculator.exe-1:executable:1");
 	$cleanup->add(sub { chdir($pwd); });
     }
 
-    # note MD5 of some objects for later test
     foreach my $obj ($ascii_obj, $binary_obj)
     {
 	$result = $ccm->finduse($obj);
@@ -85,11 +84,8 @@ my $binary_obj = $ccm->object("calculator.exe-1:executable:1");
 	ok(defined $file, qq[$obj found in project $test_proj]);
 	ok(-e $file, qq[file ($file) for $obj found in workarea]);
 
-	open my $fh, "<$file" or die "can't open $file: $!";
-	binmode $fh;
-	$md5->addfile($fh);
-	close $fh;
-	$md5_expected{$obj} = $md5->hexdigest;
+	# note MD5 for later tests
+	$md5_expected{$obj} = md5_file($file);
     }
 
     my $file = $path{$ascii_obj};
@@ -116,20 +112,46 @@ foreach my $obj ($ascii_obj, $binary_obj)
 {
     my (undef, $tmpfile) = tempfile(CLEANUP => 1);
     ok($ccm->cat_object($obj, $tmpfile), q[cat_object to file]);
-
-    open my $fh, "<$tmpfile" or die "can't open $tmpfile: $!";
-    binmode $fh;
-    $md5->addfile($fh);
-    close $fh;
-    is($md5->hexdigest, $md5_expected{$obj}, qq[compare MD5 for $obj]);
+    is(md5_file($tmpfile), $md5_expected{$obj}, qq[compare MD5 for $obj]);
 
     my $contents;
     ok($ccm->cat_object($obj, \$contents), q[cat_object to string]);
-    $md5->add($contents);
-    is($md5->hexdigest, $md5_expected{$obj}, qq[compare MD5 for $obj]);
+    is($md5->add($contents)->hexdigest, $md5_expected{$obj}, qq[compare MD5 for $obj]);
+
+    my $retval = $ccm->cat_object($obj);
+    ok(defined $retval, q[cat_object return contents]);
+    is($md5->add($retval)->hexdigest, $md5_expected{$obj}, qq[compare MD5 for $obj]);
+
+    my ($fh, $tmpfile2) = tempfile(CLEANUP => 1);
+    ok($ccm->cat_object($obj, $fh), q[cat_object to filehandle]);
+    close $fh;
+    is(md5_file($tmpfile2), $md5_expected{$obj}, qq[compare MD5 for $obj]);
 }
+
+# test with CODE and ARRAY for ascii object only 
+# (because they operate by lines)
+
+my @lines;
+ok($ccm->cat_object($ascii_obj, \@lines), q[cat_object to array]);
+$md5->add($_) foreach @lines;
+is($md5->hexdigest, $md5_expected{$ascii_obj}, qq[compare MD5 for $ascii_obj]);
+
+ok($ccm->cat_object($ascii_obj, sub { $md5->add($_); }), q[cat_object to sub]);
+is($md5->hexdigest, $md5_expected{$ascii_obj}, qq[compare MD5 for $ascii_obj]);
+
     
 exit 0;
+
+sub md5_file
+{
+    my ($file) = @_;
+    open my $fh, "<$file" or die "can't open $file: $!";
+    binmode $fh;
+    $md5->addfile($fh);
+    close $fh;
+    return $md5->hexdigest;
+}
+
 
 package Cleanup;
 

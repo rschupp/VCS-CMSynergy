@@ -7,7 +7,7 @@ installdirs:  site
 requires:
     File::Spec:                    0
     File::Temp:                    0
-    IPC::Run3:                     0.01
+    IPC::Run3:                     0.030
     Test::More:                    0
     Time::HiRes:                   0
 

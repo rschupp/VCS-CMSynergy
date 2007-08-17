@@ -8,12 +8,11 @@ isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 
 # test that autoloaded methods spring into existence
-ok(!exists &VCS::CMSynergy::foo);
+ok(!$ccm->can("foo"),	q[method foo not yet autoloaded]);
 {
-    local $ccm->{RaiseError} = 0;
+    local $ccm->{RaiseError} = 0;	# because there is no "ccm foo ..."
     $ccm->foo(qw(bar quux));
 }
-ok(exists &VCS::CMSynergy::foo, 
-   q[VCS::CMSynergy::foo got autoloaded]);
+ok($ccm->can("foo"),	q[method foo has been autoloaded]);
 
 exit 0;

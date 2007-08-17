@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 8;
+use Test::More tests => 9;
 use t::util;
 use UNIVERSAL qw(isa);
 
@@ -47,14 +47,14 @@ Successors:
 ];
 my $h0_result = $ccm->history("bufcolor.c-1:csrc:2");
 verbose('h0_result', $h0_result);
-isa_ok($h0_result, "ARRAY", "history() returns array ref");
+isa_ok($h0_result, "ARRAY", "history()");
 # sigh, CCM_DATETIME_FMT doesn't work with Windows clients
 if ($VCS::CMSynergy::Is_MSWin32)
 {
     s/^Created:.*$/Created:/m foreach (@$h0_exp);
     s/^Created:.*$/Created:/m foreach (@$h0_result);
 }
-ok(eq_set($h0_exp, $h0_result),
+ok(eq_set($h0_result, $h0_exp),
    q[$ccm->history("bufcolor.c-1:csrc:2")]);
 
 my $h1_exp = [
@@ -89,16 +89,28 @@ Fri Sep  5 09:06:48 1997: Status set to \'integrate\' by ccm_root in role ccm_ad
 my $h1_result = $ccm->history_hashref(
     "bufcolor.c-3:csrc:2", qw(object predecessors successors task status_log));
 verbose('h1_result', $h1_result);
-isa_ok($h1_result, "ARRAY", "history_hashref() returns array ref");
-ok(all(sub { isa($_, "HASH") }, @$h1_result),
-   q[history_hashref() returns array ref of hash refs]);
-ok(all(sub { isa($_->{object}, "VCS::CMSynergy::Object") }, @$h1_result),
-    q[history_hashref(): keyword `object' returns array of VCS::CMSynergy::Objects]);
-ok(all(sub { 
-	all { isa($_, "VCS::CMSynergy::Object") } 
-	    @{ $_->{successors} }, @{ $_->{predecessors} }  
-    }, @$h1_result),
-    q[history_hashref(): keywords `successors' and `predecessors' return array of VCS::CMSynergy::Objects]);
+isa_ok($h1_result, "ARRAY", "history_hashref()");
+all_ok { isa($_, "HASH") } $h1_result,
+   q[history_hashref() returns array ref of hash refs];
+all_ok { isa($_->{object}, "VCS::CMSynergy::Object") } $h1_result,
+    q[history_hashref(): keyword 'object' returns a VCS::CMSynergy::Object];
+all_ok 
+{ 
+    my $succ = $_->{successors};
+    !defined($succ) || 
+	(isa($succ, "ARRAY") &&
+         scalar(grep { isa($_, "VCS::CMSynergy::Object") } @$succ) == @$succ)
+} $h1_result,
+    q[history_hashref(): keyword 'successors' returns array of VCS::CMSynergy::Objects];
+all_ok 
+{ 
+    my $pred = $_->{predecessors};
+    !defined($pred) || 
+	(isa($pred, "ARRAY") &&
+         scalar(grep { isa($_, "VCS::CMSynergy::Object") } @$pred) == @$pred)
+} $h1_result,
+    q[history_hashref(): keyword 'predecessors' returns array of VCS::CMSynergy::Objects];
+
 # stringify all Objects in $h1_result for following comparison
 foreach my $row (@$h1_result)
 {
@@ -106,9 +118,9 @@ foreach my $row (@$h1_result)
     $_ = "$_" foreach (@{ $row->{predecessors} }); 
     $_ = "$_" foreach (@{ $row->{successors} }); 
 }
-ok(eq_array(		# sort on key object
-   [ sort { $a->{object} cmp $b->{object} } @$h1_exp ],
-   [ sort { $a->{object} cmp $b->{object} } @$h1_result ]),
+ok(eq_array(		# eq_set doesn't properly cope with refs
+   [ sort { $a->{object} cmp $b->{object} } @$h1_result ], 
+   [ sort { $a->{object} cmp $b->{object} } @$h1_exp ]), 
    q[$ccm->history_hashref("bufcolor.c-3:csrc:2", qw(object predecessors successors task status_log))]);
 
 exit 0;

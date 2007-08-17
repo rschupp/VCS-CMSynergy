@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = sprintf("%d.%02d", q%version: 6 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 7 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -471,11 +471,15 @@ sub status
 	    $user = $1;
 	    next;
 	}
-	if (/^(graphical|command) interface \@ (\S+)/i)
+	if (my ($interface, $rfc_address) = /^(.*?) interface \@ (\S+)/i)
 	{
-	    $session = { 
-		rfc_address	=> $2,
-		process		=> $1 =~ /graphical/i ? "gui_interface" : "cmd_interface",
+	    # start of a session description;
+	    # convert interface to process name used by `ccm ps'
+	    $session = 
+	    {
+		process		=> $interface =~ /graphical/i ? 
+				     "gui_interface" : "cmd_interface",
+		rfc_address	=> $rfc_address,
 		user		=> $user,
 	    };
 	    push @sessions, $session;
@@ -485,7 +489,7 @@ sub status
 	{
 	    # sanitize database path (all other CM Synergy information commands
 	    # show it with trailing "/db", so we standardize on that)
-	    # NOTE: carefull here, because the database might reside on Windows
+	    # NOTE: careful here, because the database might reside on Windows
 	    ($session->{database} = $1) 		
 		=~ s{^(.)(.*?)(\1db)?$}{$1$2$1db};
 	    next;

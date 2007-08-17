@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.26.6 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.26.7 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -492,8 +492,9 @@ sub _parse_query_result
 
     my %row;
     
+    # strip trailing newline (for consistency with get_attribute()),
     # translate "<void>" to undef and fill into correct slots
-    @row{keys %$want} = map { $_ eq "<void>" ? undef : $_ } @$cols;
+    @row{keys %$want} = map { s/\n\z//; /^<void>$/ ? undef : $_ } @$cols;
     
     # handle special keywords
 
@@ -1118,8 +1119,9 @@ sub property
 	$self->_ccm(0, qw/properties -nf -format/, "\cA%$keyword\cD", $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
-    my ($prop) = $out =~ /\cA(.*)\cD/s;
-    return defined $prop && $prop ne "<void>" ? $prop : undef;
+    my ($prop) = $out =~ /\cA(.*)\cD/s or return undef;
+    $prop =~ s/\n\z//;
+    return $prop =~ /^<void>$/ ? undef : $prop;
 }
 
 
@@ -1318,8 +1320,8 @@ sub ls_hashref
     foreach (@$rows)
     {
 	my %hash;
-	@hash{@keywords} = map { $_ eq "<void>" ? undef : $_ } 
-			       split(/\cD/, $_, -1);
+	@hash{@keywords} = 
+	    map { s/\n\z//; /^<void>$/ ? undef : $_ } split(/\cD/, $_, -1);
 
 	push(@result, \%hash);
     }
@@ -1610,6 +1612,23 @@ sub base_model	{ $_[0]->object(qw(base 1 model base)); }
 sub cvtype	{ $_[0]->object($_[1], qw(1 cvtype base)); }
 sub attype	{ $_[0]->object($_[1], qw(1 attype base)); }
 
+# get foler object from displayname (without querying Synergy)
+sub folder_object
+{
+    my ($self, $folder) = @_;
+
+    # displayname is either <number> (for a local folder)
+    # or <dbid><dcm_delimiter><number> (for a foreign folder)
+    my ($dbid, $num) = $folder =~ /^(?:(.*)\D)?(\d+)$/;
+    $dbid = 'probtrac' unless defined $dbid;
+
+    # FIXME: alternatively could use 
+    #    $self>query_object({ folder => [ $folder ] }) };
+    # but query function folder() appeared in CCM 6.x
+
+    return $self->object($num, qw(1 folder), $dbid);
+}
+
 # get task object from displayname (without querying Synergy)
 sub task_object
 {
@@ -1619,6 +1638,10 @@ sub task_object
     # or <dbid><dcm_delimiter><number> (for a foreign task)
     my ($dbid, $num) = $task =~ /^(?:(.*)\D)?(\d+)$/;
     $dbid = 'probtrac' unless defined $dbid;
+
+    # FIXME: alternatively could use 
+    #    $self>query_object({ task => [ $task ] }) };
+    # but query function task() appeared in CCM 6.x
 
     return $self->object("task$num", qw(1 task), $dbid);
 }

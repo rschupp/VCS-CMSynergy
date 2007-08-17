@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 28;
+use Test::More tests => 33;
 use t::util;
 use strict;
 
@@ -10,6 +10,9 @@ BEGIN
     ok(VCS::CMSynergy::use_cached_attributes(), q[using :cached_attributes]);
 }
 
+my @cleanup;			# cleanup actions
+END { &{ pop @cleanup } while @cleanup; }
+
 my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
@@ -18,6 +21,25 @@ diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
 my $e_got = $ccm->query_object("name match '*blurfl*'");
 ok(UNIVERSAL::isa($e_got, "ARRAY") && @$e_got == 0,
    q[query with no match: $ccm->query_object("name match '*blurfl*'")]);
+
+# test that empty string values are correctly returned by query()
+# (and not turned into undef)
+{
+    # we need a modifiable object...
+    my $desc = gmtime()." the three stooges";
+    my ($rc, $out, $err) = $ccm->folder(qw/-create -name/, $desc);
+    ok($rc == 0, q[create folder]);
+    my $rx_created = qr/Created folder (.*?)\./;
+    like($out, $rx_created, "Created folder ...");
+    my ($folder) = $ccm->folder_object($out =~ $rx_created);
+    push @cleanup, sub { $ccm->folder(qw/-delete -quiet -y/, $folder) };
+
+    my @stooges = qw(larry moe curly);
+    $ccm->create_attribute($_, string => "", $folder) foreach @stooges;
+    my ($attr) = @{ $ccm->query_hashref(
+	{ type => "folder", description => $desc }, @stooges) };
+    is($attr->{$_}, "", q[empty string attribute in query]) foreach @stooges;
+}
 
 # test query_object with old-style objectnames returned from the query
 my $b_expected;
@@ -100,24 +122,21 @@ my $ml_expected =
      'Tue Jun 25 09:47:34 1996: Status set to \'working\' by joe in role developer
 Tue Jun 25 11:41:05 1996: Status set to \'integrate\' by joe in role build_mgr
 Tue Jun 25 15:29:14 1996: Status set to \'test\' by joe in role ccm_admin
-Wed Sep 24 08:58:21 1997: Status set to \'released\' by darcy in role ccm_admin
-'
+Wed Sep 24 08:58:21 1997: Status set to \'released\' by darcy in role ccm_admin'
    ],
    [
      'bufcolor.c-2:csrc:1',
      'Tue Jun 25 11:41:50 1996: Status set to \'working\' by joe in role build_mgr
 Tue Jun 25 11:42:07 1996: Status set to \'integrate\' by joe in role build_mgr
 Tue Jun 25 15:29:16 1996: Status set to \'test\' by joe in role ccm_admin
-Mon Sep 29 17:55:46 1997: Status set to \'integrate\' by darcy in role ccm_admin
-'
+Mon Sep 29 17:55:46 1997: Status set to \'integrate\' by darcy in role ccm_admin'
    ],
    [
      'bufcolor.c-3:csrc:1',
      'Tue Jun 25 11:43:50 1996: Status set to \'working\' by joe in role build_mgr
 Tue Jun 25 11:44:22 1996: Status set to \'integrate\' by joe in role build_mgr
 Tue Jun 25 11:54:22 1996: Status set to \'test\' by joe in role build_mgr
-Mon Sep 29 17:56:01 1997: Status set to \'integrate\' by darcy in role ccm_admin
-'
+Mon Sep 29 17:56:01 1997: Status set to \'integrate\' by darcy in role ccm_admin'
    ]
 ];
 my $ml_got = $ccm->query_arrayref(

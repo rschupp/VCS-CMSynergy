@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.29.1 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.30.1 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -367,7 +367,7 @@ sub query_object
     _usage(2, undef, '$query, @attributes', \@_);
     my ($self, $query) = splice @_, 0, 2;
 
-    return $self->_query($query, [ object => @_ ], ROW_OBJECT);
+    return $self->_query($query, \@_, ROW_OBJECT);
 }
 
 *query_object_with_attributes = \&query_object;		# compatibility alias
@@ -547,10 +547,13 @@ my %_rewrite_rule =
 
 
 # helper (not a method): build "want" array from keyword list (common case)
+# NOTE: if $want_row_object is true, key "object" will be automatically
+#       added to the returned hash
 sub _want
 {
-    my ($row_object, $keywords) = @_;
+    my ($want_row_object, $keywords) = @_;
     my %want = map { $_ => "%$_" } @$keywords;
+    $want{object} ||= "%objectname" if $want_row_object;
 
     # handle special keywords
     foreach (keys %want)
@@ -558,7 +561,7 @@ sub _want
 	if (my $rule = $_rewrite_rule{$_})
 	{
 	    croak("keyword $_ not allowed when ROW_OBJECT wanted") 
-		if $row_object && !$rule->{row_object_ok};
+		if $want_row_object && !$rule->{row_object_ok};
 	    $want{$_} = $rule->{in};
 	}
     }
@@ -568,7 +571,7 @@ sub _want
 
 sub _parse_query_result
 {
-    my ($self, $want, $cols, $row_object) = @_;
+    my ($self, $want, $cols, $want_row_object) = @_;
 
     my %row;
     
@@ -586,7 +589,7 @@ sub _parse_query_result
 	}
     }
 
-    if ($row_object)
+    if ($want_row_object)
     {
 	my $obj = delete $row{object};
 	$obj->_update_acache(\%row);
@@ -843,14 +846,18 @@ sub relations_hashref
 {
     my ($self, %args) = @_;
 
-    my %orig_args = %args;
-    foreach (qw/from_attributes to_attributes/)
+    my %defaulted;
+    foreach my $arg (qw/from_attributes to_attributes/)
     {
-	croak(__PACKAGE__."::relations_hashref: optional argument $_ must be an array ref")
-	    if exists $args{$_} && !UNIVERSAL::isa($args{$_}, 'ARRAY');
+	croak(__PACKAGE__."::relations_hashref: optional argument $arg must be an array ref")
+	    if exists $args{$arg} && !UNIVERSAL::isa($args{$arg}, 'ARRAY');
 
 	# default keyword "objectname"
-	$args{$_} ||= [ qw/objectname/ ];
+	unless ($args{$arg})
+	{
+	    $args{$arg} = [ qw/objectname/ ];
+	    $defaulted{$arg}++;
+	}
     }
 
     my $result = $self->_relations(\%args, 0);
@@ -858,11 +865,11 @@ sub relations_hashref
 
     # if we defaulted "objectname" above, replace the corresponding
     # hash containing the sole key "objectname" with its value
-    foreach my $what (qw/from to/)
+    foreach my $arg (qw/from to/)
     {
-	unless (exists $orig_args{"${what}_attributes"})
+	if ($defaulted{"${arg}_attributes"})
 	{
-	    $_->{$what} = $_->{$what}->{objectname} foreach @$result;
+	    $_->{$arg} = $_->{$arg}->{objectname} foreach @$result;
 	}
     }
     return $result;
@@ -873,13 +880,11 @@ sub relations_object
 {
     my ($self, %args) = @_;
 
-    foreach (qw/from_attributes to_attributes/)
+    foreach my $arg (qw/from_attributes to_attributes/)
     {
-	croak(__PACKAGE__."::relations_object: optional argument $_ must be an array ref")
-	    if exists $args{$_} && !UNIVERSAL::isa($args{$_}, 'ARRAY');
-
-	# make a copy and add keyword "object"
-	$args{$_} = [ object => @{ $args{$_} || [] } ];	
+	croak(__PACKAGE__."::relations_object: optional argument $arg must be an array ref")
+	    if $args{$arg} && !UNIVERSAL::isa($args{$arg}, 'ARRAY');
+	$args{$arg} ||= [];		# _relations below likes 'em defined
     }
 
     return $self->_relations(\%args, 1);
@@ -889,12 +894,12 @@ sub relations_object
 # helper method: synthesize command and parse result of "ccm relate -show ..."
 sub _relations
 {
-    my ($self, $args, $row_object) = @_;
+    my ($self, $args, $want_row_object) = @_;
     # NOTE: $args->{from_attributes}/$args->{to_attributes} must not be undef
 
-    my $want_from = _want($row_object, $args->{from_attributes});
+    my $want_from = _want($want_row_object, $args->{from_attributes});
     my $ncol_from = keys %$want_from;
-    my $want_to = _want($row_object, $args->{to_attributes});
+    my $want_to = _want($want_row_object, $args->{to_attributes});
     my $ncol_to = keys %$want_to;
 
     # NOTE: If the "from" part (the part before "::") of the format
@@ -929,7 +934,7 @@ sub _relations
 	# first $ncol_from columns are the "from" part;
 	# avoid to parse "from" part more than once # if "from => ..." was specified
 	my @cols_from = splice @cols, 0, $ncol_from;
-	$from = $self->_parse_query_result($want_from, \@cols_from, $row_object)
+	$from = $self->_parse_query_result($want_from, \@cols_from, $want_row_object)
 	    unless $args->{from} && $from;
 
 	# next column is the name of the relation; trim whitespace
@@ -938,7 +943,7 @@ sub _relations
 	# next $ncol_to columns are the "to" part;
 	# avoid to parse "to" part more than once if "to => ..." was specified
 	my @cols_to = splice @cols, 0, $ncol_to;
-	$to = $self->_parse_query_result($want_to, \@cols_to, $row_object)
+	$to = $self->_parse_query_result($want_to, \@cols_to, $want_row_object)
 	    unless $args->{to} && $to;
 
 	# last column is the create_time of the relation; trim whitespace
@@ -1159,9 +1164,9 @@ sub property
 
 sub _property
 {
-    my ($self, $file_spec, $keywords, $row_object) = @_;
+    my ($self, $file_spec, $keywords, $want_row_object) = @_;
 
-    my $want = _want($row_object, $keywords);
+    my $want = _want($want_row_object, $keywords);
     my $format = $RS . join($FS, values %$want) . $FS;
 
     my ($rc, $out, $err) = 
@@ -1170,7 +1175,7 @@ sub _property
 
     my (undef, $props) = split(/\Q$RS\E/, $out, -1);
     my @cols = split(/\Q$FS\E/, $props, -1);	# don't strip empty trailing fields
-    return $self->_parse_query_result($want, \@cols, $row_object);
+    return $self->_parse_query_result($want, \@cols, $want_row_object);
 }
 
 
@@ -1329,7 +1334,7 @@ sub ls_object
     my ($self, $file_spec) = @_;
     $file_spec = '.' unless defined $file_spec;
 
-    return $self->_ls($file_spec, [ qw/object/ ], ROW_OBJECT);
+    return $self->_ls($file_spec, [], ROW_OBJECT);
 }
 
 
@@ -1731,7 +1736,7 @@ sub object_from_cvid
 
     # NOTE: if the cvid doesn't exist, "ccm property ..." has exit code 0, but 
     # "Warning: Object version representing type does not exist." on stderr
-    return $self->_property("\@=$cvid", [ object => @_ ], 1);
+    return $self->_property("\@=$cvid", \@_, 1);
 }
 
 
@@ -1743,7 +1748,7 @@ sub object_from_proj_ref
 
     $path = join(VCS::CMSynergy::Client::_pathsep, @$path) if ref $path; 
 
-    return $self->_property("$path\@$proj_spec", [ object => @_ ], 1);
+    return $self->_property("$path\@$proj_spec", \@_, 1);
     # NOTE/FIXME: no error if path isn't bound? possible errors:
     #   Specified project not found in database: '$self'
     #   Object version could not be identified from reference form: '$path'

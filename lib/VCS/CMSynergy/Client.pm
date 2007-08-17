@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 27 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 28 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -425,7 +425,7 @@ __PACKAGE__->_memoize_method(_version => sub
     return $self->set_error($err || $out) unless $rc == 0;
 
     my %version;
-    my $cmsynergy_rx = qr/(?:Continuus|CM Synergy|SYNERGY\/CM)/;
+    my $cmsynergy_rx = qr{(?:Continuus|CM Synergy|SYNERGY/CM|Telelogic Synergy)};
     ($version{cmsynergy}) = $out =~ /^$cmsynergy_rx Version\s+(\S*)$/imo
 	or return $self->set_error("can't recognize version from `$out'");
     ($version{short}) = $version{cmsynergy} =~ /^(\d+\.\d+)/;

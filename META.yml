@@ -1,15 +1,18 @@
-# http://module-build.sourceforge.net/META-spec.html
-#XXXXXXX This is a prototype!!!  It will change in the future!!! XXXXX#
 name:         VCS-CMSynergy
-version:      1.26
+version:      1.27
 version_from: lib/VCS/CMSynergy.pm
 installdirs:  site
+license:      perl
 requires:
-    File::Spec:                    0
-    File::Temp:                    0
-    IPC::Run3:                     0.030
-    Test::More:                    0
-    Time::HiRes:                   0
-
+  File::Spec:                    0
+  File::Temp:                    0
+  IPC::Run3:                     0.030
+  Test::More:                    0
+  Time::HiRes:                   0
+no_index:
+  package:
+    - VCS::CMSynergy::ObjectTieHash
+    - VCS::CMSynergy::Traversal
+    - Tie::ReadonlyArray
 distribution_type: module
 generated_by: ExtUtils::MakeMaker version 6.17

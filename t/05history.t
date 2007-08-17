@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 10;
+use Test::More tests => 14;
 use t::util;
 use strict;
 
@@ -104,15 +104,26 @@ all_ok
     q[history_hashref(): keyword "predecessors" isa ARRAY of V::C::Os];
 
 # stringify all Objects in $h1_result for following comparison
+# (because eq_set cops out on object refs)
 foreach my $row (@$h1_result)
 {
     $row->{object} = "$row->{object}";
-    $_ = "$_" foreach (@{ $row->{predecessors} }); 
-    $_ = "$_" foreach (@{ $row->{successors} }); 
+    $row->{predecessors} = objectnames($row->{predecessors});
+    $row->{successors} = objectnames($row->{successors});
 }
-ok(eq_array(		# eq_set doesn't properly cope with refs
+ok(eq_array(
    [ sort { $a->{object} cmp $b->{object} } @$h1_result ], 
    [ sort { $a->{object} cmp $b->{object} } @$h1_exp ]), 
    q[$ccm->history_hashref("bufcolor.c-3:csrc:2", qw(object predecessors successors task status_log))]);
+
+# test autoloaded is_FOO_of/has_FOO V::C::O methods
+my $predecessors = $ccm->object("bufcolor.c-3:csrc:2")->has_successor;
+ok(are_vcos($predecessors), q[has_successor returns list of V::C::Os]);
+ok(eq_set(objectnames($predecessors), [ qw/bufcolor.c-2:csrc:2/ ]),
+    q[has_successor check]);
+my $successors = $ccm->object("bufcolor.c-2:csrc:2")->is_successor_of;
+ok(are_vcos($successors), q[is_successor_of returns list of V::C::Os]);
+ok(eq_set(objectnames($successors), [ qw/bufcolor.c-3:csrc:2/ ]),
+    q[is_successor_of check]);
 
 exit 0;

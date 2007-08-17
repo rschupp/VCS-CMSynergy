@@ -39,8 +39,7 @@ use VCS::CMSynergy::Helper;
 use Tree::Simple;
 use strict;
 
-my %ccm_opts = VCS::CMSynergy::Helper::GetOptions;
-
+my $ccm_opts = VCS::CMSynergy::Helper::GetOptions;
 my $recursive;
 (GetOptions(
     'r|recursive'	=> \$recursive,		# include subprojects
@@ -50,7 +49,7 @@ my ($project) = @ARGV;
 my @attributes = qw(owner modify_time);		# just an example
 
 my $ccm = VCS::CMSynergy->new(
-    %ccm_opts,
+    %$ccm_opts,
     RaiseError	=> 1,
     PrintError	=> 0);
 

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# %version: 8 %
+# %version: 9 %
 
 use ExtUtils::MakeMaker;
 use Config;
@@ -53,7 +53,7 @@ my %prereq =
 (
     'File::Spec'		=> 0,
     'File::Temp'		=> 0,
-    'IPC::Run3'			=> 0.01,
+    'IPC::Run3'			=> '0.030',
     'Time::HiRes'		=> 0,
     'Test::More'		=> 0,	 	# for `make test' only
 );
@@ -82,21 +82,25 @@ sub postamble
     if (eval { require Expect; import Expect 1.15; 1; })
     {
 	print "Detected suitable version of Expect.pm, enabling tests with UseCoprocess => 1\n";
-	opendir DIR, 't';
-	my @tests = grep { /\.t$/ } readdir DIR;
-	closedir DIR;
-	foreach my $test (@tests) 
+
+	foreach my $test (glob("t/*.t"))
 	{
-	    next if $test =~ /^zz_.*\.t$/;
-	    $test =~ s/\.t$//;
-	    my $zz_test = "t/zz_${test}.t";
-	    open ZZ, ">$zz_test" or warn "Can't create $zz_test: $!";
-	    print ZZ "#!perl -w\n";
-	    print ZZ "\$ENV{CCM_USE_COPROCESS}=1;\n";
-	    print ZZ "do 't/$test.t' or warn \$!;\n";
-	    print ZZ "die if \$\@;\n";
-	    print ZZ "exit 0;\n";
-	    close ZZ or warn "Error writing $zz_test: $!";
+	    next if $test =~ m{^t/zz_};
+
+	    open my $t, "<$test" or die "Can't read $test: $!";
+	    next unless grep { /using coprocess/ } <$t>;
+	    close $t;
+	    
+	    (my $zz_test = $test) =~ s{t/}{t/zz_};
+	    open my $zz, ">$zz_test" or warn "Can't create $zz_test: $!";
+	    print $zz <<"ZZ";
+#!perl -w
+\$ENV{CCM_USE_COPROCESS} = 1;
+do '$test' or warn \$!;
+die if \$\@;
+exit 0;
+ZZ
+	    close $zz or warn "Error writing $zz_test: $!";
 	}
     }
 

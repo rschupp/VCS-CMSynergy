@@ -118,8 +118,7 @@ use strict;
 my $diff_prog = "diff -u";		
 
 # extract CCM start options first...
-my %ccm_opts = VCS::CMSynergy::Helper::GetOptions;
-
+my $ccm_opts = VCS::CMSynergy::Helper::GetOptions or pod2usage(2) ;
 # ...then script-specific options
 my ($recursive, $show_diffs, $hide_sub_trees);
 (GetOptions(
@@ -132,7 +131,7 @@ my ($recursive, $show_diffs, $hide_sub_trees);
 $hide_sub_trees = 1 if $show_diffs;			
 
 my $ccm = VCS::CMSynergy->new(
-    %ccm_opts,
+    %$ccm_opts,
     RaiseError	=> 1,
     PrintError	=> 0);
 

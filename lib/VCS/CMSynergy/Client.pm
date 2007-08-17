@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 13 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 14 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -119,7 +119,7 @@ sub new
 }
 
 
-sub memoize_method 
+sub _memoize_method 
 {
     my ($class, $method, $slot) = @_;
     $slot ||= $method;
@@ -140,19 +140,19 @@ sub memoize_method
 sub start
 {
     my ($this, %args) = @_;
-    $this = __PACKAGE__->default unless ref $this;
+    $this = __PACKAGE__->_default unless ref $this;
 
     return VCS::CMSynergy->_start($this, %args);
 }
 
 
-sub default	{ $Default ||= shift->new(); }
+sub _default	{ $Default ||= shift->new(); }
 
 
 sub ccm						# class/instance method
 {
     my $this = shift;
-    $this = __PACKAGE__->default unless ref $this;
+    $this = __PACKAGE__->_default unless ref $this;
 
     my ($rc, $out, $err) = $this->_ccm($OneArgFoo && @_ == 1, @_);
 
@@ -295,7 +295,7 @@ sub _kill_coprocess
 sub exec
 {
     my ($this, @cmd) = @_;
-    $this = __PACKAGE__->default unless ref $this;
+    $this = __PACKAGE__->_default unless ref $this;
 
     local @ENV{keys %{ $this->{env} }} = values %{ $this->{env} };
 
@@ -327,7 +327,7 @@ sub ccm_exe
 {
     return File::Spec->catfile(shift->ccm_home, "bin", "ccm$Config{_exe}");
 }
-__PACKAGE__->memoize_method('ccm_exe');
+__PACKAGE__->_memoize_method('ccm_exe');
 
 # helper: inverse function of POSIX::WEXITSTATUS()
 sub _exitstatus	{ return $_[0] << 8; }
@@ -364,28 +364,28 @@ sub ccm_command
 sub ccm_home					# class/instance method
 {
     my $this = shift;
-    $this = __PACKAGE__->default unless ref $this;
+    $this = __PACKAGE__->_default unless ref $this;
     return $this->{env}->{CCM_HOME};
 }
 
 sub out 					# class/instance method
 {
     my $this = shift;
-    $this = __PACKAGE__->default unless ref $this;
+    $this = __PACKAGE__->_default unless ref $this;
     return wantarray ? split(/\n/, $this->{out}) : $this->{out};
 }
 
 sub err 					# class/instance method
 {
     my $this = shift;
-    $this = __PACKAGE__->default unless ref $this;
+    $this = __PACKAGE__->_default unless ref $this;
     return $this->{err};
 }
 
 sub version					# class/instance method
 {
     my $this = shift;
-    $this = __PACKAGE__->default unless ref $this;
+    $this = __PACKAGE__->_default unless ref $this;
 
     my $version = $this->_version;
     return @$version{qw(cmsynergy schema informix patches)} if wantarray;
@@ -414,13 +414,13 @@ sub _version
 	if $out =~ /^$cmsynergy_rx Patch Version\s+(.*?)(?:\Z|^$cmsynergy_rx|^Informix)/imso; 
     return \%version;
 }
-__PACKAGE__->memoize_method('_version', 'version');
+__PACKAGE__->_memoize_method('_version', 'version');
 
 
 sub ps	
 {
     my ($this, @filter) = @_;
-    $this = __PACKAGE__->default unless ref $this;
+    $this = __PACKAGE__->_default unless ref $this;
 
     # "ps" is not a recognized "interactive" command
     local $this->{coprocess} = undef;
@@ -459,7 +459,7 @@ sub ps
 sub status	
 {
     my $this = shift;
-    $this = __PACKAGE__->default unless ref $this;
+    $this = __PACKAGE__->_default unless ref $this;
 
     my ($rc, $out, $err) = $this->_ccm(0, 'status');
     return $this->set_error($err || $out) unless $rc == 0;
@@ -505,7 +505,7 @@ sub status
 sub databases	
 {
     my ($this, $servername) = @_;
-    $this = __PACKAGE__->default unless ref $this;
+    $this = __PACKAGE__->_default unless ref $this;
 
     my @ccmdb_server = 
 	(File::Spec->catfile($this->ccm_home, qw(bin ccmdb)), qw/server -status/);
@@ -527,7 +527,7 @@ sub databases
 sub hostname
 {
     my ($this, @filter) = @_;
-    $this = __PACKAGE__->default unless ref $this;
+    $this = __PACKAGE__->_default unless ref $this;
 
     our %Hostname;				# cache by CCM_HOME
     my $ccm_home = $this->ccm_home;
@@ -909,6 +909,10 @@ the Informix version (e.g. "9.21.UC3X6")
 a possible empty array of applied CM Synergy patches
 
 =back
+
+=head2 ccm_exe
+
+Returns the absolute pathname of the B<ccm> executable.
 
 =head2 trace
 

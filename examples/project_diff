@@ -268,7 +268,8 @@ sub new
 {
     my ($class, $ccm) = @_;
 
-    my (undef, $temp) = tempfile;
+    my $self = { ccm => $ccm };
+    (undef, $self->{temp}) = tempfile;
 
     # NOTE: On Windows, CM Synergy executes cli_compare_cmd without
     # using the command interpreter, hence redirections don't work.
@@ -276,20 +277,21 @@ sub new
     # goes into the bit-bucket (i.e. can't be captured from $ccm->diff).
     # Hence, force the use of cmd.exe (this causes annoying
     # "flashing" command windows, though).
-    $ccm->set(cli_compare_cmd => 
-	$^O eq "MSWin32" ? 
-	    "cmd /c @diff_prog %file1 %file2 > $temp" :
-	    # FIXME maybe better
-	    # qq[$^X -e "open STDOUT, '>', pop \@ARGV; system \@ARGV;" @diff_prog %file1 %file2 $temp_diff]
-	    qq[@diff_prog %file1 %file2 > $temp]);
+    $self->{saved_cli_compare_cmd} = $self->{ccm}->set(
+	cli_compare_cmd => $^O eq "MSWin32" ? 
+	    "cmd /c @diff_prog %file1 %file2 > $self->{temp}" :
+	    # FIXME maybe better - no flicker?
+	    # qq[$^X -e "open STDOUT, '>', pop \@ARGV; system \@ARGV;" @diff_prog %file1 %file2 $self->{temp_diff}]
+	    qq[@diff_prog %file1 %file2 > $self->{temp}]);
 	
-    return bless { ccm => $ccm, temp => $temp }, $class;
+    return bless $self, $class;
 }
 
 sub DESTROY
 {
     my ($self) = @_;
 
+    $self->{ccm}->set(cli_compare_cmd => $self->{saved_cli_compare_cmd});
     unlink($self->{temp}) if $self->{temp};
 }
 

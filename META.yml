@@ -10,8 +10,9 @@ requires:
   Test::More:                    0
   Time::HiRes:                   0
 no_index:
-  package:
+  module:
     - VCS::CMSynergy::ObjectTieHash
+  package:
     - VCS::CMSynergy::Traversal
     - Tie::ReadonlyArray
 distribution_type: module

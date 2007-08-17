@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 10 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 11 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -452,7 +452,7 @@ C<VCS::CMSynergy::Object>s in C<@to_file_specs>
 when L<VCS::CMSynergy/:cached_attributes> is in effect.
 
 Note: The optional C<$flags> parameter of L<VCS::CMSynergy/copy_attribute> is
-not supoorted, because it would mean traversing the target projects
+not supported, because it would mean traversing the target projects
 to update or invalidate attribute caches.
 
 =head2 list_attributes

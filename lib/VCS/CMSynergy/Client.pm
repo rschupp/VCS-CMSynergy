@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 22 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 23 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -42,13 +42,18 @@ use IO::File;
 use IO::Pipe;					# make ActiveState PerlApp happy
 
 use constant is_win32 => $^O eq 'MSWin32' || $^O eq 'cygwin';
+use constant ROW_ARRAY	=> 0;
+use constant ROW_HASH	=> 1;
+use constant ROW_OBJECT	=> 2;
+
 our ($Debug, $Debugfh, $Error, $Ccm_command, $Default);
 
 use Exporter();
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
     is_win32 $Debug $Error $Ccm_command %new_opts 
-    _exitstatus _error _usage);
+    _exitstatus _error _usage
+    ROW_ARRAY ROW_HASH ROW_OBJECT);
 
 {
     $Debug = $ENV{CMSYNERGY_TRACE} || 0;

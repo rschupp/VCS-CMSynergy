@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 18 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 19 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -271,9 +271,10 @@ sub exists
 
 sub property
 {
-    my ($self, $keyword) = @_;
-    my $props = $self->ccm->property($keyword, $self);
-    $self->_update_acache(UNIVERSAL::isa($keyword, 'ARRAY') ? $props : { $keyword => $props });
+    my ($self, $keyword_s) = @_;
+
+    my $props = $self->ccm->property($keyword_s, $self);
+    $self->_update_acache(UNIVERSAL::isa($keyword_s, 'ARRAY') ? $props : { $keyword_s => $props });
     return $props;
 }
 
@@ -478,10 +479,12 @@ in the CM Synergy database (without causing an exception if it doesn't).
 =head2 property
 
   $value = $obj->property($keyword);
+  $hash = $obj->property(\@keywords);
 
 Convenience wrapper for L<VCS::CMSynergy/property>, equivalent to
 
-  $value = $ccm->property($keyword => $obj);
+  $value = $ccm->property($keyword, $obj);
+  $hash = $ccm->property(\@keywords, $obj);
 
 =head2 displayname, cvid
 

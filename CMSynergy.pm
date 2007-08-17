@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.07 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.08 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -74,12 +74,14 @@ described in the L<VCS::CMSynergy::Users> documentation.
 
 =cut
 
-use v5.6.0;				# FIXME: have only tested with v5.6.1 
+use v5.6.0;
 use strict;
 use Carp;
 
 use Config;
+use Cwd qw(realpath);
 use File::Spec;
+use File::Basename;
 use IPC::Open3;
 use POSIX qw(_exit);
 
@@ -99,7 +101,7 @@ our ($debug, $debugfh, $Error, $Ccm_command, $AUTOLOAD);
 
 # hash of well known attributes types
 # (the starting point for _attype_is_text)
-our %Attypes =
+my %Attypes =
 (
     acc_data	=> 0, 	# ???
     acc_method	=> 0, 	# ???
@@ -111,7 +113,7 @@ our %Attypes =
     time	=> 0,
 );
 
-our %Start_options =
+my %StartOptions =
 (
     CCM_HOME 		=> undef,
     CCM_ADDR		=> undef,
@@ -119,6 +121,7 @@ our %Start_options =
     RaiseError		=> undef,
     HandleError		=> undef,
     database		=> "-d",
+    home		=> "-home",
     host		=> "-h",
     ini_file		=> "-f",
     password		=> "-pw",
@@ -129,7 +132,7 @@ our %Start_options =
 
 {
     $debug = $ENV{CMSYNERGY_TRACE} || 0;
-    $debugfh = \*STDERR;
+    $debugfh = IO::Handle->new_from_fd(\*STDERR, "w");
     if ($debug)
     {
 	if ($debug =~ /^\d+$/) 			# CMSYNERGY_TRACE="digits"
@@ -320,7 +323,7 @@ sub new
 	IgnoreError	=> undef,
 	error		=> undef,
     };	
-    foreach (keys %Start_options)
+    foreach (keys %StartOptions)
     {
 	$self->{$_} = $args{$_} if exists $args{$_};
     }
@@ -340,11 +343,11 @@ sub new
 		$self->{user} = 
 		    VCS::CMSynergy->ps(rfc_address => $self->{CCM_ADDR})->[0]->{user};
 	    }
-	    my $inifh;
-	    ($inifh, $self->{ini_file}) = 
-		tempfile("ccmXXXX", SUFFIX => ".ini", UNLINK => 0);
+
+	    # NOTE: $inifh will be closed when the variable goes out of scope
+	    my ($inifh, $initmp) = tempfile(SUFFIX => ".ini", UNLINK => 0);
 	    print $inifh "[UNIX information]\nUser = $self->{user}\n";
-	    close $inifh;
+	    $self->{ini_file} = $initmp;
 	    push @{ $self->{files_to_unlink} }, $self->{ini_file};
 	}
     }
@@ -360,8 +363,7 @@ sub new
 		# (2) we can't use UNLINK=>1 with tempfile, because 
 		# the actual unlink may occur before the session is
 		# stopped and Windows refuses removing the "busy" file
-		(undef, $self->{ini_file}) = 
-		    tempfile("ccmXXXX", SUFFIX => ".ini", UNLINK => 0);
+		(undef, $self->{ini_file}) = tempfile(SUFFIX => ".ini", UNLINK => 0);
 		push @{ $self->{files_to_unlink} }, $self->{ini_file};
 	    }
 	    else
@@ -371,7 +373,7 @@ sub new
 	}
 
 	my @start = qw(start -m -q -nogui);
-	while (my ($name, $ccm_opt) = each %Start_options)
+	while (my ($name, $ccm_opt) = each %StartOptions)
 	{
 	    push @start, $ccm_opt, $self->{$name} 
 		if defined $ccm_opt && defined $self->{$name};
@@ -400,8 +402,8 @@ sub new
 	    local $ENV{CCM_ADDR} = $self->{CCM_ADDR};
 	    local $ENV{CCM_INI_FILE} = $self->{ini_file} if $osWindows;
 
-	    my $exp = new Expect
-		or $exp_err = "Expect: new failed", last EXP;
+	    my $exp = Expect->new
+		or $exp_err = "Expect->new failed", last EXP;
 	    ($exp->log_stdout(0) && $exp->slave->stty(qw(-echo raw)))
 		or $exp_err = $exp->exp_error, last EXP;
 	    $exp->spawn(_ccm_exe($self->{CCM_HOME}))
@@ -417,27 +419,23 @@ sub new
 	# FIXME better fall back description
     }
 
-    # cache some info from database;
-    # this also doubles as a test for a valid session
-    my ($rc, $out, $err);
+    # cache some info from database; this also doubles as a test for a valid session
     {
-	local $self->{IgnoreError} = 0;
-        ($rc, $out, $err) = $self->ccm(qw(delimiter));
-    }
-    return $self->set_error($err || $out) unless $rc == 0;
+	my ($rc, $out, $err) = $self->ccm(qw(delimiter));
+	return undef unless $rc == 0;
     $self->{delimiter} = $out;
-    $self->{objectname_re} = qr/^(.*?)\Q$self->{delimiter}\E(.*?):(.*?):(.*?)$/;
-    %{ $self->{attypes} } = %Attypes;
-
-    # sanitize database path
-    # FIXME: how do I determine database if $self->{reuse}? from $ccm->status?
-    # FIXME: parsing is broken in case of an NT server
-    if (defined $self->{database})
-    {
-	$self->{database} =~ s{/+}{/}g;
-	$self->{database} =~ s{/$}{};
-	$self->{database} =~ s{(/db)?$}{/db};
     }
+
+    # determine database path (in canonical format) from `ccm ps´
+    {
+	my $ps = $self->ps(rfc_address => $self->{CCM_ADDR});
+	return undef unless $ps && @$ps > 0;
+	$self->{database} = $ps->[0]->{database};
+    }
+
+    %{ $self->{attypes} } = %Attypes;
+    $self->{objectname_rx} = qr/^(.*?)\Q$self->{delimiter}\E(.*?):(.*?):(.*?)$/;
+    $self->{finduse_rx} = qr/(?m)^\t(.*?)\Q$self->{delimiter}\E.*?\@(.*?)$/;
 
     if ($debug)
     {
@@ -517,9 +515,13 @@ sub DESTROY
     elsif ($self->ccm(qw(stop)))
     {
 	$self->trace_msg("stopped session $self->{CCM_ADDR}\n") if $debug;
+
+	# on Windows, wait a little until CM Synergy
+	# really releases any files to unlink
+	sleep(2) if $osWindows && $self->{files_to_unlink};
     }
 
-    unlink(@{ $self->{files_to_unlink} }) if defined $self->{files_to_unlink};
+    unlink(@{ $self->{files_to_unlink} }) if $self->{files_to_unlink};
 }
 
 =item C<ccm>
@@ -701,12 +703,15 @@ sub _ccmexec
 	# versions later than 5.6.1 (cf. Changelog entries
 	# #12563 and #12559). The workaround below
 	# fixes blanks and IO redirectors, but doesn't help
-	# for embedded double quotes and substrings like "%path%"
+	# for substrings like "%path%"
 	# where the Windows shell does variable substitution even
 	# when inside double quotes. FIXME
 	# FIXME: This doesn't seem to be true any more, at least not for
 	# ActivePerl build 631 running on Windows 2000.
-	@args = map { /[\s<|>]/ ? "\"$_\"" : $_ } @args;
+	foreach (@args)
+	{
+	    if (/[\s<|>"]/) { s/"/\\"/g; $_ = "\"$_\""; } 
+	}
     }
     else
     {
@@ -903,14 +908,14 @@ sub query
 # helper: query with correct handling of multi-line attributes
 sub _query
 {
-    my ($self, $query, $wantarray, @keywords) = @_;
+    my ($self, $query, $wanthash, @keywords) = @_;
 
     my %wanted = map { ($_, "%$_") } @keywords;
     $wanted{object} = "%objectname"	if exists $wanted{object};
     $wanted{finduse} = "?"		if exists $wanted{finduse};
 
     my $format = "\cD" . join("\cG", values %wanted) . "\cG";
-    my $nwanted = keys %wanted;
+    my @wanted = keys %wanted;
 
     my ($rc, $out, $err);
     {
@@ -936,15 +941,11 @@ sub _query
     $out =~ s/\A\cD//;				# trim leading record separator
     foreach my $row (split(/\cD/, $out))	# split into records 
     {
-	# split into columns and translate "<void>" to undef
-	my @cols = map { $_ eq "<void>" ? undef : $_ } split(/\cG/, $row);
-
-	# make sure we have exactly $nwanted+1 columns (because split may 
-	# have discarded trailing empty fields, esp. for the last row)
-	$#cols = $nwanted;
-
 	my ($finduse, %hash);
-	(@hash{keys %wanted}, $finduse) = @cols;
+
+	# split into columns and translate "<void>" to undef
+	(@hash{@wanted}, $finduse) = 
+	    map { $_ eq "<void>" ? undef : $_ } split(/\cG/, $row);
 
 	# handle special keywords
 	if (exists $wanted{object})
@@ -955,18 +956,21 @@ sub _query
 	if (exists $wanted{finduse})
 	{
 	    # parse finduse list (the last column)
-	    if ($finduse =~ /Object is not used in scope/)
+	    $hash{finduse} = {};
+	    unless ($finduse =~ /Object is not used in scope/)
 	    {
-		$hash{finduse} = [];
-	}
-	else
+		# lines are of the form
+		# \t relative_path/object_name-version@project_name-project_version 
+		# which we parse into a hash
+		# "project_name-project_version" => "relative_path/object_name"
+		while ($finduse =~ /$self->{finduse_rx}/g)
 	{
-		$finduse =~ s/\A\n\t//;
-		$hash{finduse} = [ split(/\n\t?/, $finduse) ];
+		    $hash{finduse}->{$2} = $1;
+		}
 	    }
 	}
 
-	push @result, $wantarray ? [ @hash{@keywords} ] : \%hash;
+	push @result, $wanthash ? \%hash : [ @hash{@keywords} ];
     }
 
     return \@result;
@@ -996,7 +1000,7 @@ sub query_object
     my ($self, $query) = @_;
     return $self->set_error("no query string supplied") unless defined $query;
 
-    my $result =  $self->_query($query, 0, qw(object));
+    my $result =  $self->_query($query, 1, qw(object));
     return undef unless $result;
 
     # slice out the single "object" column
@@ -1034,11 +1038,30 @@ The value is a C<VCS::CMSynergy::Object> representing the object in the result s
 
 =item C<finduse>
 
-The value is a reference to an array of names in project reference form
-identifying in what parts of what projects the object is used.
-This is the same list as reported by B<ccm finduse>. In fact, if this
-keyword is given, L</query_arrayref> invokes B<ccm finduse -query $query>
-rather than B<ccm query $query>.
+The value is a reference to a hash identifying in what parts of what
+projects the object is used.  A key in the hash denotes the project
+in the form "project_name-project_version".  The hash value is the
+corresponding relative path (including the object's name) in the project.
+This information is the same as reported by B<ccm finduse>. In fact, if
+this keyword is given, L</query_arrayref> invokes B<ccm finduse -query
+$query> rather than B<ccm query $query>.  Example:
+
+  my $result = $ccm->query_arrayref(
+    "name = 'main.c'", qw(objectname finduse));
+
+returns (as formatted by L<Data::Dumper>):
+
+  $result = [
+    [
+      'main.c-1:csrc:3',	# objectname
+      {				# finduse
+	 'guilib-1.0'	=> 'guilib/sources/main.c',
+	 'guilib-int'	=> 'guilib/sources/main.c',
+	 'guilib-darcy'	=> 'guilib/sources/main.c'
+      }
+    ],
+    ...
+  ];
 
 =back 
 
@@ -1067,7 +1090,7 @@ sub query_arrayref
     return $self->set_error("no query string supplied") unless defined $query;
     return $self->set_error("no keywords supplied") unless @keywords;
 
-    return $self->_query($query, 1, @keywords);
+    return $self->_query($query, 0, @keywords);
 }
 
 =item C<query_hashref>
@@ -1100,11 +1123,31 @@ The value is a C<VCS::CMSynergy::Object> representing the object in the result s
 
 =item C<finduse>
 
-The value is a reference to an array of names in project reference form
-identifying in what parts of what projects the object is used.
-This is the same list as reported by B<ccm finduse>. In fact, if this
-keyword is given, L</query_arrayref> invokes B<ccm finduse -query $query>
-rather than B<ccm query $query>.
+The value is a reference to a hash identifying in what parts of what
+projects the object is used.  A key in the hash denotes the project
+in the form "project_name-project_version".  The hash value is the
+corresponding relative path (including the object's name) in the project.
+This information is the same as reported by B<ccm finduse>. In fact, if
+this keyword is given, L</query_hashref> invokes B<ccm finduse -query
+$query> rather than B<ccm query $query>.  Example:
+
+  my $result = $ccm->query_hashref(
+    "name = 'main.c'", qw(objectname finduse));
+
+returns (as formatted by L<Data::Dumper>):
+
+  $result = [
+    {
+      'objectname' => 'main.c-1:csrc:3',
+      'finduse'    => 
+      {
+	 'guilib-1.0'   => 'guilib/sources/main.c',
+	 'guilib-int'   => 'guilib/sources/main.c',
+	 'guilib-darcy' => 'guilib/sources/main.c'
+      }
+    },
+    ...
+  ];
 
 =back
 
@@ -1132,7 +1175,7 @@ sub query_hashref
     return $self->set_error("no query string supplied") unless defined $query;
     return $self->set_error("no keywords supplied") unless @keywords;
 
-    return $self->_query($query, 0, @keywords);
+    return $self->_query($query, 1, @keywords);
 }
 
 =item C<history>
@@ -1226,7 +1269,7 @@ contain a leading C<%>. Example:
 # helper: history with correct handling of multi-line attributes
 sub _history
 {
-    my ($self, $file_spec, $wantarray, @keywords) = @_;
+    my ($self, $file_spec, $wanthash, @keywords) = @_;;
 
     my %wanted = map { ($_, "%$_") } @keywords;
     $wanted{object} = "%objectname"	if exists $wanted{object};
@@ -1275,7 +1318,7 @@ sub _history
 	    }
 	}
 
-	push @result, $wantarray ? [ @hash{@keywords} ] : \%hash;
+	push @result, $wanthash ? \%hash : [ @hash{@keywords} ];
     }
 
     return \@result;
@@ -1287,7 +1330,7 @@ sub history_arrayref
     return $self->set_error("no file_spec supplied") unless defined $file_spec;
     return $self->set_error("no keywords supplied") unless @keywords;
  
-    return $self->_history($file_spec, 1, @keywords);
+    return $self->_history($file_spec, 0, @keywords);
 }
 
 
@@ -1349,7 +1392,7 @@ sub history_hashref
     return $self->set_error("no file_spec supplied") unless defined $file_spec;
     return $self->set_error("no keywords supplied") unless @keywords;
 
-    return $self->_history($file_spec, 0, @keywords);
+    return $self->_history($file_spec, 1, @keywords);
 }
 
 =item C<finduse>
@@ -1359,30 +1402,39 @@ sub history_hashref
 Executes the B<ccm finduse> command with the given C<@args> as parameters.
 It returns a reference to an array of rows, usually one per C<file_spec> given
 in C<@args>, or one per query result if C<-query $query_expression>
-is present in C<@args>. Each row is a reference to an array, the first 
-element is the description of the object followed by uses of the object
-given in project reference form. If there are no uses of the object in the
-given scope the array consists only of the first element.
+is present in C<@args>. 
+
+Each row is a reference to an array of two elements.  The first
+element is the description of the object.  The second element is a
+reference to a hash identifying in what parts of what projects the
+object is used.  A key in the hash denotes the project in the form
+"project_name-project_version".  The hash value is the corresponding
+relative path (including the object's name) in the project.  If there
+are no uses of the object in the given scope the hash is empty.  This
+usage information is in the same form as that for the pseudo keyword
+C<"finduse">  of the  L</query_arrayref> and L</query_hashref> methods.
 
 If there was an error, C<undef> is returned.
 
 Note that you must pass every B<ccm finduse> argument or option as a single
 Perl argument. For literal arguments the C<qw()> notation may come in handy.
 
-If you are interested in obtaining certain attributes of for all objects
-matching a query as well as their project usage, 
-you should look at the L</query_arrayref> and L</query_hashref> methods,
-esp. the C<"finduse"> keyword.
+If you are interested in usage information for all objects matching a
+query you should look at the L</query_arrayref> and L</query_hashref>
+methods, esp. the C<"finduse"> keyword.
 
 Example (recreate the output of the B<ccm finduse> command):
 
-  my $uses = $ccm->finduse(@args);
-  foreach my $row (@$uses)
+  foreach (@{ $ccm->finduse(@args) })
   {
-    print shift @$row, "\n";
-    if (@$row)
+    my ($desc, $uses) = @$_;
+    print "$desc\n";
+    if (keys %$uses)
     {
-	print "\t$_\n" foreach (@$row);
+	while (my ($proj_vers, $path) = each %$uses)
+	{
+	  print "\t$path\@$proj_vers\n"
+	}
     }
     else
     {
@@ -1409,21 +1461,20 @@ sub finduse
 	($rc, $out, $error) = $self->ccm(qw(finduse), @_);
     }
 
-    my (@result, $use);
+    my (@result, $uses);
     foreach (split(/\n/, $out))
     {
 	# ignore complaints about non-existing objects 
 	# and the dummy "use" line printed if object is not used anywhere
 	next if /Object version could not be identified|^\tObject is not used in scope/;
 
-	# a "use" line has the form: 
-	# \t project_reference
-	push(@$use, $1), next if /^\t(.*)$/;
+	# a usage line is matched by finduse_rx
+	$uses->{$2} = $1, next if /$self->{finduse_rx}/;
 
 	# otherwise the line describes an object satisfying the query
 	# in the format given by option `Object_format' (default:
 	# "%displayname %status %owner %type %project %instance %task")
-	push(@result, $use = [ $_ ]);
+	push(@result, [ $_, $uses = {} ]);
     }
     return \@result;
 }
@@ -1433,8 +1484,9 @@ sub finduse
 
   $path = $ccm->findpath($file_spec, $proj_vers);
 
-This is a convenience function. It returns the relative pathname for
-the object C<$file_spec> within the project C<$proj_vers>. 
+This is a convenience function. It returns the relative pathname
+(including the objects's name) for the object C<$file_spec> within the
+project C<$proj_vers>.
 
 Returns C<undef> if C<$file_spec> is not used in C<$proj_vers>
 or if C<$file_spec> does not exist.
@@ -1442,25 +1494,21 @@ or if C<$file_spec> does not exist.
 Example:
 
   $ccm->findpath("main.c-1:csrc:3", "guilib-darcy"); 
-  # returns "guilib/sources/main.c"
+
+returns 
+
+  "guilib/sources/main.c"
 
 =cut
 
 sub findpath
 {
-    my ($self, $file_spec, $proj_spec) = @_;
+    my ($self, $file_spec, $proj_vers) = @_;
     my $finduse = $self->finduse($file_spec);
-    return undef unless defined $finduse && @$finduse == 1;
-
-    my $wa_ref_re = qr/^(.*?)\Q$self->{delimiter}\E(?:.*?)\@(.*)$/;
-    shift @{ $finduse->[0] };			# trim description
-    foreach (@{ $finduse->[0] })
-    {
-	return $1 if /$wa_ref_re/ && $2 eq $proj_spec;
-    }
-    return undef;
+    return undef unless defined $finduse;
+    return $self->set_error("`$file_spec´ matches more than one object") unless @$finduse == 1;
+    return $finduse->[0]->[1]->{$proj_vers};
 }
-# FIXME proj_spec must be fully qualified, othwerwise no match
 
 
 =item C<attribute>
@@ -1675,7 +1723,6 @@ sub ls_object
 
 Lists the values of the built-in keywords or attributes supplied
 in C<@keywords> for a file or the contents of a directory
-using the work area name C<$file_spec>.
 Returns a reference to an array of references,
 one per result row. Each reference points to an array containing
 the values of the keywords for that particular object
@@ -2189,10 +2236,11 @@ sub status					# class/instance method
 	}
 	if (/^Database: (.*)/ && $session)
 	{
-	    # sanitize database path (all other information commands
+	    # sanitize database path (all other CM Synergy information commands
 	    # show it with trailing "/db", so we standardize on that)
-	    # FIXME: parsing is broken in case of an NT server
-	    ($session->{database} = $1) =~ s{(/db)?$}{/db};
+	    # NOTE: carefull here, because the database might reside on NT
+	    ($session->{database} = $1) 		
+		=~ s{^(.)(.*?)(\1db)?$}{$1$2$1db};
 	    next;
 	}
     }
@@ -2278,14 +2326,15 @@ sub trace
     {
 	# switch trace files
 	my $newfh = defined $trace_filename ?
-	    new IO::File($trace_filename, "a") : \*STDERR;
+	    IO::File->new($trace_filename, "a") : 
+	    IO::Handle->new_from_fd(\*STDERR, "w");
 	unless ($newfh)
 	{
 	    carp(__PACKAGE__ . " trace: can't open trace file `$trace_filename'");
 	    return $trace_level;
 	}
 	$newfh->setvbuf(undef, _IOLBF, 0);	# make line-buffered
-	close($debugfh) if defined $debugfh && $debugfh != \*STDERR;
+	close($debugfh);
 	$debugfh = $newfh;
 	$this->trace_msg(__PACKAGE__ . " version $VERSION: trace started\n") if $debug;
     }
@@ -2403,8 +2452,7 @@ sub set_error
 	carp($msg)  if $this->{PrintError};	# warn if PrintError is set
     }
 
-    return @rv if wantarray and @rv;
-    return $rv;
+    return wantarray ? @rv : $rv;
 }
 
 # $ccm->object(objectname) => VCS::CMSynergy::Object
@@ -2424,7 +2472,7 @@ sub object
     my ($name, $version, $cvtype, $instance);
     local $_ = $_[0];
     return VCS::CMSynergy::Object->new($name, $version, $cvtype, $instance, $self->{delimiter})
-	if ($name, $version, $cvtype, $instance) = m{$self->{objectname_re}}
+	if ($name, $version, $cvtype, $instance) = m{$self->{objectname_rx}}
 	or ($instance, $cvtype, $name, $version) = m{^(.*?)/(.*?)/(.*?)/(.*?)$};
 
     return $self->set_error("invalid objectname `$_'");

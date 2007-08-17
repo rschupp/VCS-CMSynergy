@@ -1,12 +1,13 @@
 CMSynergy.pm
 CMSynergy/Users.pm
+CMSynergy/Changes.pod
 Makefile.PL
 MANIFEST
 README
-Changes
 t/01session.t
 t/02autoload.t
 t/03query.t
 t/04finduse.t
 t/05history.t
+t/06misc.t
 t/util.pm

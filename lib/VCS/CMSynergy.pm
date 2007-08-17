@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.26.7 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.26.9 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -335,7 +335,7 @@ sub query_arrayref
     my ($self, $query, @keywords) = @_;
     _usage(3, undef, '$query, $keyword...', \@_);
 
-    return $self->_query($query, 0, @keywords);
+    return $self->_query($query, 0, \@keywords);
 }
 
 
@@ -344,7 +344,7 @@ sub query_hashref
     my ($self, $query, @keywords) = @_;
     _usage(3, undef, '$query, $keyword...', \@_);
 
-    return $self->_query($query, 1, @keywords);
+    return $self->_query($query, 1, \@keywords);
 }
 
 
@@ -353,7 +353,7 @@ sub query_object
     my ($self, $query) = @_;
     _usage(2, 2, '$query', \@_);
 
-    my $result =  $self->_query($query, 1, qw(object));
+    my $result =  $self->_query($query, 1, [ qw/object/ ]);
     return unless $result;
 
     # slice out the single "object" column
@@ -367,7 +367,9 @@ sub query_object_with_attributes
     _usage(2, undef, '$query, $attribute...', \@_);
     return $self->query_object($query) unless use_cached_attributes();
 
-    my $result =  $self->_query($query, 1, qw(object), @attributes);
+    push @attributes, qw/object/;
+    my $result =  $self->_query($query, 1, \@attributes);
+    pop @attributes;
     return unless $result;
 
     # prime caches of the result objects
@@ -404,11 +406,11 @@ sub query_count
 # helper method: query with correct handling of multi-line attributes
 sub _query
 {
-    my ($self, $query, $wanthash, @keywords) = @_;
+    my ($self, $query, $wanthash, $keywords) = @_;
 
     $query = $self->_expand_query($query);
 
-    my %want = map { $_ => "%$_" } @keywords;
+    my %want = map { $_ => "%$_" } @$keywords;
     $want{object} = "%objectname" if $want{object};
     $want{task_objects} = "%task" if $want{task_objects};
     my $want_finduse = delete $want{finduse};
@@ -480,7 +482,7 @@ sub _query
 	my $row = $self->_parse_query_result(\%want, \@cols);
 	$row->{finduse} = \%finduse if $want_finduse;
 
-	push @result, $wanthash ? $row : [ @$row{@keywords} ];
+	push @result, $wanthash ? $row : [ @$row{@$keywords} ];
     }
 
     return \@result;
@@ -633,7 +635,7 @@ sub history_arrayref
     my ($self, $file_spec, @keywords) = @_;
     _usage(3, undef, '$file_spec, $keyword...', \@_);
 
-    return $self->_history($file_spec, 0, @keywords);
+    return $self->_history($file_spec, 0, \@keywords);
 }
 
 
@@ -642,15 +644,15 @@ sub history_hashref
     my ($self, $file_spec, @keywords) = @_;
     _usage(3, undef, '$file_spec, $keyword...', \@_);
 
-    return $self->_history($file_spec, 1, @keywords);
+    return $self->_history($file_spec, 1, \@keywords);
 }
 
 # helper: history with correct handling of multi-line attributes
 sub _history
 {
-    my ($self, $file_spec, $wanthash, @keywords) = @_;
+    my ($self, $file_spec, $wanthash, $keywords) = @_;
 
-    my %want = map { $_ => "%$_" } @keywords;
+    my %want = map { $_ => "%$_" } @$keywords;
     $want{object} = "%objectname" if $want{object};
     $want{task_objects} = "%task" if $want{task_objects};
     my $want_predecessors = delete $want{predecessors};
@@ -695,7 +697,7 @@ sub _history
 	    }
 	}
 
-	push @result, $wanthash ? $row : [ @$row{@keywords} ];
+	push @result, $wanthash ? $row : [ @$row{@$keywords} ];
     }
 
     return \@result;
@@ -758,12 +760,52 @@ sub findpath
 }
 
 
-# put some variables into the VCS::CMSynergy::Traversal namespace
+# tied array class that acts as a readonly front to a real array
 {
-    package 	# hide from PAUSE
-	VCS::CMSynergy::Traversal;
-    our (@dirs, @projects, $prune);
+    package Tie::ReadonlyArray;	
+
+    use Carp;
+
+    sub TIEARRAY	{ bless $_[1], $_[0]; }
+    sub FETCH		{ $_[0]->[$_[1]]; }
+    sub FETCHSIZE	{ scalar @{$_[0]}; }
+    sub AUTOLOAD	{ croak "attempt to modify a readonly array"; }
 }
+
+
+# put some items into the VCS::CMSynergy::Traversal namespace
+{
+    package VCS::CMSynergy::Traversal;
+
+    our (@_dirs, @_projects);			# private
+    our $_pathsep = $^O eq "MSWin32" ? "\\" : "/" ;
+
+    our (@dirs, @projects, $prune);		# public
+    tie @dirs,		"Tie::ReadonlyArray" => \@_dirs;
+    tie @projects,	"Tie::ReadonlyArray" => \@_projects;
+
+    sub path 
+    { 
+	my ($pathsep) = @_;
+	$pathsep = $_pathsep unless defined $_pathsep;
+
+	join($pathsep, map { $_->name } @VCS::CMSynergy::Traversal::_dirs, $_); 
+    }
+
+    sub depth 
+    { 
+	scalar @VCS::CMSynergy::Traversal::_dirs; 
+    }
+}
+
+
+my %traverse_project_opts =
+(
+    wanted	=> "CODE",
+    preprocess	=> "CODE",
+    postprocess	=> "CODE",
+    attributes	=> "ARRAY",
+);
 
 sub traverse_project
 {
@@ -778,13 +820,12 @@ sub traverse_project
     {
 	return $self->set_error("argument 1: option `wanted' is mandatory")
 	    unless exists $wanted->{wanted};
-	foreach (qw(wanted preprocess postprocess))
+	while (my ($key, $type) = each %traverse_project_opts)
 	{
-	    return $self->set_error("argument 1: option `$_' must be a CODE ref") 
-		if exists $wanted->{$_} && ref $wanted->{$_} ne 'CODE';
+	    next unless exists $wanted->{$key};
+	    return $self->set_error("argument 1: option `$key' must be a $type")
+		unless UNIVERSAL::isa($wanted->{$key}, $type);
 	}
-	return $self->set_error("argument 1: option `attributes' must be an ARRAY ref") 
-	    if exists $wanted->{attributes} && ref $wanted->{attributes} ne 'ARRAY';
     }
     else
     {
@@ -845,8 +886,8 @@ sub traverse_project
 
     $Debug && $self->trace_msg("traverse_project($project) ...\n");
 
-    local @VCS::CMSynergy::Traversal::projects = ($project);
-    local @VCS::CMSynergy::Traversal::dirs = (); 
+    local @VCS::CMSynergy::Traversal::_projects = ($project);
+    local @VCS::CMSynergy::Traversal::_dirs = (); 
     $self->_traverse_project($wanted, $project, $dir);
 }
 
@@ -874,15 +915,15 @@ sub _traverse_project
 	return 1 if $VCS::CMSynergy::Traversal::prune;
     }
 
-    push @VCS::CMSynergy::Traversal::dirs, $parent unless $parent->is_project;
+    push @VCS::CMSynergy::Traversal::_dirs, $parent unless $parent->is_project;
 
     foreach (@$children)			# localizes $_
     {
 	if ($_->is_project && $wanted->{subprojects})
 	{
-	    push @VCS::CMSynergy::Traversal::projects, $_;
+	    push @VCS::CMSynergy::Traversal::_projects, $_;
 	    $self->_traverse_project($wanted, $_, $_) or return;
-	    pop @VCS::CMSynergy::Traversal::projects;
+	    pop @VCS::CMSynergy::Traversal::_projects;
 	    next;
 	}
 	if ($_->is_dir)
@@ -894,13 +935,13 @@ sub _traverse_project
 	{ $wanted->{wanted}->(); }
     }
 
-    pop @VCS::CMSynergy::Traversal::dirs unless $parent->is_project;
+    pop @VCS::CMSynergy::Traversal::_dirs unless $parent->is_project;
     
     if ($wanted->{bydepth}) 
     {
-	local $_ = $parent;
-	local $VCS::CMSynergy::Traversal::prune = 0;
-	{ $wanted->{wanted}->(); }
+        local $_ = $parent;
+        local $VCS::CMSynergy::Traversal::prune = 0;
+        { $wanted->{wanted}->(); }
 	return 1 if $VCS::CMSynergy::Traversal::prune;
     }
 
@@ -923,9 +964,6 @@ sub project_tree
     $options = {} unless defined $options;
     return $self->set_error("argument 1 must be a HASH ref")
 	unless ref $options eq "HASH";
-
-    $options->{pathsep} = $^O eq "MSWin32" ? "\\" : "/" 
-	unless defined $options->{pathsep};
     $options->{attributes} ||= [];	
   
     # NOTE: $options->{attributes} and @projects will be checked 
@@ -943,9 +981,7 @@ sub project_tree
 		    return if $_->is_project;		# skip projects
 
 		    # store into %tree with relative workarea pathname as the key
-		    my $path = join($options->{pathsep},
-			map { $_->name } @VCS::CMSynergy::Traversal::dirs, $_);
-
+		    my $path = VCS::CMSynergy::Traversal::path($options->{pathsep});
 		    @projects == 1 ? $tree{$path} : $tree{$path}->[$tag] = $_;
 		},
 	    }, $projects[$tag]) or return;
@@ -1119,9 +1155,9 @@ sub property
 	$self->_ccm(0, qw/properties -nf -format/, "\cA%$keyword\cD", $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
-    my ($prop) = $out =~ /\cA(.*)\cD/s or return undef;
-    $prop =~ s/\n\z//;
-    return $prop =~ /^<void>$/ ? undef : $prop;
+    local ($_) = $out =~ /\cA(.*)\cD/s or return undef;
+    s/\n\z//;
+    return /^<void>$/ ? undef : $_;
 }
 
 
@@ -1285,24 +1321,12 @@ sub ls
 }
 
 
-sub ls_object
-{
-    my ($self, $file_spec) = @_;
-    $file_spec = '.' unless defined $file_spec;
-
-    my $rows = $self->ls(qw/-f %objectname/, $file_spec);
-    return unless $rows;
-    return [ map { $self->object($_) } @$rows ];
-}
-
-
 sub ls_arrayref
 {
     my ($self, $file_spec, @keywords) = @_;
-    my $ary_ref = $self->ls_hashref($file_spec, @keywords);
-    return unless $ary_ref;
- 
-    return [ map { [ @$_{@keywords} ] } @$ary_ref ];
+    _usage(3, undef, '$file_spec, $keyword...', \@_);
+
+    return $self->_ls($file_spec, 0, \@keywords);
 }
 
 
@@ -1311,19 +1335,45 @@ sub ls_hashref
     my ($self, $file_spec, @keywords) = @_;
     _usage(3, undef, '$file_spec, $keyword...', \@_);
 
-    my $format = join("\cD", map { "%$_" } @keywords);
+    return $self->_ls($file_spec, 1, \@keywords);
+}
 
-    my $rows = $self->ls(qw/-f/, $format, $file_spec);
-    return unless $rows;
+
+sub ls_object
+{
+    my ($self, $file_spec) = @_;
+    _usage(1, 2, '[ $file_spec ]', \@_);
+    $file_spec = '.' unless defined $file_spec;
+
+    my $result =  $self->_ls($file_spec, 1, [ qw/object/ ]);
+    return unless $result;
+
+    # slice out the single "object" column
+    return [ map { $_->{object} } @$result ];
+}
+
+
+sub _ls
+{
+    my ($self, $file_spec, $wanthash, $keywords) = @_;
+
+    my %want = map { $_ => "%$_" } @$keywords;
+    $want{object} = "%objectname" if $want{object};
+    $want{task_objects} = "%task" if $want{task_objects};
+    
+    my $format = "\cA" . join("\cD", values %want) . "\cD";
+
+    my ($rc, $out, $err) = $self->_ccm(0, qw/ls -format/, $format, $file_spec);
+    return $self->set_error($err || $out) unless $rc == 0;
 
     my @result;
-    foreach (@$rows)
+    foreach (split(/\cA/, $out))		# split into records 
     {
-	my %hash;
-	@hash{@keywords} = 
-	    map { s/\n\z//; /^<void>$/ ? undef : $_ } split(/\cD/, $_, -1);
+	next unless length($_);			# skip empty leading record
 
-	push(@result, \%hash);
+	my @cols = split(/\cD/, $_, -1);	# don't strip empty trailing fields
+	my $row = $self->_parse_query_result(\%want, \@cols);
+	push @result, $wanthash ? $row : [ @$row{@$keywords} ];
     }
     return \@result;
 }
@@ -1609,6 +1659,7 @@ sub object
 # convenience methods to get the base model object etc
 sub base_admin	{ $_[0]->object(qw(base 1 admin base)); }
 sub base_model	{ $_[0]->object(qw(base 1 model base)); }
+sub dcm_admin	{ $_[0]->object(qw(dcm 1 admin dcm)); }
 sub cvtype	{ $_[0]->object($_[1], qw(1 cvtype base)); }
 sub attype	{ $_[0]->object($_[1], qw(1 attype base)); }
 
@@ -1619,14 +1670,15 @@ sub folder_object
 
     # displayname is either <number> (for a local folder)
     # or <dbid><dcm_delimiter><number> (for a foreign folder)
-    my ($dbid, $num) = $folder =~ /^(?:(.*)\D)?(\d+)$/;
-    $dbid = 'probtrac' unless defined $dbid;
+    my ($instance, $num) = $folder =~ /^(?:(.*)\D)?(\d+)$/;
+    $instance = $self->dcm_enabled ? $self->dcm_database_id : "probtrac"
+	unless defined $instance;
 
     # FIXME: alternatively could use 
     #    $self>query_object({ folder => [ $folder ] }) };
     # but query function folder() appeared in CCM 6.x
 
-    return $self->object($num, qw(1 folder), $dbid);
+    return $self->object($num, qw(1 folder), $instance);
 }
 
 # get task object from displayname (without querying Synergy)
@@ -1636,14 +1688,15 @@ sub task_object
 
     # displayname is either <number> (for a local task)
     # or <dbid><dcm_delimiter><number> (for a foreign task)
-    my ($dbid, $num) = $task =~ /^(?:(.*)\D)?(\d+)$/;
-    $dbid = 'probtrac' unless defined $dbid;
+    my ($instance, $num) = $task =~ /^(?:(.*)\D)?(\d+)$/;
+    $instance = $self->dcm_enabled ? $self->dcm_database_id : "probtrac"
+	unless defined $instance;
 
     # FIXME: alternatively could use 
     #    $self>query_object({ task => [ $task ] }) };
     # but query function task() appeared in CCM 6.x
 
-    return $self->object("task$num", qw(1 task), $dbid);
+    return $self->object("task$num", qw(1 task), $instance);
 }
 
 # $ccm->object_other_version(object, version) => VCS::CMSynergy::Object

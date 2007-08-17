@@ -1,65 +1,53 @@
 #!/usr/bin/perl -w
 
-# List all sub projects of a given project
+=head1 NAME
 
-# Usage: hierarchy_project_members.pl [ccm_options] top_proj_vers
+hierarchy_project_members - list all sub projects of a given project
 
-use VCS::CMSynergy; 
-use VCS::CMSynergy::Helper; 
-use strict;
+=head1 SYNOPSIS
 
-my %ccm_options = VCS::CMSynergy::Helper::GetOptions;
+hierarchy_project_members [options] top_proj_vers
 
-die "usage: $0 [ccm_options] top_proj_vers" unless @ARGV == 2;
-my ($database, $top_proj_vers) = @ARGV;
+  top_proj_vers    project spec, either in the form "proj_vers"
+                   or as four part objectname
 
-my $ccm = VCS::CMSynergy->new(
-    %ccm_options,
-    RaiseError => 1
-);
+  Common options:
 
-foreach my $member (@{ $ccm->hierarchy_project_members(
-    $top_proj_vers, 'depth', qw(object status wa_path)) })
-{
-    print "$member->{object} <$member->{status}> $member->{wa_path}\n";
-}
+  -D PATH | --database PATH       database path
+  -H HOST | --host HOST           engine host
+  -U NAME | --user NAME           user name
+  -P STRING | --password STRING   user's password
+  --ui_database_dir PATH          path to copy database information to
 
-=item C<hierarchy_project_members>
+=head1 AUTHORS
 
-  $ary_ref = $ccm->hierarchy_project_members(
-    $proj_vers, $order_spec, @keywords);
-
-Convenience function. Uses the built-in CM Synergy query function of the
-same name with arguments C<$proj_vers> and C<$order_spec>.
-
-If C<@keywords> are omitted, C<hierarchy_project_members> invokes
-L</query_object>, i.e. returns a reference to an array of 
-C<VCS::CMSynergy::Object>s. Otherwise C<hierarchy_project_members> 
-invokes L</query_hashref> where
-C<@keywords> are simply passed down to L</query_hashref>.
-In the latter case it return a reference to an array of hash refs.
-
-If <$order_spec> is not given, C<'none'> is assumed.
-
-NOTE: While the CM Synergy function B<hierarchy_project_members> accepts
-only objectname as its first argument, this method
-accepts a VCS::CMSynergy::Object, an objectname, or a proj_vers.
+Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 
 =cut
 
-package VCS::CMSynergy;
+use VCS::CMSynergy qw(:tied_objects :cached_attributes);
+use VCS::CMSynergy::Helper; 
+use Pod::Usage;
+use strict;
 
-sub hierarchy_project_members
+my $ccm_options = VCS::CMSynergy::Helper::GetOptions or pod2usage(2);
+@ARGV == 1 or pod2usage(2);
+my ($top_proj_vers) = @ARGV;
+
+my $ccm = VCS::CMSynergy->new(
+    %$ccm_options,
+    PrintError => 0,
+    RaiseError => 1
+);
+
+$top_proj_vers .= ':project:' . $ccm->default_project_instance 
+    unless $top_proj_vers =~ /:project:/; 
+
+foreach my $member (@{ $ccm->query_object_with_attributes(
+    { hierarchy_project_members => [ $top_proj_vers, 'depth'] }, 
+    qw(status wa_path)) })
 {
-    my ($self, $proj_vers, $order_spec, @keywords) = @_;
-
-    $proj_vers .= ':project:' . $self->default_project_instance
-	unless ref $proj_vers || $proj_vers =~ /:project:/;
-    $order_spec = 'none' unless defined $order_spec;
-
-    my $query = "hierarchy_project_members('$proj_vers', '$order_spec')";
-    return @keywords ? 
-	$self->query_hashref($query, @keywords) :
-	$self->query_object($query);
+    print "$member <$member->{status}> $member->{wa_path}\n";
 }
 
+exit(0);

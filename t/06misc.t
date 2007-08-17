@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 29;
+use Test::More tests => 30;
 use t::util;
 use strict;
 
@@ -129,21 +129,24 @@ my @trav_path_expected = qw(
   toolkit/misc/readme
   toolkit/misc/toolkit.ini
 );
+my @trav_depth_expected = map { tr:/:/: } @trav_path_expected;
 my @trav_object_expected = @{ $ccm->query_object(
     { recursive_is_member_of => [ $project, 'none' ] }) };
 push @trav_object_expected, $ccm->object($project);	
 # because recursive_is_member_of() does NOT include the project itself
 
-my (@trav_path_got, @trav_object_got, $trav_tree_expected, $preprocess, $postprocess);
+my (@trav_path_got, @trav_depth_got, @trav_object_got, $trav_tree_expected);
+my ($preprocess, $postprocess);
 ok($ccm->traverse_project(
   {
     wanted => sub {
       push @trav_object_got, $_;
       return if $_->is_project;
 
-      my $path = VCS::CMSynergy::Traversal::path();
+      my $path = VCS::CMSynergy::Traversal::path("/");
       push @trav_path_got, $path;
       $trav_tree_expected->{$path} = $_;
+      push @trav_depth_got, VCS::CMSynergy::Traversal::depth();
     },
     subprojects	=> 1,
     preprocess	=> sub { $preprocess++; return sort { $a->name cmp $b->name } @_; },
@@ -155,6 +158,8 @@ ok(eq_set(objectnames(\@trav_object_got), objectnames(\@trav_object_expected)),
   q[traverse_project: check objects]);
 ok(eq_array(\@trav_path_got, \@trav_path_expected),
   q[traverse_project: check pathnames]);
+ok(eq_array(\@trav_depth_got, \@trav_depth_expected),
+  q[traverse_project: check depth]);
 ok($preprocess == $postprocess, 
   q[traverse_project: compare number of preprocess and postprocess calls]);
 ok($preprocess == (grep { $_->cvtype =~ /^(dir|project)$/ } @trav_object_expected),

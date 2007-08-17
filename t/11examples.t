@@ -21,7 +21,6 @@ BEGIN { use_ok('VCS::CMSynergy'); }
 
 my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
-diag("using coprocess") if defined $ccm->{coprocess};
 $ENV{CCM_ADDR} = $ccm->ccm_addr;
 
 is(run_perl(qw(-c examples/project_diff)), 0, q[examples/project_diff: compile it]);
@@ -32,21 +31,24 @@ SKIP:
     skip "can't find expected output for project_diff test ($file_exp) for this version of CM Synergy", 2
 	unless -e $file_exp;
     
-    my $exp = do
+    my $exp = do			# slurp $file_exp
     {
 	local $/ = undef;
 	open my $fh, "<$file_exp" or die "can't open $file_exp: $!";
 	local $_ = <$fh>;
 	close $fh;
-	s:\015\012:\012:g;		# normalize newlines
 	$_;
     };
 
     my ($rc, $got) = run_perl(qw(examples/project_diff -r toolkit-1.0 toolkit-darcy));
     is($rc, 1 << 8, q[examples/project_diff: exit status 1]);
 
-    $got =~ s:\015\012:\012:g;		# normalize newlines
-    $got =~ s:\\:/:g;			# normalize pathnames
+    foreach ($got, $exp)
+    {
+	s:\015\012:\012:g;		# normalize newlines
+	s:\\:/:g;			# normalize pathnames
+	s:\t.*?\t:\t:;			# remove timestamps (in first two lines)
+    }
     is($got, $exp, q[examples/project_diff: compare output]);
 }
 

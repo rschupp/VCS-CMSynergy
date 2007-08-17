@@ -4,9 +4,6 @@ VCS::CMSynergy::Changes - list of changes to VCS::CMSynergy
 
 =cut
 
-Before relases:
-- test alternative patch for IPC::Run3
-
 Known problems:
 
 - 'make test' on Windows with out-of-the-box CM Synergy installation:
@@ -16,7 +13,6 @@ Known problems:
 
 - traverse_project()
 	what about absolute subprojects (with subprojects => 1)
-
 
 =head1 CHANGES
 
@@ -46,7 +42,19 @@ Known problems:
   Implemented folder_object() (similar to task_object()).
 
   Make cat_object() work when destination is a filehandle or glob ref
-  (now that my corresponding fix has found its way into IPC::Run3).
+  (now that my fix has found its way into IPC::Run3).
+
+  Implement V::C::Object methods is_RELATION_of and has_RELATION
+  (via AUTOLOAD): $obj->is_RELATION_of is short for
+
+    $obj->ccm->query_object("is_RELATION_of('$obj')")
+
+  Add README.datetime about problems with CM Synergy when trying
+  to obtain predictable and consistent datetime values.
+
+  Add tests for POD and POD coverage and all test failures.
+
+  Drop README.IPC-Run3 as behaviour with fork is fixed with IPC::Run3 0.032.
 
 =head2 Changes in Version 1.26
 

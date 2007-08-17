@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 9 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 10 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -383,8 +383,6 @@ a placeholder for the actual delimiter of the CM synergy database.
   print $obj->instance;
 
 Returns the object's I<name>, I<version>, I<type>, or I<instance>, resp.
-Note that I<instance> is also called I<subsystem> in older 
-CM Synergy documentation.
 
 =head2 string conversion
 
@@ -396,6 +394,20 @@ L</objectname>, i.e. the following expressions evaluate to the same string:
 
 This makes it possible to use a C<VCS::CMSynergy::Object> throughout
 C<VCS::CMSynergy> wherever an objectname would have been appropriate.
+
+=head2 is_project, is_dir
+
+  if ($obj->is_project) { ... }
+
+These are convenience functions that test whether the object's I<type>
+is C<"project"> or C<"dir">, resp.
+
+=head2 ccm
+
+  $obj->ccm->query_hashref(...);
+
+C<ccm> returns the session (a C<VCS::CMSynergy>) that is associated
+with the object.
 
 =head1 ATTRIBUTE METHODS
 
@@ -479,6 +491,32 @@ Short hand for C<< $obj->property("displayname") >> or
 C<< $obj->property("cvid") >>, resp. However, these two methods
 caches their return value in the C<VCS::CMSynergy::Object>
 (because it is immutable).
+
+=head1 OBJECT RELATIONS
+
+=head2 is_RELATION_of, has_RELATION
+
+  # assume $task is a VCS::CMSynergy::Object with cvtype "task"
+  $related_objects = $task->is_associated_cv_of;
+
+These are convenience methods to quickly enumerate all objects that
+are somehow related to the invoking object:
+
+  $obj->is_RELATION_of
+  $obj->has_RELATION
+
+are exactly the same as
+
+  $obj->ccm->query_object("is_RELATION_of('$obj')")
+  $obj->ccm->query_object("has_RELATION('$obj')")
+
+If you supply extra arguments then C<query_object_with_attributes>
+is called instead of C<qery_object> with these extra arguments.
+
+See the CM Synergy documentation for the built-in relations. Note that it's
+not considered an error to use a non-existing relation, the methods
+will simply return (a reference to) an empty list.
+This is consistent with the behaviour of B<ccm query> in this case.
 
 =head1 TIEHASH INTERFACE
 

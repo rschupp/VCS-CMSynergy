@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.26.11 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.27 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -134,6 +134,12 @@ sub _start
     }
     else
     {
+	# NOTE: If neither database nor CCM_ADDR was specified "ccm start ..."
+	# will fail later on, but with rather cryptic messages from CM Synergy;
+	# hence better fail early
+	return $self->set_error("don't know how to connect to CM Synergy: neither database nor CCM_ADDR specified")
+	    unless $args{database};
+
 	unless (defined $self->{ini_file})
 	{
 	    if (is_win32)
@@ -311,7 +317,7 @@ sub database
 	unless $ps && @$ps > 0;
     return $ps->[0]->{database};
 }
-__PACKAGE__->memoize_method('database');
+__PACKAGE__->_memoize_method('database');
 
 
 sub query
@@ -787,7 +793,7 @@ sub findpath
     sub path 
     { 
 	my ($pathsep) = @_;
-	$pathsep = $_pathsep unless defined $_pathsep;
+	$pathsep = $_pathsep unless defined $pathsep;
 
 	return join($pathsep, map { $_->name } 
 	                          @VCS::CMSynergy::Traversal::_dirs, $_); 
@@ -1552,7 +1558,7 @@ sub dcm_delimiter
 
     return $out;
 }
-__PACKAGE__->memoize_method('dcm_delimiter');
+__PACKAGE__->_memoize_method('dcm_delimiter');
 
 
 sub dcm_database_id
@@ -1564,7 +1570,7 @@ sub dcm_database_id
 
     return $out;
 }
-__PACKAGE__->memoize_method('dcm_database_id');
+__PACKAGE__->_memoize_method('dcm_database_id');
 
 
 sub dcm_enabled		{ shift->dcm_database_id ne ""; }
@@ -1576,7 +1582,7 @@ sub default_project_instance
     return $self->version >= 6.3 && $self->dcm_enabled ?
 	$self->dcm_database_id . $self->dcm_delimiter . '1' : '1';
 }
-__PACKAGE__->memoize_method('default_project_instance');
+__PACKAGE__->_memoize_method('default_project_instance');
 
 
 # generic wrapper for undefined method "foo":

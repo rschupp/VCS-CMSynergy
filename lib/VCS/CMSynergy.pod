@@ -934,10 +934,26 @@ the path in C<$project> project from C<$dir> to C<$_>.
 In particular, C<@VCS::CMSynergy::Traversal::dirs[-1]>
 is the parent C<dir> of C<$_>.
 
+The convenience function C<VCS::CMSynergy::Traversal::path()>
+returns the filesystem path for C<$_>. It is short for
+
+  join($pathsep, map { $_->name } @VCS::CMSynergy::Traversal::dirs, $_) 
+
+where C<$pathsep> is your platforms path separator.
+
+The convenience function C<VCS::CMSynergy::Traversal::depth()> returns the
+current depth, where the top level project has depth 0. It is short for
+
+  scalar @VCS::CMSynergy::Traversal::dirs
+
 Similarly C<@VCS::CMSynergy::Traversal::projects> represents the
 subproject hierarchy starting with
 C<$project>. In particular, C<$_> is a member of 
 C<$VCS::CMSynergy::Traversal::projects[-1]>.
+
+Note: C<@VCS::CMSynergy::Traversal::dirs> and 
+C<@VCS::CMSynergy::Traversal::projects> are both readonly arrays,
+i.e. you can't modify them in any way.
 
 You may set C<$VCS::CMSynergy::Traversal::prune> to a true
 value in C<&wanted> to stop recursion into sub directories (or subprojects)
@@ -1665,6 +1681,15 @@ to be specified as separate arguments.
 Note that no check is made whether the corresponding object really exists
 in the database, use L<VCS::CMSynergy::Object/exists> for that.
 
+=head2 folder_object, task_object
+
+  $folder_obj = $ccm->folder_object("123");
+  $task_obj = $ccm->task_object("42#mydb");
+
+Create a C<VCS::CMSynergy::Object> (with cvtype "folder" or "task", resp)
+from the I<displayname> of a folder or task, resp. (which is typically a number
+or a number followed by the DCM database_id).
+
 =head2 object_other_version
 
   $obj2 = $ccm->object_other_version($obj1, $version);
@@ -1690,6 +1715,36 @@ C<object_from_cvid> uses
   $ccm->property(objectname => "\@=$cvid")
 
 to determine the objectname corresponding to C<$cvid>.
+
+=head2 base_admin, base_model, dcm_admin, cvtype, attype
+
+    $model = $ccm->base_model;
+    $project_type = $ccm->cvtype("project");
+
+These are convenience methods for dealing with CM Synergy objects
+used to access the database model:
+
+=over 4
+
+=item C<base_admin>, C<base_model>, C<dcm_admin>
+
+These return the C<VCS::CMSynergy::Object> corresponding to the model objects:
+
+  base-1:admin:base
+  base-1:model:base
+  dcm-1:admin:dcm
+
+=item C<cvtype>, C<attype>
+
+  $ccm->cvtype("foo")
+  $ccm->attype("foo")
+
+These return the C<VCS::CMSynergy::Object> corresponding to the model objects:
+
+  foo-1:cvtype:base
+  foo-1:attype:base
+
+=back
 
 =head1 METHODS INHERITED FROM C<VCS::CMSynergy::Client>
 

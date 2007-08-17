@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Helper;
 
-our $VERSION = do { (my $v = q%version: 4 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 5 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -8,7 +8,7 @@ VCS::CMSynergy::Helper - ancillary convenience functions
 
 =head1 SYNOPSIS
 
-  my %ccm_opts = VCS::CMSynergy::Helper::GetOptions;
+  my $ccm_opts = VCS::CMSynergy::Helper::GetOptions;
 
 =head2 GetOptions
 
@@ -21,19 +21,20 @@ It may be used to make all your CM Synergy scripts accept a
 uniform set of options:
 
   use Getopt::Long;
+  use Pod::Usage;
   use VCS::CMSynergy;
   use VCS::CMSynergy::Helper;
   ...
 
   # extract CM Synergy options from @ARGV
-  my %ccm_opts = VCS::CMSynergy::Helper::GetOptions;
+  my $ccm_opts = VCS::CMSynergy::Helper::GetOptions or pod2usage();
 
   # process other options in @ARGV
-  GetOptions(...);
+  GetOptions(...) or pod2usage();
 
   # start CM Synergy session
   my $ccm = VCS::CMSynergy->new(
-      %ccm_opts,
+      %$ccm_opts,
       RaiseError => 1,
       PrintError => 0);
   ...
@@ -70,11 +71,15 @@ option C<ui_database_dir> for B<ccm start>, it implies C<remote_client>
 
 =back
 
-If no database was specified C<GetOptions> adds 
+C<GetOptions> returns a reference to a hash of options suitable
+for passing to L<VCS::CMSynergy/new>.  If no C<--database> is specified 
 
   CCM_ADDR => $ENV{CCM_ADDR}
 
-to the returned hash.
+is added to the hash.
+
+If any error is encountered during option processing 
+the error is signalled using C<warn()> and C<undef> is returned.
 
 Note that all recognized single letter options are in uppercase so that
 scripts using C<VCS::CMSynergy::Helper::GetOptions> still
@@ -93,36 +98,26 @@ can cut and paste into your script's POD:
 
 =cut
 
-require Getopt::Long;
-use Carp;
+use Getopt::Long ();
 
 sub GetOptions
 {
-    my %opts;
-    
-    Getopt::Long::Configure(qw(no_ignore_case passthrough));
+    my $saved_config = Getopt::Long::Configure("passthrough");
 
+    my %opts;
     Getopt::Long::GetOptions(\%opts,
 	'database|D=s',
 	'host|H=s',
 	'user|U=s',
 	'password|P=s',
-	'ui_database_dir=s');
+	'ui_database_dir=s') or return;
 
-    Getopt::Long::Configure(qw(no_passthrough));
+    Getopt::Long::Configure($saved_config);
 
     $opts{remote_client} = 1 if defined $opts{ui_database_dir};
     $opts{CCM_ADDR} = $ENV{CCM_ADDR} unless defined $opts{database};
 
-    return %opts;
-}
-
-sub CheckOptions
-{
-    my ($opts) = @_;
-
-    croak "Don't know how to connect to CM Synergy: no database specified in options (with -D or --database) and CCM_ADDR not set in environment"
-	unless defined $opts->{database} || defined $opts->{CCM_ADDR};
+    return \%opts;
 }
 
 1;

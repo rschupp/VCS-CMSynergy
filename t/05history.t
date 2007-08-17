@@ -64,8 +64,7 @@ my $h1_exp = [
      'object' => 'bufcolor.c-1:csrc:2',
      'task' => undef,
      'status_log' => 'Fri Sep  5 08:38:16 1997: Status set to \'working\' by ccm_root in role ccm_admin
-Fri Sep  5 08:53:24 1997: Status set to \'released\' by ccm_root in role ccm_admin
-',
+Fri Sep  5 08:53:24 1997: Status set to \'released\' by ccm_root in role ccm_admin',
      'predecessors' => [],
      'successors' => [ 'bufcolor.c-2:csrc:2' ]
    },
@@ -73,8 +72,7 @@ Fri Sep  5 08:53:24 1997: Status set to \'released\' by ccm_root in role ccm_adm
      'object' => 'bufcolor.c-2:csrc:2',
      'task' => '25',
      'status_log' => 'Fri Sep  5 09:04:57 1997: Status set to \'working\' by ccm_root in role ccm_admin
-Fri Sep  5 09:06:02 1997: Status set to \'integrate\' by ccm_root in role ccm_admin
-',
+Fri Sep  5 09:06:02 1997: Status set to \'integrate\' by ccm_root in role ccm_admin',
      'predecessors' => [ 'bufcolor.c-1:csrc:2' ],
      'successors' => [ 'bufcolor.c-3:csrc:2' ]
    },
@@ -82,8 +80,7 @@ Fri Sep  5 09:06:02 1997: Status set to \'integrate\' by ccm_root in role ccm_ad
      'object' => 'bufcolor.c-3:csrc:2',
      'task' => '26',
      'status_log' => 'Fri Sep  5 09:06:20 1997: Status set to \'working\' by ccm_root in role ccm_admin
-Fri Sep  5 09:06:48 1997: Status set to \'integrate\' by ccm_root in role ccm_admin
-',
+Fri Sep  5 09:06:48 1997: Status set to \'integrate\' by ccm_root in role ccm_admin',
      'predecessors' => [ 'bufcolor.c-2:csrc:2' ],
      'successors' => []
    }

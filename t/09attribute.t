@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 55;
+use Test::More tests => 54;
 use t::util;
 use strict;
 
@@ -31,31 +31,23 @@ ok(!$@,
 ok(!defined $frobozz, 
     "get_attribute() of non-existent attribute returns undef");
 
+# check that get_attribute() and query_*()/property()
+# will return the same value wrt trailing newline
+my $ppl_a = $ccm->base_model->get_attribute("project_purpose_list");
+my $ppl_p = $ccm->base_model->property("project_purpose_list");
+my $ppl_q = $ccm->query_arrayref({ name => "base", type => "model" }, "project_purpose_list")->[0]->[0];
+is($ppl_a, $ppl_p, "attribute value with trailing newline via attribute/property");
+is($ppl_a, $ppl_q, "attribute value with trailing newline via attribute/query");
 
 # test set_attribute with different values
 # we need a modifiable object...
-my ($rc, $out, $err) = $ccm->folder(qw/-create -name/, "the great quux");
+my ($rc, $out, $err) = $ccm->folder(qw/-create -name/, gmtime()." the great quux");
 ok($rc == 0, q[create folder]);
 my $rx_created = qr/Created folder (.*?)\./;
 like($out, $rx_created, "Created folder ...");
 my ($fno) = $out =~ $rx_created;
-# NOTE: $fno is either "123" or "dcmid#123" (if database is DCM enabled)
-# and objectname is "123-1:folder:probtrac" or "123-1:folder:dcmid", resp.
-
-my ($folder) = @{ $ccm->query_object({ folder => [ $fno ] }) };
-# FIXME: "folder('nnn')" appeared in CCM 6.x
-
+my ($folder) = $ccm->folder_object($fno);
 push @cleanup, sub { $ccm->folder(qw/-delete -quiet -y/, $folder) };
-
-# test that empty string values are correctly returned by query()
-# (and not turned into undef)
-# FIXME: move this to t/03query.t ?
-{
-    my @stooges = qw(larry moe curly);
-    $ccm->create_attribute($_, string => "", $folder) foreach @stooges;
-    my ($attr) = @{ $ccm->query_hashref({ folder => [ $fno ] }, @stooges) };
-    is($attr->{$_}, "", q[empty string attribute in query]) foreach @stooges;
-}
 
 my @values=
 (

@@ -27,6 +27,20 @@ Known problems:
   in the actual query). Reason was the careless use of split()
   without a limit (which strips trailing empty fields by default).
 
+  INCOMPATIBLE CHANGE: Make attribute values returned from 
+  the query_*() family consistent with the return value of get_attribute()
+  w.r.t. a trailing newline: If the "real" attribute value is "foo\nbar\n"
+  then that's what query_hashref() would have returned. But get_attribute()
+  would have returned "foo\nbar" (i.e. stripped the trailing newline).
+  The reason is that get_attribute() uses "ccm attr -show" and
+  Synergy always appends a newline to the output of a command unless
+  one is already there. So there's no way of telling whether the "real"
+  value was "foo\nbar" or "foo\nbar\n". Therefore ccm() has always stripped
+  a trailing newline from the command's stdout. Now we return "foo\nbar"
+  in both cases.
+
+  Implemented folder_object() (similar to task_object()).
+
 =head2 Changes in Version 1.26
 
   INCOMPATIBLE CHANGE: get_attribute() doesn't fail any more if the

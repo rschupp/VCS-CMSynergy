@@ -20,6 +20,13 @@ Known problems:
 
 =head1 CHANGES
 
+=head2 Changes in Version 1.27
+
+  Fixed a bug where empty string attributes could be returned 
+  as undef in query_*() (depending on the order of %keywords 
+  in the actual query). Reason was the careless use of split()
+  without a limit (which strips trailing empty fields by default).
+
 =head2 Changes in Version 1.26
 
   INCOMPATIBLE CHANGE: get_attribute() doesn't fail any more if the

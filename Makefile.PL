@@ -1,8 +1,8 @@
 #!/usr/bin/perl -w
 
-# %version: 10 %
+# %version: 11 %
 
-use ExtUtils::MakeMaker;
+use inc::Module::Install;
 use Config;
 use strict;
 
@@ -47,31 +47,38 @@ warn qq{
 } unless (eval "use Scalar::Util qw(weaken); 1");
 
 
-# --- Create Makefile
+# --- Define metadata
 
-my %prereq =
-(
-    'File::Spec'		=> 0,
-    'File::Temp'		=> 0,
-    'IPC::Run3'			=> '0.030',
-    'Time::HiRes'		=> 0,
-    'Class::Accessor::Fast'     => 0,
-    'Test::More'		=> 0,	 	# for `make test' only
-    'Test::Deep'		=> '0.093',	# for `make test' only
-);
-$prereq{'Filesys::CygwinPaths'} = 0 if $^O eq 'cygwin';
+name		'VCS-CMSynergy';
+author		'Roderich Schupp <schupp@argumentum.de>';
+license		'perl';
+abstract_from	'lib/VCS/CMSynergy.pod';
+version_from	'lib/VCS/CMSynergy.pm';
 
-WriteMakefile(
-    NAME		=> 'VCS::CMSynergy',
-    AUTHOR		=> 'Roderich Schupp <schupp@argumentum.de>',
-    VERSION_FROM	=> 'lib/VCS/CMSynergy.pm',
-    PREREQ_PM		=> \%prereq,
-    dist		=> { 
-	COMPRESS	=> 'gzip -9f', 
-	SUFFIX		=> 'gz' 
-    },
-    realclean		=> { FILES => 't/zz_*.t' },
-);
+# --- Dependencies
+
+requires	'perl'			=> '5.006';
+requires	'File::Spec'		=> 0;
+requires	'File::Temp'		=> 0;
+requires	'IPC::Run3'		=> '0.030';
+requires	'Time::HiRes'		=> 0;
+requires	'Class::Accessor::Fast' => 0;
+requires	'Filesys::CygwinPaths'	=> 0 if $^O eq 'cygwin';
+
+build_requires	'Test::More'		=> 0;
+build_requires	'Test::Deep'		=> '0.093';
+
+include_deps	'Test::More';
+include_deps	'Test::Deep';
+
+clean_files	't/zz_*.t';
+
+no_index	module			=> 'VCS::CMSynergy::ObjectTieHash';
+no_index	package			=> 'VCS::CMSynergy::Traversal';
+no_index	package			=> 'Tie::ReadonlyArray';
+
+WriteAll;
+
 
 package MY;
 

@@ -1,0 +1,131 @@
+
+
+package VCS::CMSynergy;
+
+sub create_task
+{
+    my ($self, $opts) = @_;	# opts: hash or hash ref?
+
+    # FIXME check opts against VCS::CMSynergy::Task::opt2attr
+    my @cmd = qw/-create/;
+    while (my ($k, $v) = each %$opts)
+    {
+	croak(qq[FIXME invalid option "$k"]) 
+	    unless $VCS::CMSynergy::Task::opt2attr{$k};
+	push @cmd, "-$k", $v;
+    }
+
+    my ($rc, $out, $err) = $self->task(-create => @cmd);
+    return $self->set_error($err || $out) unless $rc == 0;
+
+    $out =~ /Task (\S+) created/ or FIXME;
+    return $self->task_object($1);
+    # FIXME task_object: use "query task('$1')", but that works only for CCM >=6.3 ??
+}
+# create fix task:  $ccm->create_task(fix => $task, ...)?
+
+# delete(file_spec or only 1 allowed...)
+sub delete
+{
+    my $self = shift;
+    my ($rc, $out, $err) = $self->ccm(delete => @_);
+    # FIXME parse $out for /Deleting object '(.*?)'/ (may be several)
+    # for V:C:Os in @_ somehow mark objects as not existing anymore
+}
+
+
+package VCS::CMSynergy::Object;
+
+sub delete
+{
+    my ($self) = @_;
+    $self->ccm->delete($self);
+}
+
+
+
+package VCS::CMSynergy::Task;
+
+use base qw/VCS::CMSynergy::Object/;
+
+=head2 task attributes
+
+assigner            (string)  (local) 
+assignment_date     (time)    (local) 
+create_time         (time)    (local) 
+creator             (string)  (local) 
+cvtype              (string)  (local) 
+est_completion_date (time)    (local) 
+est_duration        (string)  (local) 
+is_asm              (boolean) (local) 
+is_model            (boolean) (local) 
+modify_time         (time)    (local) 
+name                (string)  (local) 
+owner               (string)  (local) 
+platform            (string)  (local) 
+priority            (string)  (local) 
+registration_date   (time)    (local) 
+release             (string)  (local) 
+resolver            (string)  (local) 
+status              (string)  (local) 
+status_log          (uptext)  (local) 
+subsystem           (string)  (local) 
+task_description    (text)    (local) 
+task_number         (string)  (local) 
+task_subsys         (string)  (local) 
+task_synopsis       (string)  (local) 
+version             (string)  (local) 
+
+=cut 
+
+our %opt2attr = 
+(
+    synopsis		=> "task_synopsis",
+    release		=> "release",
+    priority		=> "priority",
+    platform		=> "platform",
+    resolver		=> "resolver",
+    subsystem		=> "task_subsys",
+    time_estimate	=> "est_duration",
+    date_estimate	=> "est_completion_date",
+    description		=> "task_description",
+);
+
+# relate objects
+sub relate
+{
+    my $self = shift;
+    $self->ccm->task(-relate => $self, -object => @_);
+}
+
+# unrelate objects
+sub unrelate
+{
+    my $self = shift;
+    $self->ccm->task(-unrelate => $self, -object => @_);
+}
+
+# relate fix task?
+# unrelate fix task?
+
+# return array ref of V:C:Os 
+# (may use attributes just like query_object_with_attributes?)
+sub list_related 
+{
+    my ($self) = @_;
+    $self->ccm_>query_object({ is_associated_cv_of => [ $self ] });
+}
+
+# get_foo/set_foo (show information/modify task)
+{
+    no strict 'refs';
+
+    while (my ($opt, $attr) = each %opt2attr)
+    {
+	*{"get_$opt"} = sub { $_[0]->get_attribute($attr); };
+	*{"set_$opt"} = sub { $_[0]->ccm->(qw/-task -modify/, "-$opt", $_[1]); };
+	# FIXME set_$opt: invalidate (whole or opt->attr) acache
+	# NOTE: use task command (instead of attribute command)
+	# because $attr may have to be created
+    }
+}

@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 30;
+use Test::More tests => 29;
 use t::util;
 use strict;
 
@@ -130,13 +130,13 @@ my @trav_path_expected = qw(
   toolkit/misc/toolkit.ini
 );
 my @trav_depth_expected = map { tr:/:/: } @trav_path_expected;
-my @trav_object_expected = @{ $ccm->query_object(
-    { recursive_is_member_of => [ $project, 'none' ] }) };
-push @trav_object_expected, $ccm->object($project);	
-# because recursive_is_member_of() does NOT include the project itself
+my @trav_object_expected = (
+    $ccm->object($project),	# because recursive_is_member_of() does NOT include the project itself
+    @{ $ccm->query_object({ recursive_is_member_of => [ $project, 'none' ] })}
+);
 
 my (@trav_path_got, @trav_depth_got, @trav_object_got, $trav_tree_expected);
-my ($preprocess, $postprocess);
+my ($npre, $npost);
 ok($ccm->traverse_project(
   {
     wanted => sub {
@@ -149,26 +149,26 @@ ok($ccm->traverse_project(
       push @trav_depth_got, VCS::CMSynergy::Traversal::depth();
     },
     subprojects	=> 1,
-    preprocess	=> sub { $preprocess++; return sort { $a->name cmp $b->name } @_; },
-    postprocess => sub { $postprocess++; }
+    preprocess	=> sub { $npre++; return sort { $a->name cmp $b->name } @_; },
+    postprocess => sub { $npost++; }
   },
-  $project), qq[traverse_project($project)]);
+  $project), 
+  qq[traverse_project($project)]);
 
-ok(eq_set(objectnames(\@trav_object_got), objectnames(\@trav_object_expected)),
+cmp_bag(\@trav_object_got, [ map { vco($_->objectname) } @trav_object_expected ],
   q[traverse_project: check objects]);
-ok(eq_array(\@trav_path_got, \@trav_path_expected),
+cmp_deeply(\@trav_path_got, \@trav_path_expected,
   q[traverse_project: check pathnames]);
-ok(eq_array(\@trav_depth_got, \@trav_depth_expected),
+cmp_deeply(\@trav_depth_got, \@trav_depth_expected,
   q[traverse_project: check depth]);
-ok($preprocess == $postprocess, 
+ok($npre == $npost, 
   q[traverse_project: compare number of preprocess and postprocess calls]);
-ok($preprocess == (grep { $_->cvtype =~ /^(dir|project)$/ } @trav_object_expected),
+ok($npre == (grep { $_->cvtype =~ /^(dir|project)$/ } @trav_object_expected),
   q[traverse_project: compare number of preprocess calls to projects/dirs traversed]);
 
 my $trav_tree_got = $ccm->project_tree(
   { subprojects => 1, pathsep => "/" }, $project);
-isa_ok($trav_tree_got, "HASH", qq[project_tree($project)]);
-ok(eq_hash($trav_tree_expected, $trav_tree_got),
+cmp_deeply($trav_tree_got, $trav_tree_expected,
   q[project_tree: compare results]);
 
 my @trav2_expected = 
@@ -204,8 +204,8 @@ BEGIN { use_ok('VCS::CMSynergy::Users'); }
 
 my $users = $ccm->users;
 isa_ok($users, 'HASH', q[users()]);
-all_ok { UNIVERSAL::isa($_, 'ARRAY') } [ values %$users ],
-  q[users(): isa ARRAY];
+cmp_deeply([ values %$users ], array_each(isa('ARRAY')), 
+  q[users(): isa HASH of ARRAY]);
 ok(exists $users->{ccm_root}, q[ccm_root is in users]);
 
 exit 0;

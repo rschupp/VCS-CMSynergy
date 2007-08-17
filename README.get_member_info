@@ -1,0 +1,16 @@
+USAGE
+- install intlib.a from PC Integrations
+- put in ~/.ccm_init or issue directly
+    load "$CCM_HOME/lib/intlib.a"
+    define get_member_info intcmds get_member_info_cmd
+- ccm get_member_info [-format ...] [-recurse] project
+- path is always prepended before format output
+
+PROS
+- order of magnitude faster than VC::traverse_project
+
+CONS
+- no indication of sub projects
+- path always includes full wa path unless maintain_wa = FALSE
+- can't be restricted to sub tree
+

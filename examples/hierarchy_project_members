@@ -25,7 +25,7 @@ Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 
 =cut
 
-use VCS::CMSynergy 1.27 qw(:tied_objects :cached_attributes);
+use VCS::CMSynergy 1.29 qw(:tied_objects :cached_attributes);
 use VCS::CMSynergy::Helper; 
 use Pod::Usage;
 use strict;
@@ -40,9 +40,9 @@ my $ccm = VCS::CMSynergy->new(
     RaiseError => 1,
 );
 
-foreach my $member (@{ $ccm->query_object(
-    { hierarchy_project_members => [ $ccm->project_object($top_proj_vers), 'depth'] }, 
-    qw(status wa_path)) })
+foreach my $member (
+    @{ $ccm->project_object($top_proj_vers)
+             ->hierarchy_project_members(depth => qw(status wa_path)) })
 {
     print "$member <$member->{status}> $member->{wa_path}\n";
 }

@@ -67,6 +67,7 @@ lib/VCS/CMSynergy/Client.pm
 lib/VCS/CMSynergy/Helper.pm
 lib/VCS/CMSynergy/Object.pm
 lib/VCS/CMSynergy/ObjectTieHash.pm
+lib/VCS/CMSynergy/Project.pm
 lib/VCS/CMSynergy/update_users.pm
 lib/VCS/CMSynergy/Users.pm
 Makefile.PL

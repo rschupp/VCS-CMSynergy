@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Users;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.05 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.06 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -72,38 +72,38 @@ sub users
     # whereas "ccm users" requires the ccm_admin role.
     if (@_ == 0)
     {
-	my $attr = $self->attribute('users', $self->object(qw(base 1 model base)));
-	return undef unless defined $attr;
+	my $text = $self->get_attribute(users => $self->object(qw(base 1 model base)));
+	return undef unless defined $text;
 	
 	my $users = {};
-	foreach (split(/\n/, $attr))
+	foreach (split(/\n/, $text))
 	{
 	    my ($user, $roles) = /^ \s* user \s+ (\S+) \s* = \s* (.*) ;/x;
 	    next unless defined $user;
-	    $users->{$user} = [ split(' ', $roles) ];
+	    $users->{$user} = [ split(" ", $roles) ];
 	}
 
 	return $users;
     }
 
     my $users = shift;
-    return $self->set_error("illegal type of argument") 
+    return $self->set_error("illegal type of argument (hash ref expected)") 
 	unless ref $users eq "HASH";
 
-    # use ye olde text_editor trick
-    my ($fh, $tempfile) = tempfile();
+    my $text = "";
+    while (my ($user, $roles) = each %$users)
     {
-	local $" = ' ';			# paranoia setting
-	print $fh "user $_ = @{ $users->{$_} };\n" foreach (keys %$users);
+	return $self->set_error("illegal value for user `$user' (array ref expected)")
+	    unless ref $roles eq "ARRAY";
+	return $self->set_error("no roles defined for user `$user´")
+	    unless @$roles;
+
+	local $" = " ";
+	$text .= "user $user = @$roles;\n";
     }
-    close($fh);
 
-    $self->_with_local_option(
-	text_editor => "$Config{cp} $tempfile %filename",
-	qw(ccm users));
-	# FIXME error handling?
-    unlink($tempfile);
-
+    my ($rc, $out, $err) = $self->_ccm_with_text_editor($text, qw(users));
+    return $self->set_error($err || $out) unless $rc == 0;
     return $users;
 }
 
@@ -206,7 +206,8 @@ sub delete_roles
 
   @roles = $ccm->get_roles($user);
 
-Returns the roles for the user. Returnis C<undef> if the user doesn't exist.
+Returns the roles for the user. Returns an empty list
+if the user doesn't exist.
 
 =cut
 
@@ -215,9 +216,7 @@ sub get_roles
     my ($self, $user) = @_;
 
     my $users = $self->users;
-    return undef unless $users && exists $users->{$user};
-
-    return @{ $users->{$user} };
+    return defined $users ? @{ $users->{$user} } : ();
 }
 
 =back

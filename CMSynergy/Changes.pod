@@ -6,6 +6,9 @@ VCS::CMSynergy::Changes - List of changes to VCS::CMSynergy
 
 Known problems:
 
+- better name for mkInstallation, document it
+  OR replace this CLASS with a server/installation OBJECT
+
 - IPC::Open3 croaks on NT if stdout or stderr is closed on entry
   reason is probably that perl opens the script file read-only and it gets
   file descriptor 1 or 2 resp. 
@@ -22,6 +25,24 @@ Known problems:
    probably needs to specify -u and -home options for "ccm start"
 
 =head1 CHANGES
+
+=head2 Changes in Version 1.12
+
+  INCOMPATIBLE CHANGE: attribute() has been replaced by two methods 
+  get_attribute() and set_attribute().
+  attributes() has been renamed to list_attributes().
+
+  Move VCS::CMSynergy hash keys CCM_HOME, CCM_ADDR and CCM_INI_FILE
+  into sub hash env. Change ccmexec to pass it a hash ref with keys/values
+  to temporarily add to %ENV instead of passing CCM_HOME.
+  Factor ccm() into _ccm() (does all the work except error handling) and
+  make ccm() a simple wrapper for it. Get rid of IgnoreError and
+  use _ccm for all "internal" calls.
+  Document "HandleError" and set_errror().
+  Pod: change all method "=item"s to "=head2"; the man page looks slightly
+  worse, but the HTML rendering is much better.
+  CMSynergy/users.pl: renamed to CMSynergy/update_users.pm.
+  Implemented create_attribute(), delete_attribute(), and copy_attribute().
 
 =head2 Changes in Version 1.10
 

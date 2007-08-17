@@ -1,5 +1,6 @@
 CMSynergy.pm
 CMSynergy/Users.pm
+CMSynergy/update_users.pm
 CMSynergy/Changes.pod
 Makefile.PL
 MANIFEST
@@ -10,4 +11,8 @@ t/03query.t
 t/04finduse.t
 t/05history.t
 t/06misc.t
+t/07workarea.t
 t/util.pm
+examples/find_parallel_versions2.pl
+examples/find_parallel_versions.pl
+examples/hierarchy_project_members.pl

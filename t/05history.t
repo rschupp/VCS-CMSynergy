@@ -6,7 +6,7 @@ use UNIVERSAL qw(isa);
 
 my $ccm = VCS::CMSynergy->new(%test_session);
 isa_ok($ccm, "VCS::CMSynergy");
-diag("using Expect") if defined $ccm->{exp};
+diag("using coprocess") if defined $ccm->{coprocess};
 
 my $h0_exp = [
 'Object:  bufcolor.c-1 (csrc:2)
@@ -49,7 +49,7 @@ my $h0_result = $ccm->history("bufcolor.c-1:csrc:2");
 verbose('h0_result', $h0_result);
 isa_ok($h0_result, "ARRAY", "history() returns array ref");
 # sigh, CCM_DATETIME_FMT doesn't work with Windows clients
-if ($^O eq 'MSWin32' || $^O eq 'cygwin')
+if ($VCS::CMSynergy::Is_MSWin32)
 {
     s/^Created:.*$/Created:/m foreach (@$h0_exp);
     s/^Created:.*$/Created:/m foreach (@$h0_result);

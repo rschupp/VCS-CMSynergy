@@ -6,7 +6,7 @@ use UNIVERSAL qw(isa);
 
 my $ccm = VCS::CMSynergy->new(%test_session);
 isa_ok($ccm, "VCS::CMSynergy");
-diag("using Expect") if defined $ccm->{exp};
+diag("using coprocess") if defined $ccm->{coprocess};
 
 my $e_got = $ccm->query_object("name match '*blurfl*'");
 ok(isa($e_got, "ARRAY") && @$e_got == 0,

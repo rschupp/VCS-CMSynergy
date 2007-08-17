@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# %version: 9 %
+# %version: 10 %
 
 use ExtUtils::MakeMaker;
 use Config;
@@ -55,7 +55,9 @@ my %prereq =
     'File::Temp'		=> 0,
     'IPC::Run3'			=> '0.030',
     'Time::HiRes'		=> 0,
+    'Class::Accessor::Fast'     => 0,
     'Test::More'		=> 0,	 	# for `make test' only
+    'Test::Deep'		=> '0.093',	# for `make test' only
 );
 $prereq{'Filesys::CygwinPaths'} = 0 if $^O eq 'cygwin';
 

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 13 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 14 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -49,23 +49,19 @@ This synopsis only lists the major methods.
 
 =cut 
 
-    
+use base qw(Class::Accessor::Fast);
+__PACKAGE__->mk_ro_accessors(qw/objectname ccm name version cvtype instance/);
+
 use Carp;
 use VCS::CMSynergy::Client qw(_usage);
 
+# NOTE: We can't just alias string conversion to objectname()
+# as it is called (as overloaded operator) with three arguments
+# which Class::Accessor's ro accessors dont't like.
 use overload 
-    '""'	=> \&objectname,
+    '""'	=> sub { $_[0]->objectname },
     cmp		=> sub { $_[0]->objectname cmp $_[1]->objectname },
     fallback	=> 1;
-
-{
-    # generate getter methods
-    no strict 'refs';
-    foreach my $method (qw(objectname ccm name version cvtype instance))
-    {
-	*{$method} = sub { return shift->{$method}; };
-    }
-}
 
 my $have_weaken = eval "use Scalar::Util qw(weaken); 1";
 
@@ -303,23 +299,16 @@ sub cvid
 sub recursive_is_member_of
 {
     my $self = shift;
-    return $self->_function_query(\@_, recursive_is_member_of => "depth");
+    return $self->ccm->query_object_with_attributes(
+	"recursive_is_member_of('$self',depth)", @_);
 }
 
 
 sub hierarchy_project_members
 {
     my $self = shift;
-    return $self->_function_query(\@_, hierarchy_project_members => "depth");
-}
-
-
-sub _function_query
-{
-    my ($self, $keywords, $function, @args) = @_;
-
     return $self->ccm->query_object_with_attributes(
-	{ $function => [ $self, @args ] }, @$keywords);
+	"hierarchy_project_members('$self',depth)", @_);
 }
 
 
@@ -341,7 +330,7 @@ sub AUTOLOAD
 
     if ($method =~ /^(is_.*_of|has_.*)$/)
     {
-	return $this->_function_query(\@_, $method);
+	return $this->ccm->query_object_with_attributes("$method('$this')", @_);
     }
     croak("Can't locate object method \"$method\" via class \"$class\"");
 }

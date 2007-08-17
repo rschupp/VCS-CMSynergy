@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 26 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 27 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -42,7 +42,7 @@ use IO::File;
 use IO::Pipe;					# make ActiveState PerlApp happy
 
 use constant is_win32 => $^O eq 'MSWin32' || $^O eq 'cygwin';
-use constant _pathsep => $^O eq "MSWin32" ? "\\" : "/" ;
+use constant _pathsep => is_win32 ? "\\" : "/" ;
 
 our ($Debug, $Debugfh, $Error, $Ccm_command, $Default);
 

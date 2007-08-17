@@ -145,7 +145,7 @@ Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 
 use Getopt::Long qw(:config bundling);
 use Pod::Usage;
-use VCS::CMSynergy 1.27 qw(:cached_attributes :tied_objects);
+use VCS::CMSynergy 1.29 qw(:cached_attributes :tied_objects);
 use VCS::CMSynergy::Helper; 
 use strict;
 

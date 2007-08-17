@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 14 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 15 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -42,12 +42,12 @@ use IO::File;
 use IO::Pipe;					# make ActiveState PerlApp happy
 
 use constant is_win32 => $^O eq 'MSWin32' || $^O eq 'cygwin';
-our ($Debug, $Debugfh, $Error, $Ccm_command, $OneArgFoo, $Default);
+our ($Debug, $Debugfh, $Error, $Ccm_command, $Default);
 
 use Exporter();
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
-    is_win32 $Debug $Error $Ccm_command $OneArgFoo %new_opts 
+    is_win32 $Debug $Error $Ccm_command %new_opts 
     _exitstatus _error _usage);
 
 {
@@ -154,7 +154,7 @@ sub ccm						# class/instance method
     my $this = shift;
     $this = __PACKAGE__->_default unless ref $this;
 
-    my ($rc, $out, $err) = $this->_ccm($OneArgFoo && @_ == 1, @_);
+    my ($rc, $out, $err) = $this->_ccm(@_);
 
     return wantarray ? ($rc, $out, $err) : 1 if $rc == 0;
     return $this->set_error($err || $out, undef, 0, $rc, $out, $err);
@@ -166,7 +166,7 @@ my $ccm_prompt = qr/^ccm> /;		# NOTE the trailing blank
 # helper: just do it (TM), returns ($rc, $out, $err) (regardless of context)
 sub _ccm
 {
-    my ($this, $oneargfoo, $cmd, @args) = @_;
+    my ($this, $cmd, @args) = @_;
     $Error = $this->{error} = undef;
     $Ccm_command = $this->{ccm_command} = join(" ", $cmd, @args);
 
@@ -209,7 +209,7 @@ sub _ccm
 		# be quoted with double quotes; AFAICT there is no way 
 		# to quote embedded quotes!
 		$this->{coprocess}->print(
-		    join(" ", $cmd, $oneargfoo ? @args : map { "\"$_\"" } @args), "\n");
+		    join(" ", $cmd, map { "\"$_\"" } @args), "\n");
 
 		($match, $err, undef, $out, undef) =
 		    $this->{coprocess}->expect(undef, -re => $ccm_prompt);
@@ -232,7 +232,7 @@ sub _ccm
 
 	# simple ccm sub process
 	my @exec_args = ($this->ccm_exe, $cmd, @args);
-	($rc, $out, $err) = $this->exec($oneargfoo ?  join(" ", @exec_args) : @exec_args);
+	($rc, $out, $err) = $this->exec(@exec_args);
     }
 
     if ($Debug)
@@ -399,7 +399,7 @@ sub _version
     # "version" is not a recognized "interactive" command
     local $this->{coprocess} = undef;
 
-    my ($rc, $out, $err) = $this->_ccm(0, qw(version -all));
+    my ($rc, $out, $err) = $this->_ccm(qw/version -all/);
     return $this->set_error($err || $out) unless $rc == 0;
 
     my %version;
@@ -425,7 +425,7 @@ sub ps
     # "ps" is not a recognized "interactive" command
     local $this->{coprocess} = undef;
 
-    my ($rc, $out, $err) = $this->_ccm(0, ps => @filter);
+    my ($rc, $out, $err) = $this->_ccm(ps => @filter);
     return $this->set_error($err || $out) unless $rc == 0;
 
     my @ps = ();
@@ -461,7 +461,7 @@ sub status
     my $this = shift;
     $this = __PACKAGE__->_default unless ref $this;
 
-    my ($rc, $out, $err) = $this->_ccm(0, 'status');
+    my ($rc, $out, $err) = $this->_ccm(qw/status/);
     return $this->set_error($err || $out) unless $rc == 0;
 
     my (@sessions, $session, $user);

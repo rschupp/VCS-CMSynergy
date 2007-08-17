@@ -1,4 +1,4 @@
-#=head1 NAME
+=head1 NAME
 
 VCS::CMSynergy - Perl interface to Telelogic SYNERGY/CM (aka Continuus/CM)
 
@@ -1308,7 +1308,8 @@ with C<defined> as an attribute's value can never be C<undef>.
   $ccm->set_attribute($attr_name, $file_spec, $value);
 
 Set the value of the attribute C<$attr_name>
-for C<$file_spec> to C<$value> (using (B<ccm attribute -modify>).
+for C<$file_spec> to C<$value> 
+(usually using B<ccm attribute -modify>, but see below).
 
 Returns C<$value> on success.  If C<RaiseError>
 is not set and an error occurs (e.g. attribute C<$attr_name> does not
@@ -1321,6 +1322,16 @@ multiple lines, have arbitrary length or are empty strings.
 Note the following differences from B<ccm attribute -modify>:
 
 =over 4
+
+=item *
+
+If the attribute C<$attr_name>is inherited, 
+B<ccm attribute -modify $attr_name> will fail. But C<set_attribute> will
+retry with B<ccm attribute -create $attr_name -force> in this case
+(thereby converting the attribute to a local attribute). I.e. whenever
+L</get_attribute> indicates that an attribute exists (by returning something
+C<defined>), you can always set its value with C<set_attribute>
+(given you have necessary permissions).
 
 =item *
 
@@ -1896,7 +1907,7 @@ L<VCS::CMSynergy::Object>,
 L<VCS::CMSynergy::Client>,
 L<VCS::CMSynergy::Users> 
 
-=head1 AUTHORS
+=head1 AUTHOR
 
 Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 

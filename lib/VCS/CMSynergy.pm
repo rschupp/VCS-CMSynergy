@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.22 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.24 % =~ /(\d+)\.(\d+)/);
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -98,7 +98,7 @@ sub _start
     $self->{env} = { %{ $client->{env} } } if $client->{env};
     bless $self, $class;
 
-    my @start = qw(start -m -q -nogui);
+    my @start = qw/start -m -q -nogui/;
     while (my ($arg, $value) = each %args)
     {
 	return $self->set_error("unrecognized attribute `$arg'") 
@@ -259,7 +259,8 @@ sub DESTROY
     # FIXME: might be more correct to push localization into the
     # offending methods.
     local $@;
-    
+
+    local $?;				# don't screw up global $?
     $self->_kill_coprocess if $self->{coprocess};
 
     unless ($self->{KeepSession})
@@ -308,7 +309,7 @@ sub query
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm($OneArgFoo && @_ == 1, qw(query -u), @_);
+    my ($rc, $out, $err) = $self->_ccm($OneArgFoo && @_ == 1, qw/query -u/, @_);
 
     # NOTE: if there are no hits, `ccm query' exits with status 1, 
     # but produces no output on either stdout and stderr
@@ -380,6 +381,21 @@ sub query_object_with_attributes
 }
 
 
+sub query_count
+{
+    my ($self, $query) = @_;
+    _usage(2, 2, '$query', \@_);
+
+    my ($rc, $out, $err) = $self->_ccm(0, qw/query -u -ns -nf -format X/, $query);
+
+    # NOTE: if there are no hits, `ccm query' exits with status 1, 
+    # but produces no output on either stdout and stderr
+    return 0 if $rc == _exitstatus(1) and $out eq "" and $err eq "";
+    return $out =~ tr/X/X/ if $rc == 0;			# count 'em X's
+    return $self->set_error($err || $out);
+}
+
+
 # helper method: query with correct handling of multi-line attributes
 sub _query
 {
@@ -390,12 +406,21 @@ sub _query
 	$query = _query_shortcut($query);
 	$Debug >= 2 && $self->trace_msg("query: $query\n");
     }
+    else
+    {
+	# Sanitize query string by replacing whitespace (esp. newlines)
+	# by a single blank except inside single or double quotes.
+	# This helps to improve the legibility of longish queries with 
+	# whitespace and line breaks (which CM Synergy's CLI dosen't grok).
+	$query =~ s/('.*?'|".*?"|\S+)|(\s+)/defined $2 ? " " : $1/ge;
+    }
 
     my %want = map { $_ => "%$_" } @keywords;
     $want{object} = "%objectname" if $want{object};
+    $want{task_objects} = "%task" if $want{task_objects};
     my $want_finduse = delete $want{finduse};
 
-    # NOTE: We use \x01 and \x04 as record/field separators.
+    # NOTE: We use \cA and \cD as record/field separators.
     # Change Synergy uses \x1C-\x1E in attribute
     # "transition_log" of "problem" objects, so these are out.
     # Also people have been known to enter strange characters
@@ -403,8 +428,11 @@ sub _query
     my $format = "\cA" . join("\cD", values %want) . "\cD";
 
     my ($rc, $out, $err) = $want_finduse ?
-	$self->ccm_with_option(Object_format => $format, qw(finduse -query), $query) :
-	$self->_ccm(0, qw(query -u -ns -nf -format), $format, $query);
+	$self->ccm_with_option(
+	    Object_format => $format, 
+	    qw/finduse -query/, $query) :
+	$self->_ccm(0, 
+	    qw/query -u -ns -nf -format/, $format, $query);
 
     # NOTE: if there are no hits, `ccm query' exits with status 1, 
     # but produces no output on either stdout and stderr
@@ -417,12 +445,12 @@ sub _query
 	next unless length($_);		# skip empty leading record
 
 	my @cols = split(/\cD/, $_);
-	my $finduse = $want_finduse ? pop @cols : undef;
-	my $row = $self->_parse_query_result(\%want, \@cols);
+	my %finduse;
 
 	if ($want_finduse)
 	{
-	    $row->{finduse} = {};
+	    # finduse information is the last "column" 
+	    my $fu_lines = pop @cols;	
 
 	    # finduse lines are of the forms
 	    #
@@ -440,19 +468,24 @@ sub _query
 	    # the full objectname otherwise. We return the full objectname
 	    # in any case.
 
-	    unless ($finduse =~ /Object is not used in scope/)
+
+	    unless ($fu_lines =~ /Object is not used in scope/)
 	    {
-		foreach (split(/\n/, $finduse))
+		foreach (split(/\n/, $fu_lines))
 		{
 		    next if /^\s*$/;
 		    my ($path, $project) = /$self->{finduse_rx}/
-			or return $self->set_error("unrecognizable line returned from \"finduse -query\": \"$_\"");
+			or return $self->set_error(
+			    "unrecognizable line returned from \"finduse -query\": \"$_\"");
 		    $project .= ':project:' . $self->default_project_instance
 			unless $project =~ /:project:/;
-		    $row->{finduse}->{$project} = $path;
+		    $finduse{$project} = $path;
 		}
 	    }
 	}
+
+	my $row = $self->_parse_query_result(\%want, \@cols);
+	$row->{finduse} = \%finduse if $want_finduse;
 
 	push @result, $wanthash ? $row : [ @$row{@keywords} ];
     }
@@ -491,6 +524,13 @@ sub _parse_query_result
     {
 	# objectify column
 	$row{object} = $self->object($row{object});
+    }
+
+    if ($want->{task_objects})
+    {
+	# split comma-separated list of task numbers and objectify them
+	$row{task_objects} = 
+	    [ map { $self->task_object($_) } split(/,/, $row{task_objects}) ];
     }
 
     return \%row;
@@ -585,12 +625,14 @@ sub _history
 
     my %want = map { $_ => "%$_" } @keywords;
     $want{object} = "%objectname" if $want{object};
+    $want{task_objects} = "%task" if $want{task_objects};
     my $want_predecessors = delete $want{predecessors};
     my $want_successors = delete $want{successors};
 
     my $format = "\cA" . join("\cD", values %want) . "\cD";
 
-    my ($rc, $out, $err) = $self->_ccm(0, qw(history -f), $format, $file_spec);
+    my ($rc, $out, $err) = $self->_ccm(0, 
+	qw/history -f/, $format, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my @result;
@@ -599,12 +641,15 @@ sub _history
 	next unless length($_);			# skip empty leading record
 
 	my @cols = split(/\cD/, $_);
+	
+	# history information is the last "column"
 	my $history = pop @cols;
+
 	my $row = $self->_parse_query_result(\%want, \@cols);
 
 	if ($want_predecessors || $want_successors)
 	{
-	    # parse history (the last column)
+	    # parse history information
 	    my ($predecessors, $successors) = $history =~
 		/^Predecessors:\n\t?(.*)
 		 ^Successors:\n\t?(.*)
@@ -888,7 +933,7 @@ sub get_attribute
     my ($self, $attr_name, $file_spec) = @_;
     _usage(3, 3, '$attr_name, $file_spec', \@_);
 
-    my ($rc, $out, $err) = $self->_ccm(0, 'attribute', -show => $attr_name, $file_spec);
+    my ($rc, $out, $err) = $self->_ccm(0, qw/attribute -show/, $attr_name, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
     return $out;
 }
@@ -899,21 +944,81 @@ sub set_attribute
     my ($self, $attr_name, $file_spec, $value) = @_;
     _usage(4, 4, '$attr_name, $file_spec, $value', \@_);
 
-    # use ye olde text_editor trick if $value may cause problems
-    # (depending on execution mode and platform) because its
-    # too long or contains unquotable characters or...
     my ($rc, $out, $err);
-    if (($self->{coprocess} && (length($value) > 1600 || $value =~ /["\r\n]/)) ||
+
+    if ($value eq "")
+    {
+	# Setting a text attribute to an empty string is a real PITA:
+	# - CM Synergy will launch text_editor, even if "-v ''" was specified
+	# - if the temporary file containing the attribute's value is empty 
+	#   after the editor exits, CM Synergy prompts with:
+	#	Result of edit is an empty attribute.
+	#	Confirm: (y/n) [n] 
+	
+	WITH_TEXT_EDITOR:
+	{
+	    ($rc, $out, $err) = $self->_set('text_editor');
+	    last WITH_TEXT_EDITOR unless $rc == 0;
+	    my $old_text_editor = $out;
+
+	    ($rc, $out, $err) = $self->_set(
+		text_editor => $^O eq 'MSWin32' ?
+		    qq[cmd /c echo off > %filename ] :  	#/
+		    qq[$Config{cp} /dev/null %filename]);
+	    last WITH_TEXT_EDITOR unless $rc == 0;
+
+	    $Error = $self->{error} = undef;
+	    $Ccm_command = $self->{ccm_command} = "attribute -modify $attr_name $file_spec";
+
+	    my $t0 = $Debug && [ Time::HiRes::gettimeofday() ];
+
+	    local @ENV{keys %{ $self->{env} }} = values %{ $self->{env} };
+
+	    # FIXME: doesn't work on Windows (confirmation prompt and answer
+	    # seems to be written to/read from console, NOT stdout/stdin)
+	    run3([ $self->ccm_exe, qw/attribute -modify/, $attr_name, $file_spec ], 
+		 \"y\n", \$out, \$err, 
+		 { binmode_stdout => 1, binmode_stderr => 1 });
+	    $rc = $?;
+	    my @result = ($rc, $out, $err);
+
+	    if ($Debug)
+	    {
+		my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
+		if ($Debug > 8)
+		{
+		    $self->trace_msg("<- ccm($self->{ccm_command})\n");
+		    $self->trace_msg("-> rc = $rc [$elapsed sec]\n");
+		    $self->trace_msg("-> err = \"$err\"\n");
+		}
+		else
+		{
+		    my $success = $rc == 0 ? 1 : 0;
+		    $self->trace_msg("ccm($self->{ccm_command}) = $success [$elapsed sec]\n");
+		}
+	    }
+
+	    ($rc, $out, $err) = $self->_set(text_editor => $old_text_editor);
+	    last WITH_OPTION unless $rc == 0;
+
+	    ($rc, $out, $err) = @result;
+	}
+    }
+    elsif (($self->{coprocess} && (length($value) > 1600 || $value =~ /["\r\n]/)) ||
         (is_win32 && (length($value) > 100 || $value =~ /[%<>&"\r\n]/)))
     {
+	# Use ye olde text_editor trick if $value may cause problems
+	# (depending on execution mode and platform) because its
+	# too long or contains unquotable characters or...
 	($rc, $out, $err) = $self->ccm_with_text_editor($value, 
-	    'attribute', -modify => $attr_name, $file_spec);
+	    qw/attribute -modify/, $attr_name, $file_spec);
     }
     else
     {
 	($rc, $out, $err) = $self->_ccm(0,
-	    'attribute', -modify => $attr_name, -value => $value, $file_spec);
+	    qw/attribute -modify/, $attr_name, -value => $value, $file_spec);
     }
+
     return $self->set_error($err || $out) unless $rc == 0;
     return $value;
 }
@@ -929,8 +1034,9 @@ sub create_attribute
     # FIXME this should employ the same heuristic as set_attribute()
     # and use a separate ccm_with_text_editor(..., 'attribute -modify', ...)
     # for troublesome $value
+    # FIXME need a variant "attribute -create -force ..."
 
-    return $self->ccm('attribute', -create => $name, @args);
+    return scalar $self->ccm(qw/attribute -create/, $name, @args);
 }
 
 
@@ -939,7 +1045,7 @@ sub delete_attribute
     my ($self, $name, @file_specs) = @_;
     _usage(3, undef, '$name, $file_spec...', \@_);
 
-    return $self->ccm('attribute', -delete => $name, @file_specs);
+    return scalar $self->ccm(qw/attribute -delete/, $name, @file_specs);
 }
 
 
@@ -953,7 +1059,7 @@ sub copy_attribute
     my @flags = UNIVERSAL::isa($file_specs[0], 'ARRAY') ?
 	map { "-$_" } @{ shift @file_specs } : ();
     
-    return $self->ccm('attribute', -copy => $name, @flags, @file_specs);
+    return scalar $self->ccm(qw/attribute -copy/, $name, @flags, @file_specs);
 }
 
 
@@ -962,7 +1068,7 @@ sub list_attributes
     my ($self, $file_spec) = @_;
     _usage(2, 2, '$file_spec', \@_);
 
-    my ($rc, $out, $err) = $self->_ccm(0, 'attribute', -la => $file_spec);
+    my ($rc, $out, $err) = $self->_ccm(0, qw/attribute -la/, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my %attrs = $out =~ /^(\S+) \s* \( (.*?) \)/gmx;
@@ -977,7 +1083,7 @@ sub property
 
     # NOTE: CM adds a trailing blank on output
     my ($rc, $out, $err) = 
-	$self->_ccm(0, qw(properties -nf -format), "\cA%$keyword\cD", $file_spec);
+	$self->_ccm(0, qw/properties -nf -format/, "\cA%$keyword\cD", $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my ($prop) = $out =~ /\cA(.*)\cD/;
@@ -1007,6 +1113,7 @@ sub cat_object
     my $t0 = $Debug && [ Time::HiRes::gettimeofday() ];
 
     local @ENV{keys %{ $self->{env} }} = values %{ $self->{env} };
+    local $?;				# don't screw up global $?
     my ($out, $err);
     $destination = \$out if @_ == 2;	# i.e. return contents of $object
 
@@ -1056,11 +1163,12 @@ sub _cat_binary
 
     # NOTE: cli_view_cmd must be specific to $object's cvtype,
     # otherwise it won't override the view_cmd attached to the attype.
+    my $view_cmd = $object->cvtype . "_cli_view_cmd";
     unless ($self->ccm_with_option(
-	$object->cvtype . "_cli_view_cmd" => $^O eq 'MSWin32' ?
+	$view_cmd => $^O eq 'MSWin32' ?
 	    qq[cmd /c copy /b /y %filename "$file"] :  	#/
 	    qq[$Config{cp} %filename '$file'],
-	view => $object))
+	qw/view/, $object))
     {
 	unlink $file if $type;
 	return;
@@ -1117,7 +1225,7 @@ sub _attype_is_binary
 sub types
 {
         my $self = shift;
-	my ($rc, $out, $err) = $self->_ccm(0, qw(show -types));
+	my ($rc, $out, $err) = $self->_ccm(0, qw/show -types/);
 	return $self->set_error($err || $out) unless $rc == 0;
 	return split(/\n/, $out);
 }
@@ -1126,7 +1234,7 @@ sub types
 sub migrate_auto_rules
 {
         my $self = shift;
-	my ($rc, $out, $err) = $self->_ccm(0, qw(show -migrate_auto_rules));
+	my ($rc, $out, $err) = $self->_ccm(0, qw/show -migrate_auto_rules/);
 	return $self->set_error($err || $out) unless $rc == 0;
 	return map { [ split(/ /, $_) ] } split(/\n/, $out);
 }
@@ -1148,7 +1256,7 @@ sub ls_object
     my ($self, $file_spec) = @_;
     $file_spec = '.' unless defined $file_spec;
 
-    my $rows = $self->ls(qw(-f %objectname), $file_spec);
+    my $rows = $self->ls(qw/-f %objectname/, $file_spec);
     return undef unless $rows;
     return [ map { $self->object($_) } @$rows ];
 }
@@ -1171,7 +1279,7 @@ sub ls_hashref
 
     my $format = join("\a", map { "%$_" } @keywords);
 
-    my $rows = $self->ls(qw(-f), $format, $file_spec);
+    my $rows = $self->ls(qw/-f/, $format, $file_spec);
     return undef unless $rows;
 
     my @result;
@@ -1328,7 +1436,7 @@ sub get_releases
 {
     my ($self) = @_;
 
-    my ($rc, $out, $err) = $self->_ccm(0, qw(releases -show));
+    my ($rc, $out, $err) = $self->_ccm(0, qw/releases -show/);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my %releases;
@@ -1357,7 +1465,7 @@ sub set_releases
     }
 
     my ($rc, $out, $err) =
-	$self->ccm_with_text_editor($text, qw(releases -edit));
+	$self->ccm_with_text_editor($text, qw/releases -edit/);
 
     return $rc == 0 || $self->set_error($err || $out);
 }
@@ -1367,7 +1475,7 @@ sub dcm_delimiter
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm(0, qw(dcm -show -delimiter));
+    my ($rc, $out, $err) = $self->_ccm(0, qw/dcm -show -delimiter/);
     return $self->set_error($err || $out) unless $rc == 0;
 
     return $out;
@@ -1379,7 +1487,7 @@ sub dcm_database_id
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm(0, qw(dcm -show -database_id));
+    my ($rc, $out, $err) = $self->_ccm(0, qw/dcm -show -database_id/);
     return $self->set_error($err || $out) unless $rc == 0;
 
     return $out;
@@ -1464,6 +1572,25 @@ sub object
     return $self->set_error("invalid objectname `$objectname'");
 }
 
+# convenience methods to get the base model object etc
+sub base_admin	{ $_[0]->object(qw(base 1 admin base)); }
+sub base_model	{ $_[0]->object(qw(base 1 model base)); }
+sub cvtype	{ $_[0]->object($_[1], qw(1 cvtype base)); }
+sub attype	{ $_[0]->object($_[1], qw(1 attype base)); }
+
+# get task object from displayname (without querying Synergy)
+sub task_object
+{
+    my ($self, $task) = @_;
+
+    # displayname is either <number> (for a local task)
+    # or <dbid><dcm_delimiter><number> (for a foreign task)
+    my ($dbid, $num) = $task =~ /^(?:(.*)\D)?(\d+)$/;
+    $dbid = 'probtrac' unless defined $dbid;
+
+    return $self->object("task$num", qw(1 task), $dbid);
+}
+
 # $ccm->object_other_version(object, version) => VCS::CMSynergy::Object
 #	new Object with same name/cvtype/instance as OBJECT, but version VERSION
 sub object_other_version
@@ -1484,7 +1611,7 @@ sub object_from_cvid
     # - if the cvid doesn't exist, we get exit code = 0, but 
     #   "Warning: Object version representing type does not exist." on stderr
     my ($rc, $out, $err) = 
-	$self->_ccm(0, qw(properties -nf -format), "\cA%objectname\cD", "\@=$cvid");
+	$self->_ccm(0, qw/properties -nf -format/, "\cA%objectname\cD", "\@=$cvid");
     return $self->set_error($err || $out) unless $rc == 0;
 
     my ($name) = $out =~ /\cA(.*)\cD/;

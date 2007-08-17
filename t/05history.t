@@ -93,25 +93,21 @@ my $h1_result = $ccm->history_hashref(
 verbose('h1_result', $h1_result);
 isa_ok($h1_result, "ARRAY", "history_hashref()");
 all_ok { UNIVERSAL::isa($_, "HASH") } $h1_result,
-   q[history_hashref() returns array ref of hash refs];
+   q[history_hashref(): isa HASH];
 all_ok { UNIVERSAL::isa($_->{object}, "VCS::CMSynergy::Object") } $h1_result,
-    q[history_hashref(): keyword 'object' returns a VCS::CMSynergy::Object];
+    q[history_hashref(): query keyword "object" isa V::C::O];
 all_ok 
-{ 
-    my $succ = $_->{successors};
-    !defined($succ) || 
-	(UNIVERSAL::isa($succ, "ARRAY") &&
-         scalar(grep { UNIVERSAL::isa($_, "VCS::CMSynergy::Object") } @$succ) == @$succ)
-} $h1_result,
-    q[history_hashref(): keyword 'successors' returns array of VCS::CMSynergy::Objects];
+    { 
+	my $succ = $_->{successors};
+	!defined($succ) || are_vcos($succ);
+    } $h1_result,
+    q[history_hashref(): keyword "successors" isa ARRAY of V::C::Os];
 all_ok 
-{ 
-    my $pred = $_->{predecessors};
-    !defined($pred) || 
-	(UNIVERSAL::isa($pred, "ARRAY") &&
-         scalar(grep { UNIVERSAL::isa($_, "VCS::CMSynergy::Object") } @$pred) == @$pred)
-} $h1_result,
-    q[history_hashref(): keyword 'predecessors' returns array of VCS::CMSynergy::Objects];
+    { 
+	my $pred = $_->{predecessors};
+	!defined($pred) || are_vcos($pred)
+    } $h1_result,
+    q[history_hashref(): keyword "predecessors" isa ARRAY of V::C::Os];
 
 # stringify all Objects in $h1_result for following comparison
 foreach my $row (@$h1_result)

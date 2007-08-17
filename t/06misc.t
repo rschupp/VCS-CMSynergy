@@ -176,10 +176,10 @@ my @trav2_got;
 $ccm->traverse_project(
   sub { push @trav2_got, $_; },
   $project, $ccm->object('misc-1:dir:1'));
-all_ok { UNIVERSAL::isa($_, 'VCS::CMSynergy::Object'); } \@trav2_got,
-  q[traverse_project with start directory];
+ok(are_vcos(\@trav2_got),
+  q[visited traverse_project(): isa V::C::O]);
 ok(eq_set(objectnames(\@trav2_got), \@trav2_expected),
-  q[traverse_project with start directory]);
+  q[visited by traverse_project()]);
 
 my @trav3_expected = grep { $_->is_project } @trav_object_expected;
 my @trav3_got;
@@ -190,17 +190,17 @@ $ccm->traverse_project(
   },
   $project);
 all_ok { $_->is_project } \@trav3_got,
-  q[traverse_project for all sub projects];
+  q[traverse_project(subprojects => 1): is_project];
 ok(eq_set(objectnames(\@trav3_got), objectnames(\@trav3_expected)),
-  q[traverse_project for all sub projects]);
+  q[traverse_project(subprojects => 1)]);
 
 
 BEGIN { use_ok('VCS::CMSynergy::Users'); }
 
 my $users = $ccm->users;
-isa_ok($users, 'HASH', q[return value of users()]);
+isa_ok($users, 'HASH', q[users()]);
 all_ok { UNIVERSAL::isa($_, 'ARRAY') } [ values %$users ],
-  q[users() returns HASH of ARRAY refs];
+  q[users(): isa ARRAY];
 ok(exists $users->{ccm_root}, q[ccm_root is in users]);
 
 exit 0;

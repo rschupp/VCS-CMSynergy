@@ -573,6 +573,12 @@ them as arguments later). Therefore C<VCS::CMSynergy> will rewrite
 these I<fullname>s to correct I<objectname>s before returning them
 from C<query_arrayref> or C<query_hashref>.
 
+=item C<task_objects>
+
+The value is a reference to an array of C<VCS::CMSynergy::Object> 
+representing the task associated with th object. The array may be
+empty if no associated tasks exist.
+
 =back 
 
 Note the following differences from B<ccm query>:
@@ -597,6 +603,13 @@ These methods do I<not> support any of the
 shortcut query options of the B<ccm query> command, e.g.
 B<-o owner> or B<-n name>. However, a different shortcut syntax
 is supported, see L</"shortcut query notation">.
+
+=item *
+
+C<$query> may contain newlines to improve the legibility of 
+longish queries with whitespace and line breaks. Any whitespace
+in C<$query> will be replaced by a single blank before submitting
+it to B<ccm query>.
 
 =back
 
@@ -641,12 +654,27 @@ issues a total of I<one> B<ccm> calls. Note: this example assumes
 
   use VCS::CMSynergy qw(:cached_attributes :tied_objects);
 
+=head2 query_count
+
+  $n = $ccm->query_count($query);
+
+Returns the number of objects matched by C<$query>, 0 if nothing matched.
+This is the same as 
+
+  scalar @{ $ccm->query_object($query) }
+
+but it's implemented more efficiently (and also less prone to
+exhaust the 10 MB query result buffer in the Synergy engine).
+
+If there was an error, C<undef> is returned.
+
 =head2 shortcut query notation
 
 L<query_arrayref|/"query_arrayref, query_hashref">, 
 L<query_hashref|/"query_arrayref, query_hashref">,
-L<query_object|/"query_object, query_object_with_attributes"> and
+L<query_object|/"query_object, query_object_with_attributes">,
 L<query_object_with_attributes|/"query_object, query_object_with_attributes"> 
+and L</query_count>
 support a shortcut notation for their common C<$query> parameter. To use
 this shortcut, supply a hash reference for C<$query>
 (instead of a simple string):
@@ -755,10 +783,6 @@ are neither built-in nor attributes:
 
 =over 4
 
-=item C<object>
-
-The value is a C<VCS::CMSynergy::Object> representing the object in the history.
-
 =item C<predecessors>
 
 The value returned is a reference to an array of C<VCS::CMSynergy::Object>s
@@ -768,6 +792,12 @@ that represent the given object's predecessors.
 
 The value returned is a reference to an array of C<VCS::CMSynergy::Object>s
 that represent the given object's successors.
+
+=item C<object>, C<objectname>, C<task_objects>
+
+For these pseudo keywords see the description
+of the  L<query_arrayref|/"query_arrayref, query_hashref"> 
+and  L<query_hashref|/"query_arrayref, query_hashref"> methods.
 
 =back
 
@@ -1143,8 +1173,8 @@ is not set and an error occurs (e.g. attribute C<$attr_name> does not
 exist on object C<$file_spec>), C<undef> will be returned.
 
 This works for B<all> types of attributes, even those of type I<text>
-(or derived from I<text>) and with C<$value>s that may contain
-multiple lines or are of arbitrary length.
+(or derived from I<text>) and with C<$value>s that consist of
+multiple lines, have arbitrary length or are empty strings.
 
 Note the following differences from B<ccm attribute -modify>:
 
@@ -1170,6 +1200,8 @@ given by C<@file_specs> (using B<ccm attribute -create>).
 You may also set an initial value
 by passing something other than C<undef> for C<$value>.
 
+Returns true on success and C<undef> on failure.
+
 Note the following differences from B<ccm attribute -create>:
 
 =over 4
@@ -1188,6 +1220,7 @@ of a project use the full objectname of the project for C<$file_spec>.
 Delete attribute C<$attr_name> from all objects
 given by C<@file_specs> (using B<ccm attribute -delete>).
 
+Returns true on success and C<undef> on failure.
 
 Note the following differences from B<ccm attribute -create>:
 
@@ -1207,6 +1240,8 @@ of a project use the full objectname of the project for C<$file_spec>.
 
 Copy attribute C<$attr_name> from C<$from_file_spec>
 by objects given by C<@to_file_specs> (using B<ccm attribute -copy>).
+
+Returns true on success and C<undef> on failure.
 
 You can specify multiple attributes to copy by passing
 a reference to an array of attribute names as C<$attr_name>.

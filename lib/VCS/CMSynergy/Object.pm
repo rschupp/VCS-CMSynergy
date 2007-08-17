@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.20 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.21 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -107,8 +107,8 @@ sub new
 }
 
 # convenience methods for frequently used tests
-sub is_dir	{ $_[0]->cvtype eq "dir"; }
-sub is_project	{ $_[0]->cvtype eq "project"; }
+sub is_dir	{ shift->cvtype eq "dir"; }
+sub is_project	{ shift->cvtype eq "project"; }
 
 
 # NOTE: All access to a VCS::CMSynergy::Objects data must either use

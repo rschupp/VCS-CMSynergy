@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.28 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.29 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -560,6 +560,9 @@ sub _expand_query
     return $query;
 }
 
+my %ac_cvtype = map { $_ => "AC/cvtype/$_/1" } 
+                    qw/ admin asm attype bstype cvtype mcomp model pdtype /;
+
 # helper: expand shortcut queries
 sub _query_shortcut
 {
@@ -583,6 +586,17 @@ sub _query_shortcut
 		/^match$/ && do
 		{
 		    push @clauses, "name match '$value'";
+		    next;
+		};
+		/^(cv)?type$/ && do
+		{
+		    # rumor (D. Honey) has it that 
+		    # "has_cvtype('base/cvtype/foo/1')" is somehow faster
+		    # than "type='foo'; note that the two are not synonyms,
+		    # since the latter also applies to the AC cvtypes 
+		    # like "admin" or "model"
+		    my $cvtype = $ac_cvtype{$value} || "base/cvtype/$value/1";
+		    push @clauses, "has_cvtype('$cvtype')";
 		    next;
 		};
 		push @clauses, "$key="._quote_value($value);

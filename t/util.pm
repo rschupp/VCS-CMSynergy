@@ -35,14 +35,20 @@ BEGIN
 }
 
 
-# all BLOCK LIST
+# all_ok BLOCK AREF [, TEST_NAME]
 # check if predicate BLOCK holds for all elements in list
-sub all(&@)
+sub all_ok(&$;$)
 {
-    my $pred = shift;
-    &$pred($_) || return 0 foreach (@_);
-    return 1;
+    my ($block, $aref, $test_name) = @_;
+    foreach (@$aref)
+    {
+	next if &$block($_);
+	fail("[$_] $test_name");
+	return;
+    }
+    pass($test_name);
 }
+
 
 sub verbose($$)
 {

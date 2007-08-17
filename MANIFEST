@@ -1,7 +1,9 @@
-CMSynergy.pm
-CMSynergy/Users.pm
-CMSynergy/update_users.pm
-CMSynergy/Changes.pod
+lib/VCS/CMSynergy.pm
+lib/VCS/CMSynergy/Object.pm
+lib/VCS/CMSynergy/ObjectTieHash.pm
+lib/VCS/CMSynergy/Users.pm
+lib/VCS/CMSynergy/update_users.pm
+lib/VCS/CMSynergy/Changes.pod
 Makefile.PL
 MANIFEST
 README
@@ -12,6 +14,7 @@ t/04finduse.t
 t/05history.t
 t/06misc.t
 t/07workarea.t
+t/08error.t
 t/util.pm
 examples/find_parallel_versions2.pl
 examples/find_parallel_versions.pl

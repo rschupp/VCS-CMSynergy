@@ -6,25 +6,52 @@ VCS::CMSynergy::Changes - List of changes to VCS::CMSynergy
 
 Known problems:
 
-- better name for mkInstallation, document it
-  OR replace this CLASS with a server/installation OBJECT
+- shorthand query notation lacks documentation
+
+- get rid of mkInstallation:
+  replace this *class* with a "CCM (client) installation" *object*
 
 - IPC::Open3 croaks on NT if stdout or stderr is closed on entry
   reason is probably that perl opens the script file read-only and it gets
   file descriptor 1 or 2 resp. 
 
-- retract support for cygwin because of pathname problems:
-   - cygwin produces and understands unix-style pathnames,
-     claims to understand windows pathnames as well
-   - "ccm" understands and produces windows pathnames only
-   - so we would have to be very carefull when passing filenames
-     - from module to "ccm", e.g. temp ini file, or $File::Find::name
-     - from "ccm" to module, e.g. the pathname information from finduse
-  
 - 'make test' on Windows with out-of-the-box CM Synergy installation:
    probably needs to specify -u and -home options for "ccm start"
 
 =head1 CHANGES
+
+=head2 Changes in Version 1.14
+
+  Implement tied hash interface for VCS::CMSynergy::Object.
+  Now you can get/set attributes by treating an V::C::Object like a hash.
+  Since this requires every V::C::Object to hold a reference to the sesssion,
+  this is only available if Scalar::Util is detected at runtime (so we
+  can weaken the referemce).
+
+=head2 Changes in Version 1.13 (not released)
+
+  Implement get_releases()/set_releases() for manipulating the release table.
+  Implement property().
+
+  Fix 'ye olde text_editor trick on Windows (checked on NT 4.0 and XP):
+  CM Synergy seems unable to execute "shell" builtins (like "copy"),
+  use "xcopy" instead.
+
+  Make VCS::CMSynergy work on cygwin (even UseCoprocess works).
+  This requires Filesys::CygwinPaths to translate Cygwin path names 
+  (e.g. as returned by File::Temp::tempfile()) to Windows path names.
+
+  Changed record/field separators (used internally by query/finduse/history)
+  from \cD/\cG to \cA/\cD, but someone will probably succeed in
+  entering these into some attribute. Anyway, avoid \x1C-\x1E as
+  they are used by Change Synergy in some attribute of "problem".
+
+  Add a hint on the usage of new(ui_database_dir => ...).
+  Merge pod entries for query_arrayref/query_hashref and 
+  history_arrayref/history_hashref.
+
+  Fix brown paper bag errors in set_attribute (wrong usage check)
+  and set_error (handling of HandleError).
 
 =head2 Changes in Version 1.12
 
@@ -52,7 +79,7 @@ Known problems:
   Implement ccm_addr().
   Make database() lazy.
 
-=head2 Changes in Version 1.09
+=head2 Changes in Version 1.09 (not released)
 
   Make it work for ancient Continuus 4.5 (fixes #1681):
     - `ccm ps -rfc_address ADDR' doesn't find the process if host part of ADDR

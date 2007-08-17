@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 10;
+use Test::More tests => 4;
 use t::util;
 
 my $ccm = VCS::CMSynergy->new(%test_session);
@@ -35,42 +35,18 @@ my @types_got = $ccm->types;
 verbose('types_got', \@types_got);
 ok(eq_set(\@types_expected, \@types_got), q[$ccm->types]);
 
-
-# test error handling
-my ($after_foo, $handled);
-$ccm->{PrintError} = 0;
-$ccm->{RaiseError} = 1;
-
-$ccm->{HandleError} = undef;
-($after_foo, $handled) = (0, 0);
-eval
-{
-    $ccm->foo('bar');
-    $after_foo++;
+my $rel_expected = {
+    '1.0'	=> [ qw(1.0) ],
+    '1.1'	=> [ qw(1.0 1.1) ],
+    '2.0'	=> [ qw(1.0 1.1 2.0) ],
+    '2.0_SP1'	=> [ qw(1.0 1.1 2.0 2.0_SP1) ],
+    '2.1'	=> [ qw(1.0 1.1 2.0 2.1) ],
+    '3.0'	=> [ qw(1.0 1.1 2.0 2.1 3.0) ],
+    '3.1'	=> [ qw(1.0 1.1 2.0 2.1 3.0 3.1) ]
 };
-ok($@, q[died because of RaiseError]);
-ok(!$after_foo, q[$after_foo++ not reached]);
-
-$ccm->{HandleError} = sub { $handled++; 0; };
-($after_foo, $handled) = (0, 0);
-eval
-{
-    $ccm->foo('bar');
-    $after_foo++;
-};
-ok($@, q[died because of RaiseError]);
-ok(!$after_foo, q[$after_foo++ not reached]);
-ok($handled, q[HandleError called]);
-
-$ccm->{HandleError} = sub { $handled++; 1; };
-($after_foo, $handled) = (0, 0);
-eval
-{
-    $ccm->foo('bar');
-    $after_foo++;
-};
-ok(!$@, q[didn't die because of RaiseError]);
-ok($after_foo, q[$after_foo++ reached]);
-ok($handled, q[HandleError called]);
+my $rel_got = $ccm->get_releases;
+isa_ok($rel_got, "HASH", q[get_releases()]);
+ok(eq_hash($rel_got, $rel_expected, q[$ccm->get_releases]),
+    q[check release table]);
 
 exit 0;

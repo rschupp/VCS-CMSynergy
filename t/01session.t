@@ -14,7 +14,7 @@ my ($ccm_addr, $ps);
 
     # new session should show up in `ccm ps'
     $ps = VCS::CMSynergy->ps(rfc_address => $ccm_addr);
-    isa_ok($ps, "ARRAY");
+    isa_ok($ps, "ARRAY", q[ps()]);
     is(@$ps, 1, 
        qq[VCS::CMSynergy->ps(rfc_address => $ccm_addr) is array of length 1]);
     is($ps->[0]->{database}, $ccm->database,

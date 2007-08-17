@@ -23,11 +23,11 @@ Solaris 2.6, Perl 5.6.1                 Solaris 2.6, CM Synergy 5.1
 
 Solaris 2.8, Perl 5.6.1                 Solaris 2.8, CM Synergy 6.2
 
-Linux 2.4, Perl 5.6.1                   Linux 2.4, CM Synergy 6.2
+Linux 2.4, Perl 5.8.0                   Linux 2.4, CM Synergy 6.2
 
-WinNT 4.0, ActiveState Perl 5.6.1       Solaris 2.6, CM Synergy 5.1
+Windows XP, ActiveState Perl 5.6.1	Solaris 2.8, CM Synergy 6.2
 
-WinNT 4.0, ActiveState Perl 5.6.1	Solaris 2.8, CM Synergy 6.2
+Windows XP, Cygwin Perl 5.8.0		Solaris 2.8, CM Synergy 6.2
 
 
 BUILDING

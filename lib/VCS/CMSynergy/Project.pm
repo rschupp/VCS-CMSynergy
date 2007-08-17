@@ -1,12 +1,14 @@
 package VCS::CMSynergy::Project;
 
-our $VERSION = do { (my $v = q%version: 5 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 6 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
-VCS::CMSynergy::Project - FIXME
+VCS::CMSynergy::Project - convenience methods for C<VCS::CMSynergy::Object>s of type C<"project">
 
 =head1 SYNOPSIS
+
+FIXME
 
 =cut 
 
@@ -19,58 +21,14 @@ use VCS::CMSynergy::Client qw(_usage);
 use File::Spec;
 use Cwd;
 
-# FIXME make set_error a V::C::O method?
+=head1 WORKAREA METHODS
 
-sub recursive_is_member_of
-{
-    my $self = shift;
-    return $self->ccm->query_object("recursive_is_member_of('$self',depth)", @_);
-}
+FIXME
 
-
-sub hierarchy_project_members
-{
-    my $self = shift;
-    return $self->ccm->query_object("hierarchy_project_members('$self',depth)", @_);
-}
-
-
-# NOTE: $dir_object is undef => returns project's top level dir
-# FIXME needs test
-sub is_child_of
-{
-    _usage(1, undef, '[{ $dir_object | undef }, @keywords]', \@_);
-    my ($self, $dir) = splice @_, 0, 2;
-
-    if (defined $dir)
-    {
-	croak(__PACKAGE__."::is_child_of: argument 1 ($dir) must be a VCS::CMSynergy::Object")
-	    unless UNIVERSAL::isa($dir, "VCS::CMSynergy::Object");
-	croak(__PACKAGE__."::is_child_of: argument 1 ($dir) must have cvtype `dir'")
-	    unless $dir->is_dir;
-    }
-    else
-    {
-	$dir = $self;
-    }
-    return $self->ccm->query_object("is_child_of('$dir','$self')", @_);
-}
-
-
-# create V::C::O from a "project reference",
-# i.e. a project and a relative path
-# NOTE: takes either string (path) or array ref of path components
-# FIXME needs test
-sub object_from_proj_ref
-{
-    _usage(2, undef, '{ $path | \\@path_components }, @keywords', \@_);
-    my ($self, $path) = splice @_, 0, 2;
-
-    return $self->ccm->object_from_proj_ref($path, $self);
-}
-
+=cut
 
 # NOTE return undef on failure (no wa maintained, chdir failed etc), old pwd otherwise
+# FIXME needs pod
 # FIXME needs test
 sub chdir_into_wa
 {
@@ -85,6 +43,182 @@ sub chdir_into_wa
     return $old_pwd;
 }
 
+
+=head1 PROJECT TRAVERSAL
+
+=head2 traverse
+
+  $proj->traverse(\&wanted, $dir);
+  $proj->traverse(\%options, $dir);
+
+C<traverse> walks the tree below directory C<$dir>
+in the invocant project without the need for a workarea. 
+It is modelled on L<File::Find>.
+
+C<&wanted> is a code reference described in 
+L</"wanted function"> below. C<$dir>
+must be a C<VCS::CMSynergy::Object>. If C<$dir> is omitted,
+it defaults to the top level directory of the invocant.
+
+=head3 wanted function
+
+C<&wanted> is called once for all objects below C<$dir> 
+including C<$dir> itself. It will also be called on subprojects
+of the incocant project, but C<traverse> will not recurse into
+subprojects unless the C<subprojects> flag is specified 
+(see L</"options"> below).
+
+On each call to C<&wanted>, C<$_> will be bound to the 
+currently traversed object (a C<VCS::CMSynergy::Object>). 
+
+C<@VCS::CMSynergy::Traversal::dirs> will be bound to 
+an array of C<VCS::CMSynergy::Object>s of cvtype C<dir> representing 
+the path  from C<$dir> to C<$_> (in the context of the invocant project).
+In particular, C<@VCS::CMSynergy::Traversal::dirs[-1]>
+is the parent C<dir> of C<$_>.
+
+The convenience function C<VCS::CMSynergy::Traversal::path()>
+returns the filesystem path for C<$_>. It is short for
+
+  join($pathsep, map { $_->name } @VCS::CMSynergy::Traversal::dirs, $_) 
+
+where C<$pathsep> is your platforms path separator.
+
+The convenience function C<VCS::CMSynergy::Traversal::depth()> returns the
+current depth, where the top level project has depth 0. It is short for
+
+  scalar @VCS::CMSynergy::Traversal::dirs
+
+Similarly C<@VCS::CMSynergy::Traversal::projects> represents the
+subproject hierarchy starting with the invocant project.
+In particular, C<$_> is a member of C<$VCS::CMSynergy::Traversal::projects[-1]>.
+
+Note: C<@VCS::CMSynergy::Traversal::dirs> and 
+C<@VCS::CMSynergy::Traversal::projects> are both readonly arrays,
+i.e. you can't modify them in any way.
+
+You may set C<$VCS::CMSynergy::Traversal::prune> to a true
+value in C<&wanted> to stop recursion into sub directories (or subprojects)
+(this makes only sense when C<&wanted> is called 
+on a C<dir> or C<project> object).
+
+If recursion into subprojects is specfied, C<&wanted>
+will be called once for the C<project> object and also for the
+top level C<dir> of the subproject.
+
+=head3 options
+
+The first argument of C<traverse> may also be a hash reference.
+The following keys are supported:
+
+=over 4
+
+=item C<wanted> (code reference)
+
+The value should be a code reference. It is described in
+L</"wanted function">.
+
+=item C<bydepth> (boolean)
+
+If this option is set, C<traverse>
+calls C<&wanted> on a directory (or project) only B<after> 
+all its entries have been processed. It is "off" by default.
+
+=item C<preprocess> (code reference)
+
+The value should be a code reference. It is used to preprocess
+the children of a C<dir> or C<project>, i.e. B<before> L<traverse>
+starts traversing it. You can use it to impose an ordering
+among "siblings" in the traversal. You can also filter out
+objects, so that C<wanted> will never be called on them
+(and traversal will not recurse on them in case of
+C<dir>s or C<project>s).
+
+The preprocessing function is called with
+a list of C<VCS::CMSynergy::Object>s and is expected to return
+a possibly reordered subset of this list. Note that
+the list may contain C<dir> and C<project> objects.
+When the preprocessing function is called,
+C<$_> is bound to the parent object (which is always
+of C<cvtype> C<dir> or C<project>).
+
+=item C<postprocess> (code reference)
+
+The value should be a code reference. It is invoked just before
+leaving the current C<dir> or C<project>.
+
+When the postprocessing function is called,
+C<$_> is bound to the current object  (which is always
+of C<cvtype> C<dir> or C<project>).
+
+=item C<subprojects> (boolean)
+
+If this option is set, C<traverse>
+will recurse into subprojects. It is "off" by default.
+
+=item C<attributes> (array ref)
+
+This option is only useful if L</:cached_attributes> is in effect. 
+It should contain a reference to an
+array of attribute names. If present, C<traverse>
+uses C<query_object_with_attributes> rather than
+C<query_object> for the traversal. Hence all objects encountered
+in the traversal (e.g. C<$_> when bound in C<wanted> or the elements
+of the directory stack C<@VCS::CMSynergy::Traversal::dirs>) have
+their attribute caches primed for the given attributes,
+cf. L<query_object_with_attributes|/"query_object, query_object_with_attributes">.
+
+=back
+
+Note that for any particular C<dir> (or C<project>) object,
+the above code references are always called in order
+C<preprocess>, C<wanted>, C<postprocess>.
+
+Example: 
+
+  my $proj = $ccm->object('toolkit-1.0:project:1');
+
+  $proj->traverse(
+    sub {
+      print join("/", 
+        map { $_->name } @VCS::CMSynergy::Traversal::dirs, $_), "\n"
+	  unless $_->cvtype eq 'project'; 
+    });
+
+This prints the directory tree of project B<toolkit-1.0:project:1>
+similar to the Unix command L<find>. The order of entries in a directory
+is unspecified and sub projects are not traversed:
+
+  toolkit
+  toolkit/makefile
+  toolkit/makefile.pc
+  toolkit/misc
+  toolkit/misc/toolkit.ini
+  toolkit/misc/readme
+
+Another example:
+
+  $proj->traverse(
+    {
+      wanted => sub {
+	return unless $_->cvtype eq "project";
+	my $proj_depth = @VCS::CMSynergy::Traversal::projects;
+	print "  " x $proj_depth, $_->displayname, "\n";
+      },
+      preprocess => sub { sort { $a->name cmp $b->name } @_; },
+      subprojects => 1,
+    });
+
+This prints the complete project hierarchy rooted at  
+B<toolkit-1.0:project:1>.  Only projects will be shown,
+entries are sorted by name and are intended according to their depth:
+
+  toolkit-1.0
+    calculator-1.0
+    editor-1.0
+    guilib-1.0
+
+=cut
 
 # tied array class that acts as a readonly front to a real array
 {
@@ -256,6 +390,113 @@ sub _traverse
     }
 
     return 1;
+}
+
+
+=head1 CONVENIENCE METHODS
+
+=head2 recursive_is_member_of, hierarchy_project_members
+
+These are convenience methods to enumerate recursively all members
+of the invocant project or just the sub projects.
+
+  $members = $proj->recursive_is_member_of($order_spec, @keywords);
+  $sub_projs = $proj->hierarchy_project_members($order_spec, @keywords);
+
+are exactly the same as
+
+  $members = $proj->ccm->query_object(
+    "recursive_is_member_of('$proj',$order_spec)", @keywords);
+  $sub_projs = $proj->ccm->query_object(
+    "hierarchy_project_members('$proj',$order_spec)", @keywords);
+
+C<$order_spec> and C<@keywords> are optional. If C<$order_spec> is
+C<undef> or not supplied, C<"none"> is used.
+If you supply C<@keywords> these are passed down
+to L<VCS::CMSynergy/query_object> as additional keywords.
+
+=cut
+
+sub recursive_is_member_of
+{
+    _usage(1, undef, '[{ $order_spec | undef }, @keywords]', \@_);
+    my ($self, $order_spec) = splice @_, 0, 2;
+    $order_spec ||= "none";
+    return $self->ccm->query_object("recursive_is_member_of('$self',$order_spec)", @_);
+}
+
+
+sub hierarchy_project_members
+{
+    _usage(1, undef, '[{ $order_spec | undef }, @keywords]', \@_);
+    my ($self, $order_spec) = splice @_, 0, 2;
+    $order_spec ||= "none";
+    return $self->ccm->query_object("hierarchy_project_members('$self',$order_spec)", @_);
+}
+
+
+=head2 is_child_of
+
+These are convenience methods to enumerate all members of a directory
+in the context of the invocant project.
+
+  $members = $proj->is_child_of($dir, @keywords);
+
+is exactly the same as
+
+  $members = $proj->ccm->query_object(
+    "is_child_of('$dir','$proj')", @keywords);
+
+C<$dir> and C<@keywords> are optional. If C<$dir> is supplied
+it must be a C<VCS::CMSynergy::Object> of type C<"dir">.
+If C<$dir> is C<undef> or not supplied, C<is_child_of> returns
+the toplevel directory of the invocant project (NOTE: the return value
+is actually a reference to an array with one element).
+If you supply C<@keywords> these are passed down
+to L<VCS::CMSynergy/query_object> as additional keywords.
+
+=cut
+
+
+# FIXME needs test
+sub is_child_of
+{
+    _usage(1, undef, '[{ $dir_object | undef }, @keywords]', \@_);
+    my ($self, $dir) = splice @_, 0, 2;
+
+    if (defined $dir)
+    {
+	croak(__PACKAGE__."::is_child_of: argument 1 ($dir) must be a VCS::CMSynergy::Object")
+	    unless UNIVERSAL::isa($dir, "VCS::CMSynergy::Object");
+	croak(__PACKAGE__."::is_child_of: argument 1 ($dir) must have cvtype `dir'")
+	    unless $dir->is_dir;
+    }
+    else
+    {
+	$dir = $self;
+    }
+    return $self->ccm->query_object("is_child_of('$dir','$self')", @_);
+}
+
+=head2 object_from_proj_ref
+
+  $obj = $proj->object_from_proj_ref($path, @keywords);
+  $obj = $proj->object_from_proj_ref(\@path_components, @keywords);
+
+is exactly the same as 
+
+  $obj = $proj->ccm->object_from_proj_ref($path, $proj, @keywords);
+  $obj = $proj->ccm->object_from_proj_ref(\@path_components, $proj, @keywords);
+
+=cut
+
+# FIXME needs test
+sub object_from_proj_ref
+{
+    _usage(2, undef, '{ $path | \\@path_components }, @keywords', \@_);
+    my ($self, $path) = splice @_, 0, 2;
+
+    return $self->ccm->object_from_proj_ref($path, $self);
 }
 
 

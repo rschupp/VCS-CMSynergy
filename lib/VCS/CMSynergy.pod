@@ -1008,181 +1008,6 @@ are used as hints to prime the attribute caches of the
 L</query_object_with_attributes>. This is only useful when
 L</:cached_attributes> is in effect. 
 
-=head2 traverse_project
-
-  traverse_project(\&wanted, $project, $dir);
-  traverse_project(\%options, $project, $dir);
-
-C<traverse_project> walks the tree below directory C<$dir>
-in project C<$project> without the need for a workarea. 
-It is modelled on L<File::Find>.
-
-C<&wanted> is a code reference described in 
-L</"wanted function"> below.
-C<$project> can be any project specification (in project-version form,
-an objectname or a C<VCS::CMSynergy::Object>). However, C<$dir>
-must be a C<VCS::CMSynergy::Object>. If C<$dir> is omitted,
-it defaults to the top level directory of C<$project>.
-
-=head3 wanted function
-
-C<&wanted> is called once for all objects below C<$dir> 
-including C<$dir> itself. It will also be called on subprojects
-of C<$project>, but C<traverse_project> will not recurse into
-subprojects unless the C<subprojects> flag is specified 
-(see L</"options"> below).
-
-On each call to C<&wanted>, C<$_> will be bound to the 
-currently traversed object (a C<VCS::CMSynergy::Object>). 
-
-C<@VCS::CMSynergy::Traversal::dirs> will be bound to 
-an array of C<VCS::CMSynergy::Object>s of cvtype C<dir> representing 
-the path in C<$project> project from C<$dir> to C<$_>.
-In particular, C<@VCS::CMSynergy::Traversal::dirs[-1]>
-is the parent C<dir> of C<$_>.
-
-The convenience function C<VCS::CMSynergy::Traversal::path()>
-returns the filesystem path for C<$_>. It is short for
-
-  join($pathsep, map { $_->name } @VCS::CMSynergy::Traversal::dirs, $_) 
-
-where C<$pathsep> is your platforms path separator.
-
-The convenience function C<VCS::CMSynergy::Traversal::depth()> returns the
-current depth, where the top level project has depth 0. It is short for
-
-  scalar @VCS::CMSynergy::Traversal::dirs
-
-Similarly C<@VCS::CMSynergy::Traversal::projects> represents the
-subproject hierarchy starting with
-C<$project>. In particular, C<$_> is a member of 
-C<$VCS::CMSynergy::Traversal::projects[-1]>.
-
-Note: C<@VCS::CMSynergy::Traversal::dirs> and 
-C<@VCS::CMSynergy::Traversal::projects> are both readonly arrays,
-i.e. you can't modify them in any way.
-
-You may set C<$VCS::CMSynergy::Traversal::prune> to a true
-value in C<&wanted> to stop recursion into sub directories (or subprojects)
-(this makes only sense when C<&wanted> is called 
-on a C<dir> or C<project> object).
-
-If recursion into subprojects is specfied, C<&wanted>
-will be called once for the C<project> object and also for the
-top level C<dir> of the subproject.
-
-=head3 options
-
-The first argument of C<traverse_project> may also be a hash reference.
-The following keys are supported:
-
-=over 4
-
-=item C<wanted> (code reference)
-
-The value should be a code reference. It is described in
-L</"wanted function">.
-
-=item C<bydepth> (boolean)
-
-If this option is set, C<traverse_project>
-calls C<&wanted> on a directory (or project) only B<after> 
-all its entries have been processed. It is "off" by default.
-
-=item C<preprocess> (code reference)
-
-The value should be a code reference. It is used to preprocess
-the children of a C<dir> or C<project>, i.e. B<before> L<traverse_project>
-starts traversing it. You can use it to impose an ordering
-among "siblings" in the traversal. You can also filter out
-objects, so that C<wanted> will never be called on them
-(and traversal will not recurse on them in case of
-C<dir>s or C<project>s).
-
-The preprocessing function is called with
-a list of C<VCS::CMSynergy::Object>s and is expected to return
-a possibly reordered subset of this list. Note that
-the list may contain C<dir> and C<project> objects.
-When the preprocessing function is called,
-C<$_> is bound to the parent object (which is always
-of C<cvtype> C<dir> or C<project>).
-
-=item C<postprocess> (code reference)
-
-The value should be a code reference. It is invoked just before
-leaving the current C<dir> or C<project>.
-
-When the postprocessing function is called,
-C<$_> is bound to the current object  (which is always
-of C<cvtype> C<dir> or C<project>).
-
-=item C<subprojects> (boolean)
-
-If this option is set, C<traverse_project>
-will recurse into subprojects. It is "off" by default.
-
-=item C<attributes> (array ref)
-
-This option is only useful if L</:cached_attributes> is in effect. 
-It should contain a reference to an
-array of attribute names. If present, C<traverse_project>
-uses C<query_object_with_attributes> rather than
-C<query_object> for the traversal. Hence all objects encountered
-in the traversal (e.g. C<$_> when bound in C<wanted> or the elements
-of the directory stack C<@VCS::CMSynergy::Traversal::dirs>) have
-their attribute caches primed for the given attributes,
-cf. L<query_object_with_attributes|/"query_object, query_object_with_attributes">.
-
-=back
-
-Note that for any particular C<dir> (or C<project>) object,
-the above code references are always called in order
-C<preprocess>, C<wanted>, C<postprocess>.
-
-Example: 
-
-  $ccm->traverse_project(
-    sub {
-      print join("/", 
-        map { $_->name } @VCS::CMSynergy::Traversal::dirs, $_), "\n"
-	  unless $_->cvtype eq 'project'; 
-    },
-    'toolkit-1.0:project:1');
-
-This prints the directory tree of project B<toolkit-1.0:project:1>
-similar to the Unix command L<find>. The order of entries in a directory
-is unspecified and sub projects are not traversed:
-
-  toolkit
-  toolkit/makefile
-  toolkit/makefile.pc
-  toolkit/misc
-  toolkit/misc/toolkit.ini
-  toolkit/misc/readme
-
-Another example:
-
-  $ccm->traverse_project(
-    {
-      wanted => sub {
-	return unless $_->cvtype eq "project";
-	my $proj_depth = @VCS::CMSynergy::Traversal::projects;
-	print "  " x $proj_depth, $_->displayname, "\n";
-      },
-      preprocess => sub { sort { $a->name cmp $b->name } @_; },
-      subprojects => 1,
-    },
-    "toolkit-1.0:project:1");
-
-This prints the complete project hierarchy rooted at  
-B<toolkit-1.0:project:1>.  Only projects will be shown,
-entries are sorted by name and are intended according to their depth:
-
-  toolkit-1.0
-    calculator-1.0
-    editor-1.0
-    guilib-1.0
-
 =head2 project_tree
 
   $hash = $ccm->project_tree(\%options, $project);
@@ -1219,14 +1044,14 @@ of options for project traversal:
 If this option is set, the mapping will recurse into
 subprojects. It is "off" by default.
 It corresponds to the option of the same name for
-L</traverse_project>.
+L<VCS::CMSynergy::Project/traverse>.
 
 =item C<attributes> (array ref)
 
 This option is only useful if L</:cached_attributes> is in effect. 
 All returned C<VCS::CMSynergy::Object>s will have their attribute
 caches primed for the given attributes. See the description
-of the option of the same name for L</traverse_project>.
+of the option of the same name for L<VCS::CMSynergy::Project/traverse>.
 
 =item C<pathsep> (string)
 

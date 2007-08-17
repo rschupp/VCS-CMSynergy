@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 21 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 22 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -497,27 +497,7 @@ C<< $obj->property("cvid") >>, resp. However, these two methods
 caches their return value in the C<VCS::CMSynergy::Object>
 (because it is immutable).
 
-=head1 OBJECT RELATIONS
-
-=head2 recursive_is_member_of, hierarchy_project_members
-
-These are convenience methods to enumerate recursively all members
-of a project or just the sub projects. Obviously it only makes
-sense to invoke these methods on a C<VCS::CMSynergy::Object> 
-of cvtype "project".
-
-  $proj->recursive_is_member_of
-  $proj->hierarchy_project_members
-
-are exactly the same as
-
-  $proj->ccm->query_object("recursive_is_member_of('$proj',depth)")
-  $proj->ccm->query_object("hierarchy_project_members('$proj',depth)")
-
-If you supply extra arguments then these are passed down
-to L<VCS::CMSynergy/query_object> as additional keywords.
-
-=head2 is_RELATION_of, has_RELATION
+=head1 is_RELATION_of, has_RELATION
 
   # assume $task is a VCS::CMSynergy::Object with cvtype "task"
   $related_objects = $task->is_associated_cv_of;

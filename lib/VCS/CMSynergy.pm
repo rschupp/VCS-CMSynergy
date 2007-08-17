@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.26 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.26.1 % =~ /(\d+)\.(\d+)/);
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -304,7 +304,7 @@ sub database
 { 
     my $self = shift;
 
-    # determine database path (in canonical format) from `ccm ps´
+    # determine database path (in canonical format) from `ccm ps'
     my $ccm_addr = $self->ccm_addr;
     my $ps = $self->ps(rfc_address => $ccm_addr);
     return $self->set_error("can't find session `$ccm_addr' in `ccm ps'") 
@@ -752,7 +752,7 @@ sub findpath
     my ($self, $file_spec, $proj_vers) = @_;
     my $finduse = $self->finduse($file_spec);
     return undef unless defined $finduse;
-    return $self->set_error("`$file_spec´ matches more than one object") unless @$finduse == 1;
+    return $self->set_error("`$file_spec' matches more than one object") unless @$finduse == 1;
     return $finduse->[0]->[1]->{$proj_vers};
 }
 

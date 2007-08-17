@@ -137,7 +137,7 @@ Known problems:
   project work area path is of the form tempdir/name-version, 
   use attribute wa_path instead.
 
-  Implemented `postprocess´ callback for traverse_project().
+  Implemented `postprocess' callback for traverse_project().
 
   Trace information for CM commands now includes the elpased time to
   execute the command. Layout of trace information changed for debug

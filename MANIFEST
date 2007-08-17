@@ -24,9 +24,10 @@ t/09attribute+cache.t
 t/09attribute.t
 t/10tied_objects+cache.t
 t/10tied_objects.t
-t/11examples.t
-t/12pod.t
-t/13podcov.t
+t/11relations.t
+t/90examples.t
+t/91pod.t
+t/92podcov.t
 t/project_diff-5.1.txt
 t/project_diff-6.2.txt
 t/project_diff-6.3.txt

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 12 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 13 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -63,7 +63,7 @@ use overload
     no strict 'refs';
     foreach my $method (qw(objectname ccm name version cvtype instance))
     {
-	*{$method} = sub { shift->{$method}; };
+	*{$method} = sub { return shift->{$method}; };
     }
 }
 
@@ -107,8 +107,8 @@ sub new
 }
 
 # convenience methods for frequently used tests
-sub is_dir	{ shift->cvtype eq "dir"; }
-sub is_project	{ shift->cvtype eq "project"; }
+sub is_dir	{ return shift->cvtype eq "dir"; }
+sub is_project	{ return shift->cvtype eq "project"; }
 
 
 # NOTE: All access to a VCS::CMSynergy::Objects data must either use
@@ -120,7 +120,7 @@ sub is_project	{ shift->cvtype eq "project"; }
 # redefined in ObjectTieHash.pm.
 
 # access to private parts
-sub _private 	{ shift; }
+sub _private 	{ return shift; }
 
 sub list_attributes
 {
@@ -262,6 +262,15 @@ sub copy_attribute
     return $rc;
 }
 
+sub _update_acache
+{
+    my ($self, $attrs) = @_;
+    return unless VCS::CMSynergy::use_cached_attributes();
+
+    my $acache = $self->_private->{acache};
+    @$acache{keys %$attrs} = values %$attrs;
+}
+
 # test whether object exists (without causing an exception)
 sub exists
 {
@@ -273,21 +282,44 @@ sub exists
 sub property
 {
     my ($self, $keyword) = @_;
-    $self->ccm->property($keyword, $self);
+    return $self->ccm->property($keyword, $self);
 }
 
 sub displayname
 {
     my ($self) = @_;
     # cache this property (because it's immutable)
-    $self->_private->{displayname} ||= $self->property('displayname');
+    return $self->_private->{displayname} ||= $self->property('displayname');
 }
 
 sub cvid
 {
     my ($self) = @_;
     # cache this property (because it's immutable)
-    $self->_private->{cvid} ||= $self->property('cvid');
+    return $self->_private->{cvid} ||= $self->property('cvid');
+}
+
+
+sub recursive_is_member_of
+{
+    my $self = shift;
+    return $self->_function_query(\@_, recursive_is_member_of => "depth");
+}
+
+
+sub hierarchy_project_members
+{
+    my $self = shift;
+    return $self->_function_query(\@_, hierarchy_project_members => "depth");
+}
+
+
+sub _function_query
+{
+    my ($self, $keywords, $function, @args) = @_;
+
+    return $self->ccm->query_object_with_attributes(
+	{ $function => [ $self, @args ] }, @$keywords);
 }
 
 
@@ -295,7 +327,7 @@ sub cvid
 # same for has_foo
 sub AUTOLOAD
 {
-    my ($this) = @_;
+    my $this = shift;
 
     our $AUTOLOAD;
 
@@ -309,8 +341,7 @@ sub AUTOLOAD
 
     if ($method =~ /^(is_.*_of|has_.*)$/)
     {
-	shift @_;
-	return $this->ccm->query_object_with_attributes({ $method => [ $this ] }, @_);
+	return $this->_function_query(\@_, $method);
     }
     croak("Can't locate object method \"$method\" via class \"$class\"");
 }
@@ -494,6 +525,24 @@ caches their return value in the C<VCS::CMSynergy::Object>
 
 =head1 OBJECT RELATIONS
 
+=head2 recursive_is_member_of, hierarchy_project_members
+
+These are convenience methods to enumerate recursively all members
+of a project or just the sub projects. Obviously it only makes
+sense to invoke these methods on a C<VCS::CMSynergy::Object> 
+of cvtype "project".
+
+  $proj->recursive_is_member_of
+  $proj->hierarchy_project_members
+
+are exactly the same as
+
+  $proj->ccm->query_object("recursive_is_member_of('$proj',depth)")
+  $proj->ccm->query_object("hierarchy_project_members('$proj',depth)")
+
+If you supply extra arguments then C<query_object_with_attributes>
+is called instead of C<query_object> with these extra arguments.
+
 =head2 is_RELATION_of, has_RELATION
 
   # assume $task is a VCS::CMSynergy::Object with cvtype "task"
@@ -511,7 +560,7 @@ are exactly the same as
   $obj->ccm->query_object("has_RELATION('$obj')")
 
 If you supply extra arguments then C<query_object_with_attributes>
-is called instead of C<qery_object> with these extra arguments.
+is called instead of C<query_object> with these extra arguments.
 
 See the CM Synergy documentation for the built-in relations. Note that it's
 not considered an error to use a non-existing relation, the methods

@@ -1,4 +1,4 @@
-=head1 NAME
+#=head1 NAME
 
 VCS::CMSynergy - Perl interface to Telelogic SYNERGY/CM (aka Continuus/CM)
 
@@ -645,14 +645,14 @@ view it as a fancy form of C<query_hashref> where we don't store
 the attributes values of C<@attributes> in some anonymous hash,
 but rather in the corresponding object. Thus the loop
 
-  for my $obj (@{ $ccm->query_object_with_attributes("...", qw(foo bar)) })
+  for my $obj (@{ $ccm->query_object_with_attributes("...", qw(foo)) })
   {
-    print "$obj: $obj->{foo} $obj->{bar}\n";
+    print "$obj: foo=", $obj->get_attribute("foo"), "\n";
   }
 
-issues a total of I<one> B<ccm> calls. Note: this example assumes 
+issues a I<total of one> B<ccm> calls. Note: this example assumes 
 
-  use VCS::CMSynergy qw(:cached_attributes :tied_objects);
+  use VCS::CMSynergy qw(:cached_attributes);
 
 =head2 query_count
 
@@ -900,6 +900,113 @@ Example:
 returns 
 
   "guilib/sources/main.c"
+
+=head2 relations_hashref
+
+  $ccm->relations_hashref(%options);
+
+  $ccm->relations_hashref(
+    to              => "bufcolor.c-2:csrc:1",
+    from_attributes => [ qw/objecctname status owner/ ]);
+
+Executes B<ccm relate -show ...> where 
+C<%options> may contain any of the following keys:
+
+=over 4
+
+=item from => $file_spec, to => $file_spec
+
+Restricts one or both ends of the relation. The option value may
+be any C<$file_spec> accepted by CM Synergy including 
+a C<VCS::CMSynergy::Object>.
+
+=item name => $string
+
+Restricts the return value to relations of type C<$string>, 
+e.g. C<associated_cv> or C<successor>.
+
+=item from_attributes => \@keywords, to_attributes => \@keywords
+
+The option value is a reference to an array of attributes
+that should be retrieved for the "from" and "to" objects
+of a relation, resp.
+
+=back
+
+The result is a reference to an array of hashes where each hash
+has exactly four keys describing a relation between two objects:
+
+=over 4
+
+=item from
+
+The value describes the "from" object of the relation.
+
+If C<from_attributes> was not specified the value is the
+I<objectname> of the "from" object.
+
+If C<from_attributes> was specified the value is a reference 
+to a I<hash of attribute names and values>, 
+its keys given by C<from_attributes>.
+
+The pseudo keywords C<object> and C<task_objects> (see 
+L</"query_arrayref, query_hashref">) may be used in C<from_attributes>.
+
+=item to
+
+The value describes the "to" object of the relation.
+
+The value depends on C<to_attributes> as described for the "from" key.
+
+=item name
+
+The value is name of the relation.
+
+=item create_time
+
+The value is the time the relation was created.
+
+=back
+
+If there a no hits, a reference to an empty array is returned.  
+
+If there was an error, C<undef> is returned.
+
+=head2 relations_object
+
+  my $relations = $ccm->relations_object(%options);
+
+Executes B<ccm relate -show ...> where 
+C<%options> are the same as described for L</relations_hashref>. 
+
+The result is a reference to an array of hashes where each hash
+has exactly four keys describing a relation between two objects:
+
+=over 4
+
+=item from, to
+
+The value is a C<VCS::CMSynergy::Object>. 
+
+=item name
+
+The value is name of the relation.
+
+=item create_time
+
+The value is the time the relation was created.
+
+=back
+
+If there a no hits, a reference to an empty array is returned.  
+
+If there was an error, C<undef> is returned.
+
+If C<from_attributes> or C<to_attributes> are specified, these
+are used as hints to prime the attribute caches of the
+"from" or "to" C<VCS::CMSynergy::Object>s, resp., similar to
+L</query_object_with_attributes>. This is only useful when
+L</:cached_attributes> is in effect. 
 
 =head2 traverse_project
 

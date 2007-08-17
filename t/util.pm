@@ -1,4 +1,5 @@
 use Data::Dumper;
+use Test::Deep;
 
 our %test_session;
 
@@ -35,6 +36,15 @@ BEGIN
     $ENV{CCM_DATETIME_FMT} = "%Y-%m-%d %H:%M:%S";
 }
 
+# Test::Deep:
+# check for an array of VCOs (optionally of the rgfiven cvtype)
+sub vco_array
+{
+    my ($cvtype) = @_;
+    return $cvtype ? array_each(isa("VCS::CMSynergy::Object"),
+				methods(cvtype => $cvtype)) 
+                   : array_each(isa("VCS::CMSynergy::Object")); 
+}
 
 # all_ok BLOCK AREF [, TEST_NAME]
 # check if predicate BLOCK holds for all elements in list
@@ -81,6 +91,7 @@ sub verbose($$)
 
     my ($tag, $result) = @_;
     my $dumper = Data::Dumper->new([ $result], [ $tag ]);
+    $dumper->Useqq(1);
     $dumper->Freezer('Freezer');
     print STDERR $dumper->Dump;
 }

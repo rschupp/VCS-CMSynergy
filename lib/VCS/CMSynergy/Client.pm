@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 16 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 17 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -240,10 +240,10 @@ sub _ccm
 	my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
 	if ($Debug >= 8)
 	{
-	    $this->trace_msg("<- ccm($this->{ccm_command})\n");
-	    $this->trace_msg("-> rc = $rc [$elapsed sec]\n");
-	    $this->trace_msg("-> out = \"$out\"\n");
-	    $this->trace_msg("-> err = \"$err\"\n");
+	    $this->trace_msg("<- ccm($this->{ccm_command})\n", 8);
+	    $this->trace_msg("-> rc = $rc [$elapsed sec]\n", 8);
+	    $this->trace_msg("-> out = \"$out\"\n", 8);
+	    $this->trace_msg("-> err = \"$err\"\n", 8);
 	}
 	else
 	{
@@ -931,12 +931,12 @@ trace disabled
 
 =item 1
 
-trace session start/stop; show parameters and exit code for all invocations of
-CMSynergy CLI
+trace session start/stop; show arguments, exit code and elapsed time
+for all invocations of CMSynergy CLI
 
-=item 2
+=item 5
 
-trace method autoloading; show queries synthesized from shortcuts
+trace method autoloading; show query shortcut processing
 
 =item 8
 

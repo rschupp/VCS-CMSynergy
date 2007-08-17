@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.29 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.27.3 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -114,7 +114,13 @@ sub _start
     if (defined $self->ccm_addr)
     {
 	$self->{KeepSession} = 1 unless defined $self->{KeepSession};
-	$Debug && $self->trace_msg("will keep session `".$self->ccm_addr."'\n");
+	if ($Debug)
+	{
+	    my $ccm_addr = $self->ccm_addr;
+	    $self->trace_msg($self->{KeepSession} ? 
+		qq[will keep session "$ccm_addr"\n] :
+		qq[will not keep session "$ccm_addr"\n]);
+	}
 
 	if (is_win32)
 	{
@@ -533,8 +539,7 @@ sub _expand_query
     my ($self, $query) = @_;
     if (ref $query eq 'HASH')
     {
-	$query = _query_shortcut($query);
-	$self->trace_msg("expanded shortcut query: $query\n", 2);
+	$query = $self->_query_shortcut($query);
     }
     else
     {
@@ -547,12 +552,15 @@ sub _expand_query
     return $query;
 }
 
-# helper (not a method): expand shortcut queries
+# helper: expand shortcut queries
 sub _query_shortcut
 {
-    my $hashref = shift;
-    my @clauses;
+    my ($self, $hashref) = @_;
 
+    $Debug >= 5 && $self->trace_msg(
+	"shortcut query { ".join(", ", map { "$_ => $hashref->{$_}" } keys %$hashref)." }\n", 5);
+
+    my @clauses;
     while (my ($key, $value) = each %$hashref)
     {
 	if (ref $value eq '')
@@ -584,7 +592,7 @@ sub _query_shortcut
 	}
 	elsif (ref $value eq 'HASH')
 	{
-	    my $nested = _query_shortcut($value);
+	    my $nested = $self->_query_shortcut($value);
 	    push @clauses, "$key($nested)";
 	}
 	else
@@ -594,7 +602,9 @@ sub _query_shortcut
 	}
     }
 
-    return join(" and ", @clauses);
+    my $result = join(" and ", @clauses);
+    $Debug >= 5 && $self->trace_msg("shortcut query => $result\n", 5);
+    return $result;
 }
 
 # helper (not a method): smart quoting of string or boolean values
@@ -606,7 +616,7 @@ sub _query_shortcut
 # - time values must be written as "time('Fri Dec 12 1997')"
 sub _quote_value
 {
-    local $_ = shift;
+    local ($_) = @_;
     return /^(TRUE|FALSE)$/ ? $_ : # don't quote boolean
 	   /'/ ? qq["$_"] :	   # use double quotes if contains single quote
 	   qq['$_'];		   # use single quotes otherwise
@@ -1004,8 +1014,6 @@ sub traverse_project
 	$dir = $result->[0];
     }
 
-    $Debug && $self->trace_msg("traverse_project($project) ...\n");
-
     local @VCS::CMSynergy::Traversal::_projects = ($project);
     local @VCS::CMSynergy::Traversal::_dirs = (); 
     $self->_traverse_project($wanted, $project, $dir);
@@ -1084,10 +1092,11 @@ sub project_tree
     $options = {} unless defined $options;
     return $self->set_error("argument 1 must be a HASH ref")
 	unless ref $options eq "HASH";
-    $options->{attributes} ||= [];	
+    $options->{attributes} ||= [];
+    my $mark_projects = delete $options->{mark_projects};
   
     # NOTE: $options->{attributes} and @projects will be checked 
-    # by traverse_project() below.
+    # by traverse_project() below
 
     my %tree;
     foreach my $tag (0 .. @projects-1)
@@ -1098,11 +1107,16 @@ sub project_tree
 		attributes	=> $options->{attributes},
 		wanted		=> sub
 		{
-		    return if $_->is_project;		# skip projects
+		    # skip projects unless "mark_projects" is in effect
+		    return if $_->is_project && !$mark_projects;
 
 		    # store into %tree with relative workarea pathname as the key
+		    # NOTE: VCS::CMSynergy::Traversal::path() has the same
+		    # value when invoked for a project and its top level
+		    # directory; the "||=" below makes sure we dont't overwrite
+		    # the project entry when "mark_projects" is in effect
 		    my $path = VCS::CMSynergy::Traversal::path($options->{pathsep});
-		    @projects == 1 ? $tree{$path} : $tree{$path}->[$tag] = $_;
+		    @projects == 1 ? $tree{$path} : $tree{$path}->[$tag] ||= $_;
 		},
 	    }, $projects[$tag]) or return;
     }
@@ -1175,9 +1189,9 @@ sub set_attribute
 		my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
 		if ($Debug >= 8)
 		{
-		    $self->trace_msg("<- ccm($self->{ccm_command})\n");
-		    $self->trace_msg("-> rc = $rc [$elapsed sec]\n");
-		    $self->trace_msg("-> err = \"$err\"\n");
+		    $self->trace_msg("<- ccm($self->{ccm_command})\n", 8);
+		    $self->trace_msg("-> rc = $rc [$elapsed sec]\n", 8);
+		    $self->trace_msg("-> err = \"$err\"\n", 8);
 		}
 		else
 		{
@@ -1318,9 +1332,9 @@ sub cat_object
 	my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
 	if ($Debug >= 8)
 	{
-	    $self->trace_msg("<- ccm($self->{ccm_command})\n");
-	    $self->trace_msg("-> rc = $rc [$elapsed sec]\n");
-	    $self->trace_msg("-> err = \"$err\"\n");
+	    $self->trace_msg("<- ccm($self->{ccm_command})\n", 8);
+	    $self->trace_msg("-> rc = $rc [$elapsed sec]\n", 8);
+	    $self->trace_msg("-> err = \"$err\"\n", 8);
 	}
 	else
 	{
@@ -1710,7 +1724,7 @@ sub AUTOLOAD
     # we don't allow autoload of class methods
     croak(qq[Can't locate class method "$method" via class "$class"]) #'
 	unless ref $this;
-    $Debug >= 2 && $this->trace_msg(qq[autoloading method "$method"\n]);
+    $Debug && $this->trace_msg(qq[autoloading method "$method"\n], 5);
 
     # create the new method on the fly
     no strict 'refs';

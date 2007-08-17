@@ -27,7 +27,7 @@ Linux 2.4, Perl 5.6.1                   Linux 2.4, CM Synergy 6.2
 
 WinNT 4.0, ActiveState Perl 5.6.1       Solaris 2.6, CM Synergy 5.1
 
-WinNT 4.0, Cygwin Perl 5.6.1            Solaris 2.6, CM Synergy 5.1
+WinNT 4.0, ActiveState Perl 5.6.1	Solaris 2.8, CM Synergy 6.2
 
 
 BUILDING
@@ -48,14 +48,14 @@ Make sure that the CM Synergy command client is installed and working:
     $CCM_HOME/bin/ccm version
 
 You will need a pristine copy of the "tutorial" database to test the
-module. The pack file for "tutorial" database is distributed with
-the product and is located in $CCM_HOME/packfiles/tutorial.cpk. 
+module. The pack file for the "tutorial" database is distributed with
+the CM Synergy product and is located in $CCM_HOME/packfiles/tutorial.cpk. 
 Have your friendly CM Synergy administrator create a test database,
 say /ccmdb/test_module, by executing
 
     $CCM_HOME/bin/ccmdb_unpack $CCM_HOME/packfiles/tutorial.cpk /ccmdb/test_module
 
-and have her add you as user to this database, currently the "developer"
+and have her add you as a user to this database, currently the "developer"
 role is sufficient to run the tests. Set the environemnt variable
 CCM_TEST_DB to the name of the test database, e.g. (in Bourne shell syntax)
 

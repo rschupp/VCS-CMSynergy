@@ -1,12 +1,16 @@
 #!/usr/bin/perl
 
-use Test;
-BEGIN { plan tests => 6 }
+use Test::More tests => 8;
 use t::util;
+use UNIVERSAL qw(isa);
 
 my $ccm = VCS::CMSynergy->new(%test_session);
-print "# using Expect\n" if $ccm->{exp};
+isa_ok($ccm, "VCS::CMSynergy");
+diag("using Expect") if defined $ccm->{exp};
 
+my $e_result = $ccm->query_object("name match '*blurfl*'");
+ok(isa($e_result, "ARRAY") && @$e_result == 0,
+   q[$ccm->query_object("name match '*blurfl*'") -- no match]);
 # test query_object with old-style objectnames returned from the query
 # NOTE: exclude "bitmap" objects that appeared in CM Synergy 6.0
 my $b_exp = [
@@ -32,9 +36,11 @@ my $b_exp = [
 ];
 my $b_result = $ccm->query_object("name match 'b*' and name != 'bitmap'");
 verbose('b_result', $b_result);
-ok(ref $b_result, 'ARRAY');
-ok(all { ref $_ eq 'VCS::CMSynergy::Object' } @$b_result);
-ok(eqarray($b_exp, [ map { "$_" } @$b_result ]));
+isa_ok($b_result, "ARRAY", "query_object() returns array ref");
+ok(all(sub { defined $_  && isa($_, "VCS::CMSynergy::Object") }, @$b_result),
+   q[query_object() returns array ref of VCS::CMSynergy::Objects]);
+ok(eq_set($b_exp, [ map { "$_" } @$b_result ]),
+   q[$ccm->query_object("name match 'b*' and name != 'bitmap'")]);
 
 # test query_arrayref with a multi-line valued keyword
 my $ml_exp = [
@@ -66,11 +72,12 @@ Mon Sep 29 17:56:01 1997: Status set to \'integrate\' by darcy in role ccm_admin
 my $ml_result = $ccm->query_arrayref(
     "name = 'bufcolor.c' and instance = '1'", qw(objectname status_log));
 verbose('ml_result', $ml_result);
-ok(ref $ml_result, 'ARRAY');
-ok(all { ref $_ eq 'ARRAY' } @$ml_result);
-ok(eqarray(
-    $ml_exp, 
-    $ml_result, 
-    sub { $a->[0] cmp $b->[0] })); 	# sort by first array element
+isa_ok($ml_result, "ARRAY", "query_arrayref() returns array ref");
+ok(all(sub { isa($_, "ARRAY") }, @$ml_result),
+   q[query_arrayref() returns array ref of array ref]);
+ok(eq_array(			# sort by first array element (objectname)
+   [ sort { $a->[0] cmp $b->[0] } @$ml_exp ],
+   [ sort { $a->[0] cmp $b->[0] } @$ml_exp ]),
+   q[$ccm->query_arrayref("name = 'bufcolor.c' and instance = '1'", qw(objectname status_log))]); 
 
 exit 0;

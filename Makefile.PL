@@ -28,6 +28,9 @@ die qq{  The CM Synergy CLI programm ($ccm_exe)
 $ccm_version =~ /^(?:Continuus|CM Synergy) Version\s+(\d+\.\d+)/i;
 print "Detected CM Synergy version $1\n";
 
+warn "VCS::CMSynergy likes to have Memoize, but doesn't require it.\n"
+    unless eval { require Memoize; 1 };
+
 
 # --- Create Makefile
 
@@ -39,7 +42,7 @@ WriteMakefile(
     #			     'Expect'		=> '1.15',
 			     'File::Spec'	=> 0,
 			     'File::Temp'	=> 0,
-			     'Memoize'		=> 0,
+			     'Test::More'	=> 0, 	# for `make test' only
 			   },
     dist		=> { 
 			     COMPRESS => 'gzip -9f', 

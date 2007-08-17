@@ -1,0 +1,111 @@
+=head1 NAME
+
+VCS::CMSynergy::Changes - List of changes to VCS::CMSynergy
+
+=cut
+
+Known problems:
+
+- IPC::Open3 croaks on NT if stdout or stderr  is closed on entry
+
+- retract support for cygwin because of pathname problems:
+   - cygwin produces and understands unix-style pathnames,
+     claims to understand windows pathnames as well
+   - "ccm" understands and produces windows pathnames only
+   - so we would have to be very carefull when passing filenames
+     - from module to "ccm", e.g. temp ini file, or $File::Find::name
+     - from "ccm" to module, e.g. the pathname information from finduse
+  
+- 'make test' on Windows with out-of-the-box CM Synergy installation:
+   probably needs to specify -u and -home options for "ccm start"
+
+=head1 CHANGES
+
+=head2 Changes in Version 1.08
+
+  INCOMPATIBLE CHANGE: The pseudo keyword "finduse" in query_arrayref()
+    and query_hashref() does not return a list of project references
+    any more. It now returns a hash which maps proj_vers to relative_path. 
+    Similarly, the rows returned by finduse() have changed from
+    	[ $description, @project_references ]
+    to
+    	[ $description, \%usage_map ].
+
+  Converted findpath() to use new finduse(), adjusted t/04finduse.t.
+  Convert tests to use Test::More.
+  Makefile.PL: don't require Memoize anymore, just recommend it.
+  Windows: will sleep(2) _after_ "ccm stop" and _before_ unlinking 
+    files_to_unlink (because they may still be "busy" - probably "ccm stop"
+    returns _before_ CM Synergy really has ceased operation).
+  Fix problem with set_error() that's probably a perl bug 
+    (at least for 5.6.1, fixed at least in 5.8.1):
+
+      sub foo
+      {
+	 my @x = (2, 1, 0);	# last elem must be false
+	 return @x if wantarray and @x;
+	 print "OOPS\n";
+      }
+      my @foo = foo;
+
+    This will print "OOPS". Somehow wantarray seems to force list context
+    onto the right-hand side of "and" - @x will thus evaluate to its
+    last element.
+
+=head2 Changes in Version 1.07
+
+  INCOMPATIBLE CHANGE: The 3-arg form of attribute() does not return
+    the old value any more.
+
+  Document 3-arg form of attribute().
+  When setting attributes, cope with arbitrary types by looking
+    up the super_type recursively until one of the well known types 
+    (for which we "just know" whether they need the "text_editor"
+    trick )is found.
+  Kludge for annoying `Security violation...' warning on Windows
+    (thanks to Peter Kreuz for the explanation what's goin' on).
+  Rewritten output parsing for history_*().
+  Fix typo in types().
+  Add error() and ccm_command() calss/instance methods, prefer
+    them in docs over explicit $ccm->{error} or $VCS::CMSynergy::error.
+  Add "ui_database_dir" option to new().
+ 
+=head2 Version 1.05
+
+  The Great Renaming: s/CMSyngery/VCS::CMSynergy/g.
+  First version uploaded to CPAN.
+
+=head2 Version 1.04
+
+  Split out CMSynergy::Users.pm.
+  Fix bug with multi-line valued attributes in query_* functions.
+  Rewritten output parsing for query_*() and finduse().
+  Make "ccm->set('foo', undef) " execute "ccm unset foo".
+  Fix bug reported by Jürgen Schorer: CCM_HOME not passed down to "ccm start".
+  Rewritten test cases.
+  Make tests work under NT and Cygwin.
+  Split out (and currently don't distribute) CMSynergy::Traversal.pm.
+
+=head2 Version 1.02
+
+  Fill $VERSION from CM Synergy version.
+  Add LICENSE in preparation for CPAN upload.
+
+=head2 Version 1.01
+
+  Fix exit code of ccm() when using coprocess.
+
+=head2 Version 1.00
+
+  "ccm ps" can't be called interactively.
+  Make set_error callable as class method.
+  Convenience function: CMObject::proj_vers.
+
+=head2 Version 0.98
+
+  Downgrade required Perl version  to 5.6.0 (untested).
+  Use Memoize.pm if available, otherwise memoization is a no-op.
+
+=head2 Version 0.97
+
+  Fix problems when outer SIGCHLD handler is present.

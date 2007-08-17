@@ -1,21 +1,23 @@
 #!/usr/bin/perl
 
-use Test;
-BEGIN { plan tests => 7 }
+use Test::More tests => 8;
 use t::util;
 
 my ($ccm_addr, $ps);
 {
     # create a new CM Synergy session
     my $ccm = VCS::CMSynergy->new(%test_session);
-    ok(ref $ccm, 'VCS::CMSynergy');
-    print "# using Expect\n" if defined $ccm->{exp};
+    isa_ok($ccm, "VCS::CMSynergy");
+    diag("using Expect") if defined $ccm->{exp};
     $ccm_addr = $ccm->{CCM_ADDR};
 
     # new session should show up in `ccm ps'
     $ps = VCS::CMSynergy->ps(rfc_address => $ccm_addr);
-    ok(ref $ps eq 'ARRAY' && @$ps == 1);
-    ok($ps->[0]->{database} eq $ccm->{database});
+    isa_ok($ps, "ARRAY");
+    ok(@$ps == 1, 
+       q[VCS::CMSynergy->ps(rfc_address => $ccm_addr is array of length 1]);
+    ok($ps->[0]->{database} eq $ccm->{database},
+       q[database from ps should match that from session]);
 
     # create another session object reusing the CM Synergy session
     my $ccm2 = VCS::CMSynergy->new(
@@ -23,20 +25,21 @@ my ($ccm_addr, $ps);
 	    PrintError	=> 0,
 	    RaiseError	=> 1,
     );
-    ok(ref $ccm2, 'VCS::CMSynergy');
-    ok($ccm2->{CCM_ADDR} eq $ccm_addr);
+    isa_ok($ccm2, "VCS::CMSynergy");
+    is($ccm2->{CCM_ADDR}, $ccm_addr, 
+       "reused session has same CCM_ADDR");
 
-    # destroy it and check that the original CM Synergy session is still there
+    # destroy it and check that the CM Synergy session is still there
     $ccm2->DESTROY;
-    $ps = VCS::CMSynergy->ps(rfc_address => $ccm_addr);
-    ok(ref $ps eq 'ARRAY' && @$ps == 1);
+    ok(@{ VCS::CMSynergy->ps(rfc_address => $ccm_addr) } == 1,
+       q[session still registered]);
 
     # $ccm goes out of scope and session should be stopped
 }
 
 # session should no longer show up in `ccm ps'
-$ps = VCS::CMSynergy->ps(rfc_address => $ccm_addr);
-ok(ref $ps eq 'ARRAY' && @$ps == 0);
+ok(@{ VCS::CMSynergy->ps(rfc_address => $ccm_addr) } == 0,
+   q[session not registered any more]);
 
 # FIXME test: simultaneous session using second user (Windows or ESD only)?
 

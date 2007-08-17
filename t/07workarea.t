@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 26;
+use Test::More tests => 27;
 use t::util;
 use Cwd;
 use File::Path;
@@ -32,24 +32,23 @@ rmtree("calculator-test", 0, 0);
 my $pwd = getcwd();
 $pwd = fullwin32path($pwd) if $^O eq 'cygwin';
 
-
-ok($ccm->checkout(qw/-project calculator-1.0 -copy_based -to test/, -path => $pwd),
-   q[checkout project calculator-1.0 to calculator-test]);
+my $test = "test$$";
+my $proj = "calculator" . $ccm->delimiter . $test;
+ok($ccm->checkout(qw/-project calculator-1.0 -copy_based/, -to => $test, -path => $pwd),
+   qq[checkout project calculator-1.0 to $proj]);
 push @cleanup, sub
 {
-    ok($ccm->delete(qw(-project calculator-test)), 
-	q[delete project calculator-test]);
-    ok(! -d "calculator-test", 
-	q[project directory has been deleted]);
+    ok($ccm->delete(-project => $proj), qq[delete project $proj]);
+    ok(! -d $proj, q[project directory has been deleted]);
 };
 
 my $ccmwaid = File::Spec->catfile(
-    qw(calculator-test calculator),
+    $proj,  "calculator",
     $VCS::CMSynergy::Is_MSWin32 ? "_ccmwaid.inf" : ".ccmwaid.inf");
 ok(-e $ccmwaid, qq[check for ccmwaid file ($ccmwaid)]);
 
 # chdir to project sub directory (esp. for testing coprocess)
-ok(chdir(File::Spec->catdir(qw(calculator-test calculator sources))), 
+ok(chdir(File::Spec->catdir($proj, qw(calculator sources))), 
    q[chdir to project sub directory (sources)]);
 push @cleanup, sub { chdir($pwd) };
 
@@ -108,7 +107,7 @@ is($displayname, $object->name . $ccm->delimiter . $object->version,
 
 SKIP: 
 {
-    skip "no tied hash interface to VCS::CMSynergy::Object", 3 
+    skip "no tied hash interface to VCS::CMSynergy::Object", 4 
 	unless tied %$object;
 
     is($object->{status}, "working", q[FETCH attribute]);
@@ -116,6 +115,10 @@ SKIP:
     $object->{comment} = $value;
     is($object->{comment}, $value, q[re-FETCH attribute and compare]);
     is($object->displayname, $displayname, q[check displayname()]);
+
+    my @attrs1 = keys %{ $ccm->list_attributes($object) };
+    my @attrs2 = keys %$object;
+    ok(eq_array(\@attrs1, \@attrs2), q[check list of attributes]);
 }
 
 exit 0;

@@ -1,0 +1,46 @@
+#/usr/bin/perl -w
+
+use VCS::CMSynergy;
+use strict;
+
+@ARGV == 1 
+    or die "usage: $0 project";
+
+my ($root_project) = @ARGV;
+
+# assume existing CM Synergy session
+my $ccm = VCS::CMSynergy(
+    CCM_ADDR	=> $ENV{CCM_ADDR}, 
+    PrintError	=> 0,
+    RaiseError	=> 1);
+
+my $subprojs = $ccm->query_hashref(
+    { hierarchy_project_members => [ $root_project, 'none' ] },
+    qw(objectname platform reltype));
+die "can't find sub projects of project \"$root_project\"\n" unless @$subprojs;
+my %projects = map { ($_->{objectname}, $_) } @$subprojs;
+
+my %members;			# hash on name:cvtype:instance
+foreach my $p (keys %projects)
+{
+    foreach (@{ $ccm->query_hashref(
+	{ is_member_of => $p }, 
+	qw(name cvtype instance version platform reltype)) })
+    {
+	my $object = join(":", @$_{qw(name cvtype instance)});
+	$_->{project} = $p;
+	push @{ $members{$object} }, $_;
+    }
+}
+
+my $inconsistent = 0;
+while (my ($object, $versions = each %members)
+{
+    next if @$versions == 1;
+   
+    # FIXME: check different $_->{versions} in @$versions
+    # platform/reltype ???
+    $inconsistent++;
+}
+
+exit($inconsistent == 0);

@@ -1,4 +1,5 @@
 lib/VCS/CMSynergy.pm
+lib/VCS/CMSynergy/Client.pm
 lib/VCS/CMSynergy/Object.pm
 lib/VCS/CMSynergy/ObjectTieHash.pm
 lib/VCS/CMSynergy/Users.pm
@@ -16,6 +17,8 @@ t/06misc.t
 t/07workarea.t
 t/08error.t
 t/util.pm
-examples/find_parallel_versions2.pl
-examples/find_parallel_versions.pl
-examples/hierarchy_project_members.pl
+examples/find_parallel_versions2
+examples/find_parallel_versions
+examples/hierarchy_project_members
+examples/ccm_consistent
+examples/grep_attr

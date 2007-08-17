@@ -632,7 +632,7 @@ using C<query_arrayref>:
   sub query_object
   {
     my ($self, $query) = @_;
-    my $ary = $self->query_arrayref($query, 'object') or return undef;
+    my $ary = $self->query_arrayref($query, 'object') or return;
     [ map { $_->[0] } @$ary ];	# project onto first (and only) column
   }
 

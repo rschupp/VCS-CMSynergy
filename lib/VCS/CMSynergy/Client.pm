@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = sprintf("%d.%02d", q%version: 8 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 9 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -263,22 +263,22 @@ sub _spawn_coprocess
     unless (eval "use Expect 1.15; 1")
     {
 	$Error = $self->{error} = $@;
-	return undef;
+	return;
     }
 
     my $env = $self->{env};
     local @ENV{keys %$env} = values %$env if defined $env;
 
     my $exp = Expect->new
-	or $Error = $self->{error} = "Expect->new failed", return undef;
+	or $Error = $self->{error} = "Expect->new failed", return;
     ($exp->log_stdout(0) && $exp->slave->set_raw && $exp->set_raw)
-	or $Error = $self->{error} = $exp->exp_error, return undef;
+	or $Error = $self->{error} = $exp->exp_error, return;
     $exp->spawn($self->ccm_exe)
-	or $Error = $self->{error} = $exp->exp_error, return undef;
+	or $Error = $self->{error} = $exp->exp_error, return;
     
     # look for initial "ccm> " prompt
     $exp->expect(undef, -re => $ccm_prompt)
-	or $Error = $self->{error} = $exp->exp_error, return undef;
+	or $Error = $self->{error} = $exp->exp_error, return;
 
     return $exp;
 }

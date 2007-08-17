@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Users;
 
-our $VERSION = sprintf("%d.%02d", q%version: 7 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 8 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -81,7 +81,7 @@ sub users
     if (@_ == 0)
     {
 	my $text = $self->get_attribute(users => $self->base_model);
-	return undef unless defined $text;
+	return unless defined $text;
 	
 	my $users = {};
 	foreach (split(/\n/, $text))
@@ -133,7 +133,7 @@ sub add_user
     my ($self, $user, @roles) = @_;
 
     my $users = $self->users;
-    return undef unless $users;
+    return unless $users;
 
     $users->{$user} = \@roles;
 
@@ -153,7 +153,7 @@ sub delete_user
     my ($self, $user) = @_;
 
     my $users = $self->users;
-    return undef unless $users;
+    return unless $users;
 
     delete $users->{$user};
 
@@ -174,7 +174,7 @@ sub add_roles
     my ($self, $user, @roles) = @_;
 
     my $users = $self->users;
-    return undef unless $users;
+    return unless $users;
 
     return $self->set_error("user `$user' doesn't exist")
 	unless $users->{$user};
@@ -198,7 +198,7 @@ sub delete_roles
     my ($self, $user, @roles) = @_;
 
     my $users = $self->users;
-    return undef unless $users;
+    return unless $users;
 
     return $self->set_error("user `$user' doesn't exist")
 	unless exists $users->{$user};
@@ -223,7 +223,7 @@ sub get_roles
     my ($self, $user) = @_;
 
     my $users = $self->users;
-    return undef unless $users;
+    return unless $users;
 
     my $roles = $users->{$user};
     return $roles ? @$roles : ();

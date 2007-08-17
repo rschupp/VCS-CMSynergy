@@ -1,13 +1,14 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.30 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.31 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
 
 use VCS::CMSynergy::Client qw(
     is_win32 $Debug $Error $Ccm_command %new_opts 
-    _exitstatus _error _usage);
+    _exitstatus _error _usage
+    ROW_ARRAY ROW_HASH ROW_OBJECT);
 our @ISA = qw(VCS::CMSynergy::Client);
 
 
@@ -322,10 +323,6 @@ sub database
 }
 __PACKAGE__->_memoize_method('database');
 
-
-use constant ROW_ARRAY	=> 0;
-use constant ROW_HASH	=> 1;
-use constant ROW_OBJECT	=> 2;
 
 sub query
 {
@@ -1087,10 +1084,26 @@ sub list_attributes
 
 sub property
 {
-    my ($self, $keyword, $file_spec) = @_;
+    my ($self, $keyword_s, $file_spec) = @_;
     _usage(3, 3, '{ $keyword | \@keywords }, $file_spec', \@_);
 
-    my $want = _want(UNIVERSAL::isa($keyword, 'ARRAY') ? $keyword : [ $keyword ]);
+    if (UNIVERSAL::isa($keyword_s, 'ARRAY'))
+    {
+	return $self->_property($file_spec, $keyword_s, ROW_HASH);
+    }
+    else
+    {
+	my $row = $self->_property($file_spec, [ $keyword_s ], ROW_HASH);
+	return $row && $row->{$keyword_s};
+    }
+}
+
+
+sub _property
+{
+    my ($self, $file_spec, $keywords, $row_type) = @_;
+
+    my $want = _want($keywords);
     my $format = $RS . join($FS, values %$want) . $FS;
 
     my ($rc, $out, $err) = 
@@ -1099,9 +1112,7 @@ sub property
 
     my (undef, $props) = split(/\Q$RS\E/, $out, -1);
     my @cols = split(/\Q$FS\E/, $props, -1);	# don't strip empty trailing fields
-    my $row = $self->_parse_query_result($want, \@cols, ROW_HASH);
-
-    return UNIVERSAL::isa($keyword, 'ARRAY') ? $row : $row->{$keyword};
+    return $self->_parse_query_result($want, \@cols, $row_type);
 }
 
 

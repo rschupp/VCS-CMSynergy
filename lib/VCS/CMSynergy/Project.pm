@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Project;
 
-our $VERSION = do { (my $v = q%version: 1 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 2 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -14,7 +14,8 @@ use strict;
 
 use base qw(VCS::CMSynergy::Object);
 
-use VCS::CMSynergy::Client qw(_usage);
+use Carp;
+use VCS::CMSynergy::Client qw(_usage ROW_OBJECT);
 use File::Spec;
 use Cwd;
 
@@ -64,12 +65,14 @@ sub is_child_of
 # FIXME needs test
 sub path_to_object
 {
-    _usage(2, 2, '{ $path | \\@path }', \@_);
-    my ($self, $path) = @_;
+    _usage(2, undef, '{ $path | \\@path_components }, @keywords', \@_);
+    my ($self, $path, @keywords) = @_;
+
     $path = join("/", @$path) if ref $path; # FIXME use native path delim here
 
-    return $self->ccm->property(object => "$path\@$self") ;
-    # NOTE: no error if path isn't bound? possible errors:
+    return $self->ccm->_property(
+	"$path\@$self", [ object => @keywords ], ROW_OBJECT);
+    # NOTE/FIXME: no error if path isn't bound? possible errors:
     # Specified project not found in database: '$self'
     # Object version could not be identified from reference form: '$path'
 }

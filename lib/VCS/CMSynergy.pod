@@ -1446,12 +1446,14 @@ Only one C<$file_spec> is allowed.
 =head2 property
 
   $value = $ccm->property($keyword, $file_spec);
+  $hash = $ccm->property(\@keywords, $file_spec);
 
-Returns the value of property C<$keyword> for C<$file_spec>
-(using B<ccm properties -f ...>).
+The first form returns the value of property C<$keyword> for C<$file_spec>
+(using B<ccm properties -f ...>). The second form returns the values
+of all properties in C<@keywords> as a hash reference.
 
-You can use any of the CM Synergy built-in keywords for C<$keyword>.
-If the value of C<$keyword> is undefined, C<undef> is returned
+You can use any of the CM Synergy built-in keywords for C<$keyword> or
+C<@keywords>.  If the value of a keyword is undefined, C<undef> is returned
 (whereas B<ccm properties> would print it as the string C<< "<void>" >>).
 
 =head1 MISCELLANEOUS METHODS

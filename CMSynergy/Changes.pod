@@ -6,7 +6,9 @@ VCS::CMSynergy::Changes - List of changes to VCS::CMSynergy
 
 Known problems:
 
-- IPC::Open3 croaks on NT if stdout or stderr  is closed on entry
+- IPC::Open3 croaks on NT if stdout or stderr is closed on entry
+  reason is probably that perl opens the script file read-only and it gets
+  file descriptor 1 or 2 resp. 
 
 - retract support for cygwin because of pathname problems:
    - cygwin produces and understands unix-style pathnames,
@@ -20,6 +22,25 @@ Known problems:
    probably needs to specify -u and -home options for "ccm start"
 
 =head1 CHANGES
+
+=head2 Changes in Version 1.10
+
+  Document types of options for new().
+  Document option `KeepSession' for new().
+  Mention correct way to explicity stop a session.
+  Implement ccm_addr().
+  Make database() lazy.
+
+=head2 Changes in Version 1.09
+
+  Make it work for ancient Continuus 4.5 (fixes #1681):
+    - `ccm ps -rfc_address ADDR' doesn't find the process if host part of ADDR
+       is given as name (instead of an IP address); esp. this breaks
+       `ccm ps -rfc_address $ccm->{CCM_ADDR}' - used in new()
+    - different error messages from `ccm finduse' if object is not in use
+    - adjust test cases
+  Correctly handle (Raise|Print|Handle)Error when ps() in new() fails.
+  Add 'remote_client => 1' to options for new() (causes `-rc' for `ccm start').
 
 =head2 Changes in Version 1.08
 
@@ -38,7 +59,7 @@ Known problems:
     files_to_unlink (because they may still be "busy" - probably "ccm stop"
     returns _before_ CM Synergy really has ceased operation).
   Fix problem with set_error() that's probably a perl bug 
-    (at least for 5.6.1, fixed at least in 5.8.1):
+    (at least for 5.6.1, fixed in 5.8.1, cf #9998, #9739 on rt.perl.org):
 
       sub foo
       {

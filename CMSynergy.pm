@@ -1,10 +1,10 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.08 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.10 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
-VCS::CMSynergy - Perl interface to Telelogic CM Synergy
+VCS::CMSynergy - Perl interface to Telelogic CM Synergy (aka Continuus/CM)
 
 =head1 SYNOPSIS
 
@@ -37,6 +37,7 @@ VCS::CMSynergy - Perl interface to Telelogic CM Synergy
   $hash_ref = $ccm->attributes($file_spec);
 
   $delim = $ccm->delimiter;
+  $database = $ccm->database;
   @types = $ccm->types;
 
   $last_error = $ccm->error;
@@ -74,7 +75,7 @@ described in the L<VCS::CMSynergy::Users> documentation.
 
 =cut
 
-use v5.6.0;
+use 5.006_000;				# i.e. v5.6.0
 use strict;
 use Carp;
 
@@ -113,6 +114,11 @@ my %Attypes =
     time	=> 0,
 );
 
+# how to pass `VCS::CMSynergy->new(..., option => value, ...)'
+# to `ccm start ...':
+#   option is undef	=> option not passed at all
+#   option is sub ref	=> pass &sub(value) to `ccm start' 
+#			   (sub is evaluated in list context)
 my %StartOptions =
 (
     CCM_HOME 		=> undef,
@@ -120,14 +126,16 @@ my %StartOptions =
     PrintError		=> undef,
     RaiseError		=> undef,
     HandleError		=> undef,
-    database		=> "-d",
-    home		=> "-home",
-    host		=> "-h",
-    ini_file		=> "-f",
-    password		=> "-pw",
-    role		=> "-r",
-    ui_database_dir	=> "-u",
-    user		=> "-n",
+    KeepSession		=> undef,
+    database		=> sub { ("-d", shift); },
+    home		=> sub { ("-home", shift); },
+    host		=> sub { ("-h", shift); },
+    ini_file		=> sub { ("-f", shift); },
+    password		=> sub { ("-pw", shift); },
+    remote_client	=> sub { $_[0] ? ("-rc") : (); },
+    role		=> sub { ("-r", shift); },
+    ui_database_dir	=> sub { ("-u", shift); },
+    user		=> sub { ("-n", shift); },
 );
 
 {
@@ -182,49 +190,50 @@ are currently supported:
 
 =over 4
 
-=item C<database>
+=item C<database> (string)
 
 CM Synergy database path. 
 
 This is the only attribute required on Unix systems.
 
-=item C<host>
+=item C<host> (string)
 
 CM Synergy engine host to use.
 
 It defaults to the local host.
 
-=item C<role>
+=item C<role> (string)
 
 User's initial CM Synergy role.
 
 It defaults to C<developer>.
 
-=item C<user>
+=item C<user> (string)
 
 CM Synergy user. 
 
 This attribute is available and required on Windows systems only.
 
-=item C<password>
+=item C<password> (string)
 
 User's password. 
 
-This attribute is available and required on Windows systems only.
+This attribute is required on Windows systems or when using
+ESD to connect to the CM Synergy engine.
 
-=item C<PrintError>
+=item C<PrintError> (boolean)
 
 This attribute can be used to force errors to generate warnings (using
 L<Carp/carp>) in addition to returning error codes in the normal way.  
 When set to true, any method which results in an error occuring will cause
 the corresponding C<< $ccm->error >> to be printed to stderr.
 
-It defaults to 1.
+It defaults to "on".
 
 L</PrintError> and L</RaiseError> below are stolen from the excellent
 L<DBI> module.
 
-=item C<RaiseError>
+=item C<RaiseError> (boolean)
 
 This attribute can be used to force errors to raise exceptions 
 (using L<Carp/croak>) rather than simply return error codes in the normal way. 
@@ -232,7 +241,7 @@ When set to true, any method which results in an error will cause
 effectively a C<die> with the actual C<< $ccm->error >>
 as the message. 
 
-It defaults to 0.
+It defaults to "off".
 
 If you turn C<RaiseError> on then you'd normally turn C<PrintError> off.
 If C<PrintError> is also on, then the C<PrintError> is done first (naturally).
@@ -253,13 +262,27 @@ The original value will automatically and reliably be restored by Perl,
 regardless of how the block is exited.
 The same logic applies to other attributes, including C<PrintError>.
 
-=item C<ini_file>
+=item C<KeepSession> (boolean)
+
+If this attribute is "on" then destruction of the new session handle
+will not cause a B<ccm stop>. 
+
+This may be used if you want to
+create a new CM Synergy session in one program and then re-use it
+in another program (since session creation is a rather time consuming
+operation). In this case you should use C</ccm_addr> to extract
+the session's RFC address (after C</new> returns) and somehow pass it
+on to the other program.
+
+It defaults to "off" unless you also specify C<CCM_ADDR>.
+
+=item C<ini_file> (string)
 
 CM Synergy ini file to use. 
 
-In contrast to the CM Synergy C<ccm start> command there is I<no>
+In contrast to the CM Synergy B<ccm start> command there is I<no>
 default ini file consulted. (On Unix systems this is achieved
-by executing C<ccm start> with the option C<-f /dev/null>.) The reason
+by executing B<ccm start> with the option C<-f /dev/null>.) The reason
 is that we want scripts to behave in a reproducible way. Otherwise
 the script might accidentally work with the current contents of
 the current user's ini file, but might fail when invoked by another user.
@@ -268,18 +291,20 @@ changes to her ini file (e.g. because of another session between
 invocations of the script). So if you really want to rely on an ini file,
 you have to supply it explicitly.
 
-=item C<CCM_ADDR>
+=item C<CCM_ADDR> (string)
 
 Specifies the RFC address of an established CM Synergy session.
 
 If you specify this attribut L</new> does not create a new session,
-but will use the one specified. Also, destruction of the returned session
-handle will not cause a C<ccm stop>.
+but will attach to the one specified. Also, implicitly sets C<KeepSession>
+to "on" so that destruction of the new session
+handle will not cause a B<ccm stop>. However, setting C<KeepSession> 
+explicitly will take precedence.
 
 Note that there is no default value. In particular, L</new> ignores
 the environment variable of the same name.
 
-=item C<CCM_HOME>
+=item C<CCM_HOME> (string)
 
 Value of the C<CCM_HOME> environment variable to use for this session.
 
@@ -291,15 +316,18 @@ installed. You can have simultaneous sessions using different
 CM Synergy versions (the module takes care of setting the C<CCM_HOME>
 variable appropriately before issuing any C<ccm> commands). 
 
-=item C<ui_database_dir>
+=item C<ui_database_dir> (string)
 
 Specifies the path name to which your database information is copied 
 when you are running a remote client session. This corresponds
-to the C<-u pathname> option for C<ccm start>.
+to the C<-u pathname> option for B<ccm start>.
 
-=item FIXME
+=item C<remote_client> (boolean)
 
-describe sessions attributes (RaiseError,PrintError,...)
+If the value is "on", it specifies that you want to start the CM Synergy
+session as a remote client. This corresponds to the C<-rc> option for
+B<ccm start>. This option is only usefull on Unix systems. It defaults
+to "off".
 
 =back
 
@@ -323,17 +351,20 @@ sub new
 	IgnoreError	=> undef,
 	error		=> undef,
     };	
-    foreach (keys %StartOptions)
-    {
-	$self->{$_} = $args{$_} if exists $args{$_};
-    }
-
     bless $self, $class;
+
+    while (my ($key, $value) = each %args)
+    {
+	return $self->set_error("unrecognized attribute `$key'") 
+	    unless exists $StartOptions{$key};
+
+	$self->{$key} = $value;
+    }
 
     if ($self->{CCM_ADDR})
     {
-	$self->{reuse} = 1;
-	$class->trace_msg("reusing session `$self->{CCM_ADDR}'\n") if $debug;
+	$self->{KeepSession} = 1 unless exists $self->{KeepSession};
+	$class->trace_msg("will keep session `$self->{CCM_ADDR}'\n") if $debug;
 
 	if ($osWindows)
 	{
@@ -373,10 +404,10 @@ sub new
 	}
 
 	my @start = qw(start -m -q -nogui);
-	while (my ($name, $ccm_opt) = each %StartOptions)
+	while (my ($key, $value) = each %StartOptions)
 	{
-	    push @start, $ccm_opt, $self->{$name} 
-		if defined $ccm_opt && defined $self->{$name};
+	    next unless defined $value && defined $self->{$key};
+	    push @start, &$value($self->{$key});
 	}
 	$Ccm_command = "@start";
 
@@ -426,16 +457,10 @@ sub new
     $self->{delimiter} = $out;
     }
 
-    # determine database path (in canonical format) from `ccm ps´
-    {
-	my $ps = $self->ps(rfc_address => $self->{CCM_ADDR});
-	return undef unless $ps && @$ps > 0;
-	$self->{database} = $ps->[0]->{database};
-    }
-
     %{ $self->{attypes} } = %Attypes;
     $self->{objectname_rx} = qr/^(.*?)\Q$self->{delimiter}\E(.*?):(.*?):(.*?)$/;
     $self->{finduse_rx} = qr/(?m)^\t(.*?)\Q$self->{delimiter}\E.*?\@(.*?)$/;
+    $self->{database} = undef;		# determine on demand
 
     if ($debug)
     {
@@ -453,10 +478,10 @@ sub new
   $ccm->DESTROY;
 
 Stops the CM Synergy session represented by the session handle
-by executing C<ccm stop> (unless the session has the C<reuse>
+by executing B<ccm stop> (unless the session has the C<KeepSession>
 attribut set).
 
-There is usually no need to call this method explicitly, as it
+You should never call this method explicitly, as it
 is invoked by the Perl runtime when the Perl process exits
 (either by calling C<exit> or because of a C<die>).
 Hence, a script using the C<VCS::CMSynergy> module will not leave
@@ -477,6 +502,21 @@ at any one time:
     ...
     # session is stopped as "my" variable $ccm is about to go out of scope
   }
+
+Note: The correct way to explicitly stop a session is neither
+
+  $ccm->stop;
+
+nor is it
+
+  $ccm->DESTROY;
+
+Though both forms will execute B<ccm stop>,
+the first form makes C<$ccm> a C<VCS::CMSynergy> object with an invalid
+RFC address (i.e. attribute CCM_ADDR), while the second form leaves you with an
+"empty"  C<VCS::CMSynergy> object. Instead, you should rather say
+
+  $ccm = undef;
 
 =cut
 
@@ -508,7 +548,7 @@ sub DESTROY
     
     local $self->{IgnoreError} = 1;
 
-    if ($self->{reuse})
+    if ($self->{KeepSession})
     {
 	$self->ccm(qw(exit)) if $self->{exp};	# shutdown coprocess
     }
@@ -522,6 +562,8 @@ sub DESTROY
     }
 
     unlink(@{ $self->{files_to_unlink} }) if $self->{files_to_unlink};
+
+    %$self = ();			# paranoia setting
 }
 
 =item C<ccm>
@@ -836,10 +878,23 @@ sub _ccmexec
     return ($rc, $out, $err);
 }
 
-# helper: inverse function of POSIX::WEXITSTATUS
+# helper: inverse function of POSIX::WEXITSTATUS()
 sub _exitstatus
 {
     return $_[0] << 8;
+}
+
+=item C<ccm_addr>
+
+  print "CCM_ADDR=", $ccm->ccm_addr;
+
+Returns the session's RFC address.
+
+=cut
+
+sub ccm_addr	
+{ 
+    return shift->{CCM_ADDR}; 
 }
 
 =item C<delimiter>
@@ -853,6 +908,30 @@ Returns the database delimiter.
 sub delimiter	
 { 
     return shift->{delimiter}; 
+}
+
+=item C<database>
+
+  $database = $ccm->database;
+
+Returns the database path in canonical form (i.e. with a trailing C<"/db">):
+
+=cut
+
+sub database	
+{ 
+    my $self = shift;
+
+    unless (defined $self->{database})
+    {
+	# determine database path (in canonical format) from `ccm ps´
+	my $ps = $self->ps(rfc_address => $self->{CCM_ADDR});
+	return $self->set_error("can't find session `$self->{CCM_ADDR}' in `ccm ps'") 
+	    unless $ps && @$ps > 0;
+	$self->{database} = $ps->[0]->{database};
+    }
+    
+    return $self->{database}; 
 }
 
 =item C<query>
@@ -957,7 +1036,9 @@ sub _query
 	{
 	    # parse finduse list (the last column)
 	    $hash{finduse} = {};
-	    unless ($finduse =~ /Object is not used in scope/)
+
+	    # NOTE [DEPRECATE 4.5]: `Object not used'
+	    unless ($finduse =~ /Object is not used in scope|Object not used/)
 	    {
 		# lines are of the form
 		# \t relative_path/object_name-version@project_name-project_version 
@@ -1466,7 +1547,8 @@ sub finduse
     {
 	# ignore complaints about non-existing objects 
 	# and the dummy "use" line printed if object is not used anywhere
-	next if /Object version could not be identified|^\tObject is not used in scope/;
+	# NOTE [DEPRECATE 4.5]: `Object not used'
+	next if /Object version could not be identified|Object is not used in scope|Object not used/;
 
 	# a usage line is matched by finduse_rx
 	$uses->{$2} = $1, next if /$self->{finduse_rx}/;
@@ -2006,18 +2088,27 @@ as formatted by L<Data::Dumper>:
 
 sub ps					# class/instance method
 {
-    my ($this, %filter) = @_;
+    my ($this, @filter) = @_;
     my ($rc, $out, $err);
 
     my @pscmd = qw(ps);
-    if (@_ > 1)
     {
-	# pass the first "field => value" on to `ccm ps´ 
-	# (since `ccm ps -field value' is usually significantly faster
-	# than `ccm ps')
-	my $field = $_[1];
-	push @pscmd, "-$field", $filter{$field};
-	delete $filter{$field};
+	last unless @filter;
+
+	# Pass the first "field => value" on to `ccm ps´, since 
+	# `ccm ps -field value' is usually significantly faster
+	# than `ccm ps'.
+
+	# NOTE [DEPRECATE 4.5]: `ccm ps -rfc_address ADDRESS' does not work
+	# correctly in Continuus 4.5: it only finds processes
+	# if the host part of ADDRESS is given as an IP address (i.e.
+	# _not_ as a DNS name) - though `ccm ps' shows rfc addresses 
+	# using names (at least if a reverse lookup on the address succeeds).
+	# Esp. `ccm ps -rfc_address $CCM_ADDR' will not work in most cases.
+	last if $filter[0] eq 'rfc_address' && $this->version < 5.0;
+
+	push @pscmd, "-$filter[0]", $filter[1];
+	splice(@filter, 0, 2);
     }
     ($rc, $out, $err) = $this->ccm(@pscmd);
     return $this->set_error($err || $out) unless $rc == 0;
@@ -2046,7 +2137,7 @@ sub ps					# class/instance method
 	}
     }
 
-    while (my ($field, $value) = each %filter)
+    while (my ($field, $value) = splice(@filter, 0, 2))
     {
 	@ps = grep { $_->{$field} eq $value } @ps;
     }
@@ -2145,12 +2236,12 @@ sub _version
     my ($rc, $out, $err) = VCS::CMSynergy->ccm(qw(version -all));
     return undef unless $rc == 0;
 
-    my $cmsynergy = qr/(?:Continuus|CM Synergy)/;
-    my ($version, $short_version) = $out =~ /^$cmsynergy Version\s+((\d+\.\d+).*)$/im;
+    my $cmsynergy_rx = qr/(?:Continuus|CM Synergy)/;
+    my ($version, $short_version) = $out =~ /^$cmsynergy_rx Version\s+((\d+\.\d+).*)$/imo;
     
-    my ($schema) = $out =~ /^$cmsynergy Schema Version\s+(.*)$/im;
-    my ($informix) = $out =~ /^Informix.* Version\s+(.*)$/im;
-    my ($patches) = $out =~ /^$cmsynergy Patch Version\s+(.*?)(?:\Z|^$cmsynergy|^Informix)/ims; 
+    my ($schema) = $out =~ /^$cmsynergy_rx Schema Version\s+(.*)$/imo;
+    my ($informix) = $out =~ /^Informix.* Version\s+(.*)$/imo;
+    my ($patches) = $out =~ /^$cmsynergy_rx Patch Version\s+(.*?)(?:\Z|^$cmsynergy_rx|^Informix)/imso; 
     return ($short_version, $version, $schema, $informix, split(/\n/, $patches));
 }
 

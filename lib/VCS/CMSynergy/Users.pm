@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Users;
 
-our $VERSION = do { (my $v = q%version: 10 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 11 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -221,8 +221,10 @@ sub delete_roles
     return $self->set_error("user `$user' doesn't exist")
 	unless exists $users->{$user};
  
-    my %del = map { $_ => 1 } @roles;
-    @{ $users->{$user} } = grep { !$del{$_} } @{ $users->{$user} };
+    my %del;
+    @del{@roles} = ();
+
+    $users->{$user} = [ grep { !exists $del{$_} } @{ $users->{$user} } ];
 
     $self->users($users);
 }

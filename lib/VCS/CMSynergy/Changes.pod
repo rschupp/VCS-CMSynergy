@@ -45,6 +45,9 @@ Known problems:
 
   Implemented folder_object() (similar to task_object()).
 
+  Make cat_object() work when destination is a filehandle or glob ref
+  (now that my corresponding fix has found its way into IPC::Run3).
+
 =head2 Changes in Version 1.26
 
   INCOMPATIBLE CHANGE: get_attribute() doesn't fail any more if the

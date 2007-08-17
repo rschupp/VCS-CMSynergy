@@ -1343,13 +1343,9 @@ the contents will be split into lines and assiged to C<@$destination>
 the contents will be split into lines and C<&$destination> will be
 called for each line (with the line as the single argument)
 
-=begin FIXME
-
 =item file handle or GLOB reference
 
 the contents will be written (C<print>ed) onto the file handle
-
-=end FIXME
 
 =back
 

@@ -1,5 +1,6 @@
 use Data::Dumper;
 use Test::Deep 0.093;
+use File::Spec;
 
 our %test_session;
 
@@ -14,6 +15,7 @@ BEGIN
 	RaiseError	=> 1,
 	database	=> $ENV{CCM_TEST_DB},
 	UseCoprocess	=> $ENV{CCM_USE_COPROCESS}||0,
+	ui_database_dir	=> File::Spec->tmpdir,
     );
 
     if ($ENV{CCM_TEST_USER})

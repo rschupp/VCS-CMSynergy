@@ -1,15 +1,15 @@
-VCS::CMSynergy -- Perl interface to Telelogic CM Synergy
+VCS::CMSynergy -- Perl interface to Telelogic Synergy
 
-This module is a Perl interface to CM Synergy (formerly known as
-Continuus CM), a change and configuration management system 
-from Telelogic AB (http://www.telelogic.com).  It is implemented
-on top of the CM Synergy CLI, hence you must have the command client ("ccm")
-installed to use it.
+This module is a Perl interface to Telelogic Synergy (at various
+times also known as Continuus/CM, CM Synergy or SYNERGY/CM),
+a change and configuration management system from Telelogic AB
+(http://www.telelogic.com).  It is implemented on top of the Synergy CLI,
+hence you must have the command line client ("ccm") installed to use it.
 
 VCS::CMSynergy.pm has been tested in the following environments:
 
-Client (where the Perl script runs)	CM Synergy server
-OS, Perl version			OS, CM Synergy version
+Client (where the Perl script runs)	Synergy server
+OS, Perl version			OS, Synergy version
 -----------------------------------	---------------------------
 
 Solaris 2.6, Perl 5.6.1                 Solaris 2.6, CM Synergy 5.1

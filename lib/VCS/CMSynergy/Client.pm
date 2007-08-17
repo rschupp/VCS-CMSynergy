@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.22 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 6 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -187,7 +187,7 @@ sub _ccm
 		{
 		    # working directory has changed since coprocess was spawned:
 		    # shut down coprocess and start a new one
-		    # NOTE: don´t call _ccm here (infinite recursion)
+		    # NOTE: don't call _ccm here (infinite recursion)
 		    $this->_kill_coprocess;
 		    if ($this->{coprocess} = $this->_spawn_coprocess)
 		    {

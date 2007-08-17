@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Users;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.09 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 7 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -105,7 +105,7 @@ sub users
 	my $roles = $users->{$user};
 	return $self->set_error("illegal value for user `$user' (array ref expected)")
 	    unless ref $roles eq "ARRAY";
-	return $self->set_error("no roles defined for user `$user´")
+	return $self->set_error("no roles defined for user `$user'")
 	    unless @$roles;
 
 	# remove duplicates

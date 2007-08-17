@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.28 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.29 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -41,7 +41,7 @@ sub import
     foreach (@_)
     {
 	my $opt;
-	die "Invalid option `$_' in \"use ".__PACKAGE__."\""
+	die qq[Invalid option "$_" in "use ].__PACKAGE__.qq["]
 	    unless ($opt) = /^[!:](.*)$/i and exists $use{$opt};
 	$use{$opt} = /^:/ ? 1 : 0;
     }
@@ -166,7 +166,7 @@ sub _start
 	return $self->set_error($err || $out) unless $rc == 0;
 
 	$self->{env}->{CCM_ADDR} = $out;
-	$Debug && $self->trace_msg("started session ".$self->ccm_addr."\n");
+	$Debug && $self->trace_msg(qq[started session "$out"\n]);
     }
 
     # NOTE: Use of $CCM_INI_FILE fixes the annoying `Warning:
@@ -320,6 +320,10 @@ sub database
 __PACKAGE__->_memoize_method('database');
 
 
+use constant ROW_ARRAY	=> 0;
+use constant ROW_HASH	=> 1;
+use constant ROW_OBJECT	=> 2;
+
 sub query
 {
     my $self = shift;
@@ -335,13 +339,12 @@ sub query
 }
 
 
-
 sub query_arrayref
 {
     my ($self, $query, @keywords) = @_;
     _usage(3, undef, '$query, $keyword...', \@_);
 
-    return $self->_query($query, 0, \@keywords);
+    return $self->_query($query, \@keywords, ROW_ARRAY);
 }
 
 
@@ -350,7 +353,7 @@ sub query_hashref
     my ($self, $query, @keywords) = @_;
     _usage(3, undef, '$query, $keyword...', \@_);
 
-    return $self->_query($query, 1, \@keywords);
+    return $self->_query($query, \@keywords, ROW_HASH);
 }
 
 
@@ -359,11 +362,7 @@ sub query_object
     my ($self, $query) = @_;
     _usage(2, 2, '$query', \@_);
 
-    my $result =  $self->_query($query, 1, [ qw/object/ ]);
-    return unless $result;
-
-    # slice out the single "object" column
-    return [ map { $_->{object} } @$result ];
+    return $self->_query($query, [ 'object' ], ROW_OBJECT);
 }
 
 
@@ -371,25 +370,10 @@ sub query_object_with_attributes
 {
     my ($self, $query, @attributes) = @_;
     _usage(2, undef, '$query, $attribute...', \@_);
+    # FIXME illegal @attributes: object objectname task_object find_use
     return $self->query_object($query) unless use_cached_attributes();
 
-    push @attributes, qw/object/;
-    my $result =  $self->_query($query, 1, \@attributes);
-    pop @attributes;
-    return unless $result;
-
-    # prime caches of the result objects
-    my @objects;
-    foreach my $row (@$result)
-    {
-	push @objects, $row->{object};
-	my $acache = $row->{object}->_private->{acache};
-
-	# NOTE: We also cache undefined values (i.e. the attribute
-	# doesn't exist on this object).
-	$acache->{$_} = $row->{$_} foreach @attributes;
-    }
-    return \@objects;
+    return $self->_query($query, [ 'object', @attributes ], ROW_OBJECT);
 }
 
 
@@ -412,28 +396,26 @@ sub query_count
 # helper method: query with correct handling of multi-line attributes
 sub _query
 {
-    my ($self, $query, $wanthash, $keywords) = @_;
+    my ($self, $query, $keywords, $row_type) = @_;
 
     $query = $self->_expand_query($query);
 
-    my %want = map { $_ => "%$_" } @$keywords;
-    $want{object} = "%objectname" if $want{object};
-    $want{task_objects} = "%task" if $want{task_objects};
-    my $want_finduse = delete $want{finduse};
+    my $want = _want($keywords);
+    my $want_finduse = delete $want->{finduse};
 
     # NOTE: We use \cA and \cD as record/field separators.
     # Change Synergy uses \x1C-\x1E in attribute
     # "transition_log" of "problem" objects, so these are out.
     # Also people have been known to enter strange characters
     # like \cG even when using a GUI exclusively.
-    my $format = "\cA" . join("\cD", values %want) . "\cD";
+    my $format = "\cA" . join("\cD", values %$want) . "\cD";
 
     my ($rc, $out, $err) = $want_finduse ?
 	$self->ccm_with_option(
 	    Object_format => $format, 
-	    qw/finduse -query/, $query) :
+	    qw/finduse -query/ => $query) :
 	$self->_ccm( 
-	    qw/query -u -ns -nf -format/, $format, $query);
+	    qw/query -u -ns -nf -format/ => $format, $query);
 
     # NOTE: if there are no hits, `ccm query' exits with status 1, 
     # but produces no output on either stdout and stderr
@@ -477,7 +459,7 @@ sub _query
 		    next if /^\s*$/;
 		    my ($path, $project) = /$self->{finduse_rx}/
 			or return $self->set_error(
-			    "unrecognizable line returned from \"finduse -query\": \"$_\"");
+			    qq[unrecognizable line returned from "finduse -query": "$_"]);
 		    $project .= ':project:' . $self->default_project_instance
 			unless $project =~ /:project:/;
 		    $finduse{$project} = $path;
@@ -485,10 +467,10 @@ sub _query
 	    }
 	}
 
-	my $row = $self->_parse_query_result(\%want, \@cols);
+	my $row = $self->_parse_query_result($want, \@cols, $row_type);
 	$row->{finduse} = \%finduse if $want_finduse;
 
-	push @result, $wanthash ? $row : [ @$row{@$keywords} ];
+	push @result, $row_type == ROW_ARRAY ? [ @$row{@$keywords} ] : $row;
     }
 
     return \@result;
@@ -496,12 +478,13 @@ sub _query
 
 sub _parse_query_result
 {
-    my ($self, $want, $cols) = @_;
+    my ($self, $want, $cols, $row_type) = @_;
 
     my %row;
     
     # strip trailing newline (for consistency with get_attribute()),
-    # translate "<void>" to undef and fill into correct slots
+    # translate "<void>" to undef and fill into correct slots;
+    # @cols are in the same order as keys %$want
     @row{keys %$want} = map { s/\n\z//; /^<void>$/ ? undef : $_ } @$cols;
     
     # handle special keywords
@@ -522,12 +505,6 @@ sub _parse_query_result
 	}
     }
 
-    if ($want->{object})
-    {
-	# objectify column
-	$row{object} = $self->object($row{object});
-    }
-
     if ($want->{task_objects})
     {
 	# split comma-separated list of task numbers and objectify them
@@ -535,6 +512,18 @@ sub _parse_query_result
 	    [ map { $self->task_object($_) } split(/,/, $row{task_objects}) ];
     }
 
+    if ($want->{object})
+    {
+	# objectify column
+	$row{object} = $self->object($row{object});
+    }
+
+    if ($row_type == ROW_OBJECT)
+    {
+	my $obj = delete $row{object};
+	$obj->_update_acache(\%row);
+	return $obj;
+    }
     return \%row;
 }
 
@@ -559,7 +548,6 @@ sub _expand_query
 }
 
 # helper (not a method): expand shortcut queries
-
 sub _query_shortcut
 {
     my $hashref = shift;
@@ -624,6 +612,16 @@ sub _quote_value
 	   qq['$_'];		   # use single quotes otherwise
 }
 
+# helper (not a method): build "want" array from keyword list (common case)
+sub _want
+{
+    my ($keywords) = @_;
+    my %want = map { $_ => "%$_" } @$keywords;
+    $want{object} = "%objectname" if $want{object};
+    $want{task_objects} = "%task" if $want{task_objects};
+    return \%want;
+}
+
 
 sub history
 {
@@ -641,7 +639,7 @@ sub history_arrayref
     my ($self, $file_spec, @keywords) = @_;
     _usage(3, undef, '$file_spec, $keyword...', \@_);
 
-    return $self->_history($file_spec, 0, \@keywords);
+    return $self->_history($file_spec, \@keywords, ROW_ARRAY);
 }
 
 
@@ -650,21 +648,19 @@ sub history_hashref
     my ($self, $file_spec, @keywords) = @_;
     _usage(3, undef, '$file_spec, $keyword...', \@_);
 
-    return $self->_history($file_spec, 1, \@keywords);
+    return $self->_history($file_spec, \@keywords, ROW_HASH);
 }
 
 # helper: history with correct handling of multi-line attributes
 sub _history
 {
-    my ($self, $file_spec, $wanthash, $keywords) = @_;
+    my ($self, $file_spec, $keywords, $row_type) = @_;
 
-    my %want = map { $_ => "%$_" } @$keywords;
-    $want{object} = "%objectname" if $want{object};
-    $want{task_objects} = "%task" if $want{task_objects};
-    my $want_predecessors = delete $want{predecessors};
-    my $want_successors = delete $want{successors};
+    my $want = _want($keywords);
+    my $want_predecessors = delete $want->{predecessors};
+    my $want_successors = delete $want->{successors};
 
-    my $format = "\cA" . join("\cD", values %want) . "\cD";
+    my $format = "\cA" . join("\cD", values %$want) . "\cD";
 
     my ($rc, $out, $err) = $self->_ccm(qw/history -f/, $format, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
@@ -679,7 +675,7 @@ sub _history
 	# history information is the last "column"
 	my $history = pop @cols;
 
-	my $row = $self->_parse_query_result(\%want, \@cols);
+	my $row = $self->_parse_query_result($want, \@cols, ROW_HASH);
 
 	if ($want_predecessors || $want_successors)
 	{
@@ -702,7 +698,7 @@ sub _history
 	    }
 	}
 
-	push @result, $wanthash ? $row : [ @$row{@$keywords} ];
+	push @result, $row_type == ROW_ARRAY ? [ @$row{@$keywords} ] : $row;
     }
 
     return \@result;
@@ -760,8 +756,126 @@ sub findpath
     my ($self, $file_spec, $proj_vers) = @_;
     my $finduse = $self->finduse($file_spec);
     return unless defined $finduse;
-    return $self->set_error("`$file_spec' matches more than one object") unless @$finduse == 1;
+    return $self->set_error("`$file_spec' matches more than one object") 
+	unless @$finduse == 1;
     return $finduse->[0]->[1]->{$proj_vers};
+}
+
+
+sub relations_hashref
+{
+    my ($self, %args) = @_;
+
+    my %orig_args = %args;
+    foreach (qw/from_attributes to_attributes/)
+    {
+	croak(__PACKAGE__."::relations_hashref: optional $_ must be an array ref")
+	    if exists $args{$_} && !UNIVERSAL::isa($args{$_}, 'ARRAY');
+
+	# default keyword "objectname"
+	$args{$_} ||= [ qw/objectname/ ];
+    }
+
+    my $result = $self->_relations(\%args, ROW_HASH);
+    return unless $result;
+
+    # if we defaulted "objectname" above, replace the corresponding
+    # hash containing the sole key "objectname" with its value
+    foreach my $what (qw/from to/)
+    {
+	unless (exists $orig_args{"${what}_attributes"})
+	{
+	    $_->{$what} = $_->{$what}->{objectname} foreach @$result;
+	}
+    }
+    return $result;
+}
+
+
+sub relations_object
+{
+    my ($self, %args) = @_;
+
+    foreach (qw/from_attributes to_attributes/)
+    {
+	croak(__PACKAGE__."::relations_object: optional $_ must be an array ref")
+	    if exists $args{$_} && !UNIVERSAL::isa($args{$_}, 'ARRAY');
+
+	# make a copy and add keyword "object"
+	$args{$_} = [ @{ $args{$_} || [] }, "object" ];	
+    }
+
+    return $self->_relations(\%args, ROW_OBJECT);
+}
+
+
+# helper method: synthesize command and parse result of "ccm relate -show ..."
+sub _relations
+{
+    my ($self, $args, $row_type) = @_;
+    # NOTE: $args->{from_attributes}/$args->{to_attributes} must not be undef
+
+    my $want_from = _want($args->{from_attributes});
+    my $ncol_from = keys %$want_from;
+    my $want_to = _want($args->{to_attributes});
+    my $ncol_to = keys %$want_to;
+
+    # NOTE: If the "from" part (the part before "::") of the format
+    # or the "to" part are empty, Synergy may default it from
+    # the other part. Hence both "from" and "to" part below are never
+    # empty, even if $want_from or $want_to are empty.
+    my $format = 
+	"\cA" . 			# record delimiter
+	join("\cD", 			# column separator
+	    values %$want_from,		# "from" part
+	    "::", 			# will be replaced by name of relation
+	    values %$want_to) .		# "to" part
+	"\cD";				# will be followed by create_time
+
+    my ($rc, $out, $err) = $self->_ccm(
+	qw/relate -show -format/ => $format, 
+	    map { defined $args->{$_} ? ( "-$_" => $args->{$_}) : () } 
+		qw/from to name/);
+
+    # NOTE: if there are no hits, `ccm relate -show' exits with status 1, 
+    # but produces no output on either stdout and stderr
+    return [ ] if $rc == _exitstatus(1) and $out eq "" and $err eq "";
+    return $self->set_error($err || $out) unless $rc == 0;
+
+    my (@result, $from, $to);
+    foreach (split(/\cA/, $out))		# split into records 
+    {
+	next unless length($_);			# skip empty leading record
+
+	my @cols = split(/\cD/, $_, -1);	# don't strip empty trailing fields
+
+	# first $ncol_from columns are the "from" part;
+	# avoid to parse "from" part more than once # if "from => ..." was specified
+	my @cols_from = splice @cols, 0, $ncol_from;
+	$from = $self->_parse_query_result($want_from, \@cols_from, $row_type)
+	    unless $args->{from} && $from;
+
+	# next column is the name of the relation; trim whitespace
+	(my $name = shift @cols) =~ s/^\s+|\s+$//g;	
+
+	# next $ncol_to columns are the "to" part;
+	# avoid to parse "to" part more than once if "to => ..." was specified
+	my @cols_to = splice @cols, 0, $ncol_to;
+	$to = $self->_parse_query_result($want_to, \@cols_to, $row_type)
+	    unless $args->{to} && $to;
+
+	# last column is the create_time of the relation; trim whitespace
+	(my $create_time = shift @cols) =~ s/^\s+|\s+$//g;
+
+	push @result, 
+	    {
+		from		=> $from,
+		to		=> $to,
+		name		=> $name,
+		create_time	=> $create_time,
+	    };
+    }
+    return \@result;
 }
 
 
@@ -1319,7 +1433,7 @@ sub ls_arrayref
     my ($self, $file_spec, @keywords) = @_;
     _usage(3, undef, '$file_spec, $keyword...', \@_);
 
-    return $self->_ls($file_spec, 0, \@keywords);
+    return $self->_ls($file_spec, \@keywords, ROW_ARRAY);
 }
 
 
@@ -1328,7 +1442,7 @@ sub ls_hashref
     my ($self, $file_spec, @keywords) = @_;
     _usage(3, undef, '$file_spec, $keyword...', \@_);
 
-    return $self->_ls($file_spec, 1, \@keywords);
+    return $self->_ls($file_spec, \@keywords, ROW_HASH);
 }
 
 
@@ -1338,23 +1452,17 @@ sub ls_object
     _usage(1, 2, '[ $file_spec ]', \@_);
     $file_spec = '.' unless defined $file_spec;
 
-    my $result =  $self->_ls($file_spec, 1, [ qw/object/ ]);
-    return unless $result;
-
-    # slice out the single "object" column
-    return [ map { $_->{object} } @$result ];
+    return $self->_ls($file_spec, [ qw/object/ ], ROW_OBJECT);
 }
 
 
 sub _ls
 {
-    my ($self, $file_spec, $wanthash, $keywords) = @_;
+    my ($self, $file_spec, $keywords, $row_type) = @_;
 
-    my %want = map { $_ => "%$_" } @$keywords;
-    $want{object} = "%objectname" if $want{object};
-    $want{task_objects} = "%task" if $want{task_objects};
+    my $want = _want($keywords);
     
-    my $format = "\cA" . join("\cD", values %want) . "\cD";
+    my $format = "\cA" . join("\cD", values %$want) . "\cD";
 
     my ($rc, $out, $err) = $self->_ccm(qw/ls -format/, $format, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
@@ -1365,8 +1473,8 @@ sub _ls
 	next unless length($_);			# skip empty leading record
 
 	my @cols = split(/\cD/, $_, -1);	# don't strip empty trailing fields
-	my $row = $self->_parse_query_result(\%want, \@cols);
-	push @result, $wanthash ? $row : [ @$row{@$keywords} ];
+	my $row = $self->_parse_query_result($want, \@cols, $row_type);
+	push @result, $row_type == ROW_ARRAY ? [ @$row{@$keywords} ] : $row;
     }
     return \@result;
 }
@@ -1600,9 +1708,9 @@ sub AUTOLOAD
     return if $method eq 'DESTROY'; 
 
     # we don't allow autoload of class methods
-    croak("Can't locate class method \"$method\" via class \"$class\"")
+    croak(qq[Can't locate class method "$method" via class "$class"]) #'
 	unless ref $this;
-    $Debug >= 2 && $this->trace_msg("autoloading method \"$method\"\n");
+    $Debug >= 2 && $this->trace_msg(qq[autoloading method "$method"\n]);
 
     # create the new method on the fly
     no strict 'refs';

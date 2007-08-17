@@ -14,6 +14,16 @@ Known problems:
 
 =head1 CHANGES
 
+=head2 Changes in Version 1.28
+
+  Implemented relations_hashref(), relations_object(), wrappers
+  for "ccm relate -show" similar to the query_*() family.
+
+  Implemented V::C::Object methods recursive_is_member_of(), 
+  hierarchy_project_members().
+
+  Convert tests to use Test::Deep.
+
 =head2 Changes in Version 1.27
 
   Fixed a bug where empty string attributes could be returned 

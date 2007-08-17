@@ -7,8 +7,10 @@ requires:
   File::Spec:                    0
   File::Temp:                    0
   IPC::Run3:                     0.030
-  Test::More:                    0
   Time::HiRes:                   0
+build_requires:
+  Test::More:                    0
+  Test::Deep:                    0.093
 no_index:
   module:
     - VCS::CMSynergy::ObjectTieHash

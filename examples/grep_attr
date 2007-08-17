@@ -110,7 +110,7 @@ use strict;
 sub grep_attr($$);
 
 # extract CCM start options first...
-my @ccm_opts = VCS::CMSynergy::Helper::GetOptions;
+my %ccm_opts = VCS::CMSynergy::Helper::GetOptions;
 
 # ...then script-specific options
 our $opts = {};
@@ -152,7 +152,7 @@ our $re = qr/$pattern/;
 our $matching_objects = 0;
 
 my $ccm = VCS::CMSynergy->new(
-    @ccm_opts,
+    %ccm_opts,
     RaiseError	=> 1,
     PrintError	=> 0);
 

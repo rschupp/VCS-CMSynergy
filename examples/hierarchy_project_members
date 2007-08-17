@@ -8,13 +8,13 @@ use VCS::CMSynergy;
 use VCS::CMSynergy::Helper; 
 use strict;
 
-my @ccm_options = VCS::CMSynergy::Helper::GetOptions;
+my %ccm_options = VCS::CMSynergy::Helper::GetOptions;
 
 die "usage: $0 [ccm_options] top_proj_vers" unless @ARGV == 2;
 my ($database, $top_proj_vers) = @ARGV;
 
 my $ccm = VCS::CMSynergy->new(
-    @ccm_options,
+    %ccm_options,
     RaiseError => 1
 );
 

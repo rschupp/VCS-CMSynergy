@@ -30,13 +30,13 @@ use strict;
 use warnings;
 
 # extract CCM start options first...
-my @ccm_opts = VCS::CMSynergy::Helper::GetOptions;
+my %ccm_opts = VCS::CMSynergy::Helper::GetOptions;
 
 # ...then script-specific options (currently none)
 GetOptions() or pod2usage(2);
 
 my $ccm = VCS::CMSynergy->new(
-    @ccm_opts,
+    %ccm_opts,
     RaiseError	=> 1,
     PrintError	=> 0);
 

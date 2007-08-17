@@ -3,13 +3,38 @@
 # This sample script shows how to build up a project tree structure
 # using VC::CMSynergy::traverse_project. We use a simple minded
 # Node class for the tree structure.
-# Thanks go to Anne Feldmeier for the simple build algorithm.
+# Kudos go to Anne Feldmeier for the simple tree building algorithm.
 
-use lib 'lib';
+=head1 NAME
+
+project_tree - build a project tree
+
+=head1 SYNOPSIS
+
+project_tree [options] project
+
+  project     project spec, either in the form "proj_vers"
+              or as four part objectname
+
+  Common options:
+
+  -D PATH | --database PATH       database path
+  -H HOST | --host HOST           engine host
+  -U NAME | --user NAME           user name
+  -P STRING | --password STRING   user's password
+  --ui_database_dir PATH          path to copy database information to
+
+  Options:
+
+  -r          recurse into sub projects
+
+=cut
+
+use Getopt::Long qw(:config bundling);
+use Pod::Usage;
 use VCS::CMSynergy 1.18 qw(:cached_attributes :tied_objects);
+use VCS::CMSynergy::Helper; 
 use strict;
-
-# usage: project_tree project_spec
 
 # a simple tree node class
 {
@@ -28,21 +53,27 @@ use strict;
     sub children	{ shift->{children}; }
 }
 
+my %ccm_opts = VCS::CMSynergy::Helper::GetOptions;
+
+my $recursive;
+(GetOptions(
+    'r|recursive'	=> \$recursive,		# include subprojects
+) && @ARGV == 1) or pod2usage(2);
 my ($project) = @ARGV;
-my @attributes = qw(owner modify_time);
+
+my @attributes = qw(owner modify_time);		# just an example
 
 my $ccm = VCS::CMSynergy->new(
-    PrintError	=> 0,
+    %ccm_opts,
     RaiseError	=> 1,
-    CCM_ADDR	=> $ENV{CCM_ADDR}
-);
+    PrintError	=> 0);
 
 my Node $root;		# the root of the project tree
 my Node $top;		# node corresponding to top of Traversal::dirs stack
 
 $ccm->traverse_project(
     {
-	subprojects	=> 1,
+	subprojects	=> $recursive,
 	attributes	=> \@attributes,
 	wanted		=> sub
 	{
@@ -75,12 +106,13 @@ print_tree($root, "");
 
 exit(0);
 
+# simple recursive tree walk
 sub print_tree
 {
     my ($node, $indent) = @_;
 
     my $obj = $node->object;
-    print $indent, join(" ", $obj->name, @$obj{@attributes}), "\n";
+    print $indent, join(" ", $obj->name, $obj->cvtype, @$obj{@attributes}), "\n";
 
     if ($node->children)
     {

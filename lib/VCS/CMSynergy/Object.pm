@@ -1,10 +1,10 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.19 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.20 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
-VCS::CMSynergy::Object - Convenience wrapper to treat objectnames as an object
+VCS::CMSynergy::Object - convenience wrapper to treat objectnames as an object
 
 =head1 SYNOPSIS
 

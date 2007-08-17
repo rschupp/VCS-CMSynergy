@@ -1,6 +1,6 @@
 =head1 NAME
 
-VCS::CMSynergy::Changes - List of changes to VCS::CMSynergy
+VCS::CMSynergy::Changes - list of changes to VCS::CMSynergy
 
 =cut
 
@@ -15,6 +15,16 @@ Known problems:
 	what about absolute subprojects (with subprojects => 1)
 
 =head1 CHANGES
+
+=head2 Changes in Version 1.22
+
+  Fix breakage on Cygwin introduced in 1.20 - UseCoprocess
+  still doesn't work though.
+
+  Restore VCS::CMSynergy::Helper.pm which was accidentally mangled in 1.20.
+
+  Change documentation and usage of VCS::CMSynergy::Helper::GetOptions()
+  to use the returned value as a hash.
 
 =head2 Changes in Version 1.20
 

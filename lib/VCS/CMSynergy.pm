@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.26.10 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.26.11 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -789,12 +789,13 @@ sub findpath
 	my ($pathsep) = @_;
 	$pathsep = $_pathsep unless defined $_pathsep;
 
-	join($pathsep, map { $_->name } @VCS::CMSynergy::Traversal::_dirs, $_); 
+	return join($pathsep, map { $_->name } 
+	                          @VCS::CMSynergy::Traversal::_dirs, $_); 
     }
 
     sub depth 
     { 
-	scalar @VCS::CMSynergy::Traversal::_dirs; 
+	return scalar @VCS::CMSynergy::Traversal::_dirs; 
     }
 }
 

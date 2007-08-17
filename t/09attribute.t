@@ -33,7 +33,10 @@ ok(!defined $frobozz,
 # will return the same value wrt trailing newline
 my $ppl_a = $ccm->base_model->get_attribute("project_purpose_list");
 my $ppl_p = $ccm->base_model->property("project_purpose_list");
-my $ppl_q = $ccm->query_arrayref({ name => "base", type => "model" }, "project_purpose_list")->[0]->[0];
+my ($ppl_q) = map { $_->{objectname} eq $ccm->base_model->objectname ? 
+                      $_->{project_purpose_list} : () }
+		@{ $ccm->query_hashref(
+		    { name => "base" }, qw/objectname project_purpose_list/) };
 is($ppl_a, $ppl_p, "attribute value with trailing newline via attribute/property");
 is($ppl_a, $ppl_q, "attribute value with trailing newline via attribute/query");
 

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Users;
 
-our $VERSION = do { (my $v = q%version: 9 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 10 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -58,17 +58,36 @@ with the contents of C<$hashref>. Duplicate roles will be removed
 from C<$hashref>'s values before writing back the table.
 You must be in the B<ccm_admin> role to use this form. 
 
+All operations try to preserve the order of roles (L<add_roles> appends
+the roles that are actually new for the user). This mostly matters for
+the role listed first for a user, as CM Synergy uses this as default
+role for the user's session when the user calls B<ccm start> without
+the B<-r> option.
+
+If you have one of the modules L<Tie::Hash::Indexed> or L<Tie::IxHash> 
+installed, than the value returned by L</users> is actually 
+a reference to a tied hash that preserves the insertion order of keys.
+In this case, the order of hash keys reflects the order 
+of user lines in the I<users> "file".
+
 Note that
 
   $ccm->users($ccm->users);
 
-results in a functionally equivalent, though probably not identical
-users table as before (due to hash key ordering etc).
+always results in a functionally equivalent users table. The order
+of user lines may have changed, though, unless an order preserving hash
+was used as decribed above.
 
 Note: For typical CM Synergy administrator usage
 it is usually more convenient to use one of the methods below.
 
 =cut
+
+my $UseIndexedHash;
+foreach (qw/Tie::Hash::Indexed Tie::IxHash/)
+{
+    $UseIndexedHash = $_, last if eval "require $_";
+}
 
 sub users
 {
@@ -84,12 +103,13 @@ sub users
 	return unless defined $text;
 	
 	my $users = {};
+	tie %$users, $UseIndexedHash if $UseIndexedHash;
+
 	foreach (split(/\n/, $text))
 	{
 	    my ($user, $roles) = /^ \s* user \s+ (\S+) \s* = \s* (.*) ;/x;
 	    next unless defined $user;
-	    my @roles =  split(" ", $roles);
-	    $users->{$user} = \@roles;
+	    $users->{$user} = [ split(" ", $roles) ];
 	}
 
 	return $users;
@@ -100,18 +120,16 @@ sub users
 	unless ref $users eq "HASH";
 
     my $text = "";
-    foreach my $user (sort keys %$users)
+    while (my ($user, $roles) = each %$users)
     {
-	my $roles = $users->{$user};
 	return $self->set_error("illegal value for user `$user' (array ref expected)")
 	    unless ref $roles eq "ARRAY";
 	return $self->set_error("no roles defined for user `$user'")
 	    unless @$roles;
 
 	# remove duplicates
-	my %roles = map { $_ => 1 } @$roles;
-
-	$text .= "user $user = " . join(" ", sort keys %roles) . ";\n";
+	my %dup;
+	$text .= "user $user = " . join(" ", grep { !$dup{$_}++ } @$roles) . ";\n";
     }
 
     my ($rc, $out, $err) = $self->ccm_with_text_editor($text, qw(users));
@@ -203,8 +221,8 @@ sub delete_roles
     return $self->set_error("user `$user' doesn't exist")
 	unless exists $users->{$user};
  
-    my %to_be_deleted = map { $_ => 1 } @roles;
-    @{ $users->{$user} } = grep { !$to_be_deleted{$_} } @{ $users->{$user} };
+    my %del = map { $_ => 1 } @roles;
+    @{ $users->{$user} } = grep { !$del{$_} } @{ $users->{$user} };
 
     $self->users($users);
 }

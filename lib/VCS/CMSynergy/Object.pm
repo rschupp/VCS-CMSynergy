@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 8 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 9 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -290,6 +290,30 @@ sub cvid
     $self->_private->{cvid} ||= $self->property('cvid');
 }
 
+
+# $obj->is_foo_of: short for $ccm->query_object({is_foo_of => [ $obj ]})
+# same for has_foo
+sub AUTOLOAD
+{
+    my ($this) = @_;
+
+    our $AUTOLOAD;
+
+    # NOTE: the fully qualified name of the method has been placed in $AUTOLOAD
+    my ($class, $method) = $AUTOLOAD =~ /^(.*)::([^:]*)$/;
+    return if $method eq 'DESTROY'; 
+
+    # we don't allow autoload of class methods
+    croak("Can't locate class method \"$method\" via class \"$class\"")
+	unless ref $this;
+
+    if ($method =~ /^(is_.*_of|has_.*)$/)
+    {
+	shift @_;
+	return $this->ccm->query_object_with_attributes({ $method => [ $this ] }, @_);
+    }
+    croak("Can't locate object method \"$method\" via class \"$class\"");
+}
 
 
 1;

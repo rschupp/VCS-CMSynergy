@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 33;
+use Test::More tests => 38;
 use t::util;
 use strict;
 
@@ -198,11 +198,20 @@ verbose('sh3_got', $sh3_got);
 isa_ok($sh3_got, "ARRAY", q[query_hashref()]);
 ok(eq_set($sh3_expected, [ map { $_->{objectname} } @$sh3_got ]),
     q[shorthand query with task => ...]);
-all_ok { are_vcos($_->{task_objects}) } @$sh3_got,
+all_ok { are_vcos($_->{task_objects}) } $sh3_got,
     q[query keyword "task_objects": isa ARRAY of V::C::Os];
-all_ok { grep { $_ eq $task6 } @$_ }
-    [ map { $_->{task_objects} } @$sh3_got ],
+all_ok { grep { $_ eq $task6 } @{ $_->{task_objects} } } $sh3_got,
     q[query keyword "task_objects": contains task6];
+my $rel_got = $task6->is_associated_cv_of;
+ok(are_vcos($rel_got), q[VCO::is_associated_cv_of]);
+ok(eq_set($sh3_expected, [ map { $_->objectname } @$rel_got ]),
+    q[VCO::is_associated_cv_of]);
+my $fd_got = $task6->has_task_in_folder;
+ok(are_vcos($fd_got), q[VCO::has_task_in_folder]);
+ok(scalar @$fd_got, q[VCO::has_task_in_folder not empty]);
+all_ok { $_->cvtype eq "folder" } $fd_got,
+    q[VCO::has_task_in_folder contains only folders];
+
 
 my $complex_expected = 
 [

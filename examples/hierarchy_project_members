@@ -1,18 +1,21 @@
-#/usr/bin/perl -w
+#!/usr/bin/perl -w
 
 # List all sub projects of a given project
 
-# Usage: hierarchy_project_members.pl database top_proj_vers
+# Usage: hierarchy_project_members.pl [ccm_options] top_proj_vers
 
 use VCS::CMSynergy; 
+use VCS::CMSynergy::Helper; 
 use strict;
 
-die "usage: $0 database top_proj_vers" unless @ARGV == 2;
+my @ccm_options = VCS::CMSynergy::Helper::GetOptions;
+
+die "usage: $0 [ccm_options] top_proj_vers" unless @ARGV == 2;
 my ($database, $top_proj_vers) = @ARGV;
 
 my $ccm = VCS::CMSynergy->new(
-    database	=> $database,
-    RaiseError	=> 1
+    @ccm_options,
+    RaiseError => 1
 );
 
 foreach my $member (@{ $ccm->hierarchy_project_members(
@@ -50,7 +53,7 @@ sub hierarchy_project_members
 {
     my ($self, $proj_vers, $order_spec, @keywords) = @_;
 
-    $proj_vers .= ":project:1" 
+    $proj_vers .= ':project:' . $self->default_project_instance
 	unless ref $proj_vers || $proj_vers =~ /:project:/;
     $order_spec = 'none' unless defined $order_spec;
 

@@ -1,0 +1,10 @@
+--- toolkit-1.0:project:1	1999-11-17 04:23:08	released
++++ toolkit-darcy:project:1	1999-11-17 04:23:05	working
+! toolkit/editor/makefile makefile-1:makefile:2 makefile-2:makefile:2
+! toolkit/editor/makefile.pc makefile.pc-1:makefile:2 makefile.pc-2:makefile:2
+! toolkit/editor/sources/main.c main.c-1:csrc:2 main.c-2:csrc:2
++ toolkit/guilib/includes/fonts.h fonts.h-1:incl:1
+! toolkit/guilib/makefile makefile-1:makefile:3 makefile-2:makefile:3
+! toolkit/guilib/makefile.pc makefile.pc-1:makefile:3 makefile.pc-2:makefile:3
++ toolkit/guilib/sources/fonts.c fonts.c-1:csrc:1
+! toolkit/misc/readme readme-1:ascii:1 readme-2:ascii:1

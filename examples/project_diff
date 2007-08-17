@@ -1,0 +1,250 @@
+#!/usr/bin/perl -w
+
+=head1 NAME
+
+project_diff - show differences between two projects
+
+=head1 SYNOPSIS
+
+project_diff [options] old_project new_project
+
+  old_project, new_project
+              project specs, either in the form "proj_vers"
+              or as four part objectname
+
+  Common options:
+
+  -D PATH | --database PATH       database path
+  -H HOST | --host HOST           engine host
+  -U NAME | --user NAME           user name
+  -P STRING | --password STRING   user's password
+  --ui_database_dir PATH          path to copy database information to
+
+  Options:
+
+  -d          produce diff listing like "diff -ur"
+  -h          hide contents of added/deleted subtrees
+  -r          recurse into sub projects
+
+=head1 DESCRIPTION
+
+C<project_diff> shows the differences between two projects
+in terms of the workarea paths of the projects' members.
+It does I<not> need maintained workareas, though.
+
+C<project_diff> traverses both projects and outputs the differences in the
+following form:
+
+  ! toolkit/editor/sources/main.c main.c-1:csrc:2 main.c-2:csrc:2
+  + toolkit/guilib/includes/fonts.h fonts.h-1:incl:1
+  ! toolkit/guilib/makefile makefile-1:makefile:3 makefile-2:makefile:3
+  + toolkit/guilib/sources/fonts.c fonts.c-1:csrc:1
+  ! toolkit/misc/readme readme-1:ascii:1 readme-2:ascii:1
+
+Lines start with one of +, -, or !, followed by the workarea pathname
+of the object in the project, followed by additional information:
+
+=over 4
+
+=item +
+
+marks an object added in new_project, 
+its objectname is given as additional info
+
+=item -
+
+marks an object deleted from old_project,
+its objectname is given as additional info
+
+=item !
+
+marks an object that has a different version in old_project and new_project,
+the objectnames are given as additional info
+
+=back
+
+All objects in an added/deleted subtree are shown. This can be suppressed
+with option -h which will only show the root of such a subtree.
+
+If option -d is given, the output resembles that of "diff -ur ...":
+
+  Only in vc~1.04:project:1: vc/CMSynergy/Users.pm
+  Only in vc~1.04:project:1: vc/CMSynergy/users.pl
+  --- vc~1.04:project:1/vc/MANIFEST	2002-08-02 14:39:43.000000000 +0200
+  +++ vc~1.17:project:1/vc/MANIFEST	2004-05-04 17:25:15.000000000 +0200
+  @@ -1,11 +1,32 @@
+  -CMSynergy.pm
+  -CMSynergy/Users.pm
+  +lib/VCS/CMSynergy.pm
+  +lib/VCS/CMSynergy/Client.pm
+  ...
+  Only in vc~1.17:project:1: vc/META.yml
+  --- vc~1.04:project:1/vc/Makefile.PL	2002-08-02 14:39:43.000000000 +0200
+  +++ vc~1.17:project:1/vc/Makefile.PL	2004-05-03 13:35:10.000000000 +0200
+  @@ -1,16 +1,110 @@
+   use ExtUtils::MakeMaker;
+  +use Config;
+  +use strict;
+  ...
+
+Option -d implies option -h.
+
+In any case, differences in directories (i.e. both objects are of 
+cvtype "dir", but different versions) are suppressed, because they 
+are not useful.
+
+Exit status is 0 if the projects are identical, 1 if some differences
+were found, 2 if some error occurred.
+
+=head1 CCM OPTIONS
+
+See L<VCS::CMSynergy::Helper/GetOptions>.
+
+=head1 AUTHORS
+
+Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
+
+=cut
+
+use Getopt::Long qw(:config bundling);
+use Pod::Usage;
+use VCS::CMSynergy qw(:tied_objects);
+use VCS::CMSynergy::Helper; 
+use File::Basename;
+use File::Temp qw(tempfile);
+use strict;
+
+# diff program including options
+my $diff_prog = "diff -u";		
+
+# extract CCM start options first...
+my @ccm_opts = VCS::CMSynergy::Helper::GetOptions;
+
+# ...then script-specific options
+my ($recursive, $show_diffs, $hide_sub_trees);
+(GetOptions(
+    'd|show-diffs'	=> \$show_diffs,	# show diff listing
+    'h|hide-sub-trees'	=> \$hide_sub_trees,	# hide deleted/added sub trees
+    'r|recursive'	=> \$recursive,		# include subprojects
+) && @ARGV == 2) or pod2usage(2);
+
+# "diff -r ..." traditionally hides "only in ..." sub trees, so do it, too
+$hide_sub_trees = 1 if $show_diffs;			
+
+my $ccm = VCS::CMSynergy->new(
+    @ccm_opts,
+    RaiseError	=> 1,
+    PrintError	=> 0);
+
+my ($old_project, $new_project) = map 
+{
+    $_ .= ':project:' . $ccm->default_project_instance unless /:project:/; 
+    $ccm->object($_);
+} @ARGV;
+
+my $diff_status;
+END { $? = defined $diff_status ? $diff_status : 2; }
+
+my $diff_temp;			# temp file to hold $diff_prog output
+if ($show_diffs)
+{
+    (undef, $diff_temp) = tempfile;
+
+    # NOTE: On Windows, CM Synergy executes cli_compare_cmd without
+    # using the command interpreter, hence redirections don't work.
+    # If we do not redirect it, the output of cli_compare_cmd
+    # goes into the bit-bucket (i.e. can't be captured from $ccm->diff).
+    # Hence, force the use of cmd.exe (this causes annoying
+    # "flashing" command windows, though).
+    $ccm->set(cli_compare_cmd => 
+	$^O eq "MSWin32" ? 
+	    "cmd /c $diff_prog %file1 %file2 > $diff_temp" :
+	    "$diff_prog %file1 %file2 > $diff_temp");
+}
+else
+{
+    print "--- $old_project\t$old_project->{modify_time}\t$old_project->{status}\n",
+          "+++ $new_project\t$new_project->{modify_time}\t$new_project->{status}\n";
+}
+
+my $tree = $ccm->project_tree({ subprojects => $recursive }, $old_project, $new_project);
+
+# NOTE: the hiding of subtrees depends on an ordering of keys %tree
+# that sorts path _after_ dirname(path)
+my %only;			# paths of deleted/added dirs
+my $ndiffs = 0;			# number of differences found
+foreach my $path (sort keys %$tree)
+{
+    my ($old, $new) = @{ $tree->{$path} };
+
+    unless (defined $new)		# deleted object
+    {
+	$ndiffs++;
+
+	# only show deleted directories once?
+	if ($hide_sub_trees)
+	{
+	    $only{$path}++ if $old->is_dir;
+	    next if $only{dirname($path)};
+	}
+
+	print $show_diffs ?  
+	    "Only in $old_project: $path\n" : "- $path $old\n";
+	next;
+    }
+    unless (defined $old)		# added object
+    {
+	$ndiffs++;
+
+	# only show added directories once?
+	if ($hide_sub_trees)
+	{
+	    $only{$path}++ if $new->is_dir;
+	    next if $only{dirname($path)};
+	}
+
+	print $show_diffs ?  
+	    "Only in $new_project: $path\n" : "+ $path $new\n";
+	next;
+    }
+    next if $old eq $new; 		# same object
+
+    $ndiffs++;
+    
+    # suppress output for different "dir"s
+    next if $old->is_dir && $new->is_dir;
+
+    if ($show_diffs)
+    {
+	# generate diff
+	$ccm->diff($old, $new);
+
+	open(my $fh, "<$diff_temp");
+	my $sep = $^O eq "MSWin32" ? "\\" : "/";
+
+	# fudge the two header lines:
+	# replace the file names (either something in the CM Synergy
+	# database's cache area or a temp file) with "project-version/path"
+	local $_;
+	$_ = <$fh>;
+	s|^([+-]{3}) .*?(\t.*)$|$1 $old_project$sep$path$2|;
+	print;
+	$_ = <$fh>;
+	s|^([+-]{3}) .*?(\t.*)$|$1 $new_project$sep$path$2|;
+	print;
+
+        # copy through the rest
+	print while (<$fh>);
+
+	close($fh);
+    }
+    else
+    {
+	print "! $path $old $new\n";
+    }
+}
+
+unlink($diff_temp) if $show_diffs && $diff_temp;
+
+$diff_status = $ndiffs ? 1 : 0;
+

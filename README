@@ -1,12 +1,5 @@
 VCS::CMSynergy -- Perl interface to Telelogic CM Synergy
 
-  Written by Roderich Schupp, <schupp@argumentum.de>.
-  Copyright (c) 2001-2002 argumentum GmbH, <http://www.argumentum.de>.
-  All rights reserved.
-
-  You may distribute it under the terms of either the GNU General Public
-  License or the Artistic License, as specified in the Perl README file.
-
 This module is a Perl interface to CM Synergy (formerly known as
 Continuus CM), a change and configuration management system 
 from Telelogic AB (http://www.telelogic.com).  It is implemented
@@ -21,17 +14,15 @@ OS, Perl version			OS, CM Synergy version
 
 Solaris 2.6, Perl 5.6.1                 Solaris 2.6, CM Synergy 5.1
 
-Solaris 2.8, Perl 5.6.1                 Solaris 2.8, CM Synergy 6.2
+Solaris 8, Perl 5.6.1			Solaris 8, CM Synergy 6.2 SP1
 
-Solaris 2.8, Perl 5.6.1                 Solaris 2.8, CM Synergy 6.3
+Solaris 8, Perl 5.6.1			Solaris 8, CM Synergy 6.3 SP3
 
-Linux 2.4, Perl 5.8.0                   Linux 2.4, CM Synergy 6.2
+Solaris 9, Perl 5.8.0			Solaris 9, CM Synergy 6.3 SP3
 
-Linux 2.6, Perl 5.8.0                   Linux 2.6, CM Synergy 6.3 SP1
+Linux 2.6, Perl 5.8.4			Linux 2.6, CM Synergy 6.3 SP3
 
-Windows XP, ActiveState Perl 5.6.1	Solaris 2.8, CM Synergy 6.2
-
-Windows XP, Cygwin Perl 5.8.0		Solaris 2.8, CM Synergy 6.2
+Windows XP, ActiveState Perl 5.8.4	Solaris 8, CM Synergy 6.3 SP3
 
 
 BUILDING
@@ -41,6 +32,10 @@ Unpack the distribution, change to its top level directory, and then
     perl Makefile.PL
     make
 
+On Win32 systems, replace "make" in the commands with "nmake". 
+The nmake utility is included in Microsoft Visual Studio products.
+An older version can be downloaded from 
+http://download.microsoft.com/download/vc15/Patch/1.52/W95/EN-US/Nmake15.exe
 
 TESTING
 
@@ -75,4 +70,15 @@ Run the tests with
 If everything looks OK, install the module with
 
     make install
-    
+
+
+COPYRIGHT AND LICENSE
+
+The VCS::CMSynergy module was written by Roderich Schupp, <schupp@argumentum.de>
+Copyright (c) 2001-2004 argumentum GmbH, 
+<http://www.argumentum.de>.  All rights reserved.
+
+You may distribute it under the terms of either the GNU General Public
+License or the Artistic License, as specified in the Perl README file.
+
+

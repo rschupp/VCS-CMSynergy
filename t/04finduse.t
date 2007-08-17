@@ -1,7 +1,10 @@
 #!/usr/bin/perl
 
-use Test::More tests => 10;
+use Test::More tests => 11;
 use t::util;
+use strict;
+
+BEGIN { use_ok('VCS::CMSynergy'); }
 
 # convert project reference from Unix pathnames to native pathnames
 # NOTE: We can't use File::Spec here since Cygwin uses "/" as the path
@@ -9,11 +12,11 @@ use t::util;
 sub unix2native
 {
     local $_ = shift;
-    s{/}{\\}g if $VCS::CMSynergy::Is_MSWin32;
+    s{/}{\\}g if VCS::CMSynergy::Client::is_win32;
     return $_;
 }
 	
-my $ccm = VCS::CMSynergy->new(%test_session);
+my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 
@@ -119,7 +122,7 @@ my $old_format = $ccm->set("Object_format", "%objectname");
 my $fu_got = $ccm->finduse(map { $_->{objectname} } @$q_expected);
 verbose('fu_got', $fu_got);
 $ccm->set("Object_format", $old_format);
-isa_ok($fu_got, "ARRAY", q[$ccm->finduse()]);
+isa_ok($fu_got, "ARRAY", q[finduse()]);
 all_ok { UNIVERSAL::isa($_, "ARRAY") 
          && @$_ == 2 && 
 	 UNIVERSAL::isa($_->[1], "HASH") } $fu_got,
@@ -127,7 +130,7 @@ all_ok { UNIVERSAL::isa($_, "ARRAY")
 ok(eq_array(		# eq_set doesn't properly cope with refs
    [ sort { $a->[0] cmp $b->[0] } @$fu_got ], 
    [ sort { $a->[0] cmp $b->[0] } map { [ $_->{objectname}, $_->{finduse} ] } @$q_expected ]),
-   q[$ccm->finduse(...)]);
+   q[finduse(): expected results]);
 
 is($ccm->findpath("main.c-1:csrc:3", "guilib-darcy:project:1"),
    unix2native("guilib/sources/main.c"),

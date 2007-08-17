@@ -1,9 +1,12 @@
 #!/usr/bin/perl
 
-use Test::More tests => 23;
+use Test::More tests => 25;
 use t::util;
+use strict;
 
-use VCS::CMSynergy::Client;
+BEGIN { use_ok('VCS::CMSynergy'); }
+BEGIN { use_ok('VCS::CMSynergy::Client'); }
+
 use Config;
 use File::Spec;
 
@@ -14,8 +17,8 @@ ok(-x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe), q[sanity check (executable $
 # test VCS::CMSynergy::Client
 my $client = VCS::CMSynergy::Client->new(
     CCM_HOME	=> $ENV{CCM_HOME},
-    PrintError	=> $test_session{PrintError},
-    RaiseError	=> $test_session{RaiseError},
+    PrintError	=> $::test_session{PrintError},
+    RaiseError	=> $::test_session{RaiseError},
 );
 
 isa_ok($client, "VCS::CMSynergy::Client");
@@ -29,7 +32,7 @@ ok((grep { $_->{process} eq "objreg" } @$ps) > 0, q[ps: found object registrar(s
 my $ccm_addr;
 {
     # create a new CM Synergy session
-    my $ccm = VCS::CMSynergy->new(%test_session);
+    my $ccm = VCS::CMSynergy->new(%::test_session);
     isa_ok($ccm, "VCS::CMSynergy");
     diag("using coprocess") if defined $ccm->{coprocess};
     $ccm_addr = $ccm->ccm_addr;
@@ -62,7 +65,7 @@ ok(!@{ $client->ps(rfc_address => $ccm_addr) },
 
 {
     # create a new CM Synergy session with KeepSession on
-    my $ccm = VCS::CMSynergy->new(%test_session, KeepSession => 1);
+    my $ccm = VCS::CMSynergy->new(%::test_session, KeepSession => 1);
     isa_ok($ccm, "VCS::CMSynergy");
     $ccm_addr = $ccm->ccm_addr;
     ok(@{ $client->ps(rfc_address => $ccm_addr) },
@@ -103,7 +106,7 @@ ok(!@{ $client->ps(rfc_address => $ccm_addr) },
    qq[original session $ccm_addr is not registered any more]);
 
 # create session using start()
-my %session = %test_session;
+my %session = %::test_session;
 delete @session{qw(CCM_HOME PrintError RaiseError)};
 my $ccm = $client->start(%session);
 isa_ok($ccm, "VCS::CMSynergy");

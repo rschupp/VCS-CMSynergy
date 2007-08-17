@@ -4,25 +4,75 @@ VCS::CMSynergy::Changes - List of changes to VCS::CMSynergy
 
 =cut
 
-TODO before release
-
-- VCS::CMSynergy::Client lacks documentation
-
-- OneArgFoo option lacks documentation
-
 Known problems:
-
-- IPC::Open3 croaks on NT if stdout or stderr is closed on entry
-  Reason is perhaps that perl opens the script file read-only and it gets
-  file descriptor 1 or 2 resp. 
-  Or it might be the GUI vs. CONSOLE application problem:
-  e.g. ccm run via IPC::Open3 from an application that is marked
-  exectype GUI seems to hang.
 
 - 'make test' on Windows with out-of-the-box CM Synergy installation:
    probably needs to specify -u and -home options for "ccm start"
 
+- OneArgFoo option lacks documentation
+
+- traverse_project()
+	what about absolute subprojects (with subprojects => 1)
+
 =head1 CHANGES
+
+=head2 Changes in Version 1.20
+
+  WARNING: This version is known NOT to work on Cygwin 
+  (due to CRLF vs LF issues).
+
+  IPC::Run3 is now a requisite module.
+
+  Dropped support for CM Synergy 4.5.
+
+  Implemented dcm_database_id(), dcm_delimiter(), dcm_enabled(), 
+  default_project_instance() and VCS::CMSynergy::Object::exists().
+
+  Implemented "unique" VCS::CMSynergy::Objects when using :cached_attributes.
+
+=head2 Changes in Version 1.19 (not released)
+
+  Implemented project_tree(), made examples/project_diff use it.
+
+  Replaced IPC::Open3 with IPC::Run3 in VCS::CMSynergy::Client::exec().
+
+  Implemented object_from_cvid(), documentet object_other_version().
+
+  Implemented VCS::CMSynergy::Object::copy_attribute().
+
+  Reinstated types() because of popular demand (read the ACcent sources
+  if you really want to know what exactly is returned by "ccm show -types").
+  Added migrate_auto_rules().
+
+=head2 Changes in Version 1.18
+
+  Removed types() - not useful.
+  Removed proj_vers(), use displayname() instead.
+
+  Added attribute caching (optional feature, "use VCS::CMSynergy ':cached_attributes'").
+  Added query_object_with_attributes() and "attributes" option 
+  for traverse_project() that prime object caches with results from query.
+
+  Documented VCS::CMSynergy::Client; reorganized PODs.
+
+  Added example script project_tree (thanks to Anne Feldmeier
+  for the simplified itree building algorithm).
+
+=head2 Changes in Version 1.17 (not released)
+
+  Added example script project_diff.
+
+  Fixed bug (typo) in update_users.pm spotted by Jürgen Schorer.
+
+  Fixed t/07workarea.t so that it doesn't assume that the temporary
+  project work area path is of the form tempdir/name-version, 
+  use attribute wa_path instead.
+
+  Implemented `postprocess´ callback for traverse_project().
+
+  Trace information for CM commands now includes the elpased time to
+  execute the command. Layout of trace information changed for debug
+  levels >= 8.
 
 =head2 Changes in Version 1.16
 

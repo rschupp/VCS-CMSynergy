@@ -29,7 +29,7 @@ sub update
     my $current_users;
     {
 	local $/ = undef;		# slurp in whole file
-	open(CURRENT_USERS, "<", $current_users_file)
+	open(CURRENT_USERS, "<$current_users_file")
 	    or die "can't open `$current_users_file': $!";
 	$current_users = <CURRENT_USERS>;
 	close(CURRENT_USERS);

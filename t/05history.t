@@ -1,10 +1,12 @@
 #!/usr/bin/perl
 
-use Test::More tests => 9;
+use Test::More tests => 10;
 use t::util;
-use UNIVERSAL qw(isa);
+use strict;
 
-my $ccm = VCS::CMSynergy->new(%test_session);
+BEGIN { use_ok('VCS::CMSynergy'); }
+
+my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 
@@ -49,7 +51,7 @@ my $h0_result = $ccm->history("bufcolor.c-1:csrc:2");
 verbose('h0_result', $h0_result);
 isa_ok($h0_result, "ARRAY", "history()");
 # sigh, CCM_DATETIME_FMT doesn't work with Windows clients
-if ($VCS::CMSynergy::Is_MSWin32)
+if (VCS::CMSynergy::Client::is_win32)
 {
     s/^Created:.*$/Created:/m foreach (@$h0_exp);
     s/^Created:.*$/Created:/m foreach (@$h0_result);
@@ -90,24 +92,24 @@ my $h1_result = $ccm->history_hashref(
     "bufcolor.c-3:csrc:2", qw(object predecessors successors task status_log));
 verbose('h1_result', $h1_result);
 isa_ok($h1_result, "ARRAY", "history_hashref()");
-all_ok { isa($_, "HASH") } $h1_result,
+all_ok { UNIVERSAL::isa($_, "HASH") } $h1_result,
    q[history_hashref() returns array ref of hash refs];
-all_ok { isa($_->{object}, "VCS::CMSynergy::Object") } $h1_result,
+all_ok { UNIVERSAL::isa($_->{object}, "VCS::CMSynergy::Object") } $h1_result,
     q[history_hashref(): keyword 'object' returns a VCS::CMSynergy::Object];
 all_ok 
 { 
     my $succ = $_->{successors};
     !defined($succ) || 
-	(isa($succ, "ARRAY") &&
-         scalar(grep { isa($_, "VCS::CMSynergy::Object") } @$succ) == @$succ)
+	(UNIVERSAL::isa($succ, "ARRAY") &&
+         scalar(grep { UNIVERSAL::isa($_, "VCS::CMSynergy::Object") } @$succ) == @$succ)
 } $h1_result,
     q[history_hashref(): keyword 'successors' returns array of VCS::CMSynergy::Objects];
 all_ok 
 { 
     my $pred = $_->{predecessors};
     !defined($pred) || 
-	(isa($pred, "ARRAY") &&
-         scalar(grep { isa($_, "VCS::CMSynergy::Object") } @$pred) == @$pred)
+	(UNIVERSAL::isa($pred, "ARRAY") &&
+         scalar(grep { UNIVERSAL::isa($_, "VCS::CMSynergy::Object") } @$pred) == @$pred)
 } $h1_result,
     q[history_hashref(): keyword 'predecessors' returns array of VCS::CMSynergy::Objects];
 

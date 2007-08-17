@@ -1,0 +1,90 @@
+#!/usr/bin/perl -w
+
+# This sample script shows how to build up a project tree structure
+# using VC::CMSynergy::traverse_project. We use a simple minded
+# Node class for the tree structure.
+# Thanks go to Anne Feldmeier for the simple build algorithm.
+
+use lib 'lib';
+use VCS::CMSynergy 1.18 qw(:cached_attributes :tied_objects);
+use strict;
+
+# usage: project_tree project_spec
+
+# a simple tree node class
+{
+    package Node;
+
+    sub new
+    {
+	my ($class, $object, $parent) = @_;
+	my $self = bless { object => $object, parent => $parent }, $class;
+	push @{ $parent->{children} }, $self if $parent;
+	$self;
+    }
+
+    sub object 		{ shift->{object}; }
+    sub parent 		{ shift->{parent}; }
+    sub children	{ shift->{children}; }
+}
+
+my ($project) = @ARGV;
+my @attributes = qw(owner modify_time);
+
+my $ccm = VCS::CMSynergy->new(
+    PrintError	=> 0,
+    RaiseError	=> 1,
+    CCM_ADDR	=> $ENV{CCM_ADDR}
+);
+
+my Node $root;		# the root of the project tree
+my Node $top;		# node corresponding to top of Traversal::dirs stack
+
+$ccm->traverse_project(
+    {
+	subprojects	=> 1,
+	attributes	=> \@attributes,
+	wanted		=> sub
+	{
+	    return if $_->cvtype eq "project";	# skip subprojects
+
+	    unless ($root)
+	    {
+		$root = $top = Node->new($_);
+		return;
+	    }
+
+	    # traversal may have moved up in the project tree,
+	    # so $top may not correspond to the top of
+	    # the directory stack anymore
+	    my $topdir = $VCS::CMSynergy::Traversal::dirs[-1];
+	    $top = $top->parent while $top->object ne $topdir;
+
+	    # create a Node with $top as the parent
+	    my $node = Node->new($_, $top);
+	    
+	    # move $top when we're on a directory,
+	    # because traversal will immediately descent into it
+	    $top = $node if $_->cvtype eq "dir";
+	},
+    },
+    $project
+);
+
+print_tree($root, "");
+
+exit(0);
+
+sub print_tree
+{
+    my ($node, $indent) = @_;
+
+    my $obj = $node->object;
+    print $indent, join(" ", $obj->name, @$obj{@attributes}), "\n";
+
+    if ($node->children)
+    {
+	$indent .= "  ";
+	print_tree($_, $indent) foreach @{ $node->children };
+    }
+}

@@ -1,4 +1,3 @@
-use VCS::CMSynergy;
 use Data::Dumper;
 
 our %test_session;
@@ -16,12 +15,16 @@ BEGIN
 	UseCoprocess	=> $ENV{CCM_USE_COPROCESS},
     );
 
-    if ($VCS::CMSynergy::Is_MSWin32)
+    if ($ENV{CCM_TEST_USER})
     {
 	# CCM_TEST_USER=user/password@host (Oracle style :)
-	die "CCM_TEST_USER not set in environment" unless $ENV{CCM_TEST_USER};
 	@test_session{qw(user password host)} = 
 	    $ENV{CCM_TEST_USER} =~ m{^(.*?)/(.*?)\@(.*)};
+    }
+    else
+    {
+	die "CCM_TEST_USER not set in environment" 
+	    if $^O eq 'MSWin32' || $^O eq 'cygwin';
     }
 
     # Set the date format (the default is "%c" which depends
@@ -30,8 +33,6 @@ BEGIN
     # NOTE: restrict yourself to strftime conversion specifiers from
     # the ISO C standard; also, don't use locale dependent conversions
     $ENV{CCM_DATETIME_FMT} = "%Y-%m-%d %H:%M:%S";
-
-    VCS::CMSynergy->use_ccm_coprocess if $ENV{CCM_TEST_COPROCESS};
 }
 
 
@@ -50,10 +51,10 @@ sub all_ok(&$;$)
 }
 
 # stringify an array of VCS::CMSynergy::Object's
-sub strobjs($)
+sub objectnames($)
 {
     my $aref = shift;
-    return [ map { "$_" } @$aref ];
+    return [ map { $_->objectname } @$aref ];
 }
 
 # NOTE: We want to prevent Data::Dumper to dump all attributes

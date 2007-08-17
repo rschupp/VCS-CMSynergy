@@ -1,9 +1,12 @@
 #!/usr/bin/perl
 
-use Test::More tests => 10;
+use Test::More tests => 11;
 use t::util;
+use strict;
 
-my $ccm = VCS::CMSynergy->new(%test_session);
+BEGIN { use_ok('VCS::CMSynergy'); }
+
+my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 

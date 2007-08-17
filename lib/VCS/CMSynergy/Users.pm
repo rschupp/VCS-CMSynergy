@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Users;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.06 % =~ /(\d+)\.(\d+)/);
+# %version: 1.07 %
 
 =head1 NAME
 
@@ -102,7 +102,7 @@ sub users
 	$text .= "user $user = @$roles;\n";
     }
 
-    my ($rc, $out, $err) = $self->_ccm_with_text_editor($text, qw(users));
+    my ($rc, $out, $err) = $self->ccm_with_text_editor($text, qw(users));
     return $self->set_error($err || $out) unless $rc == 0;
     return $users;
 }
@@ -220,5 +220,7 @@ sub get_roles
 }
 
 =back
+
+=cut
 
 1;

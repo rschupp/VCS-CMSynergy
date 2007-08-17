@@ -1,39 +1,69 @@
 #!/usr/bin/perl
 
-use Test::More tests => 9;
+use Test::More tests => 29;
 use t::util;
+use strict;
 
-my $ccm = VCS::CMSynergy->new(%test_session);
+BEGIN 
+{ 
+    use_ok('VCS::CMSynergy', ':cached_attributes'); 
+    ok(VCS::CMSynergy::use_cached_attributes(), q[using :cached_attributes]);
+}
+
+use File::Temp qw(tempfile);
+
+my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 
-# test types()
-my @types_expected;
-for (scalar $ccm->version)
+# test tracing
 {
-    /^4\.5|^5\./ && do { 
-	@types_expected = qw(
-	    ascii binary c++ csrc dir executable incl library lsrc
-	    makefile project relocatable_obj shared_library shsrc ysrc);
-	push @types_expected, "symlink" unless $VCS::CMSynergy::Is_MSWin32;
-	last;
-    };
+    my ($fh, $trace) = tempfile;
+    close($fh);
 
-    /^6\./ && do { 
-	@types_expected = qw(
-	    ascii binary bitmap c++ class csrc css dir dtd
-	    executable gif html incl jar java jpeg library lsrc
-	    makefile perl project relocatable_obj shared_library
-	    shsrc xml ysrc);
-	push @types_expected, "symlink" unless $VCS::CMSynergy::Is_MSWin32;
-	last;
-    };
+    $ccm->trace(1, $trace);
+    $ccm->trace_msg(q[the quick brown fox jumps over the lazy dog]);
+    $ccm->trace(0, undef);
+    ok(-r $trace, q[trace file exists]);
 
-    die "don't know anything about CM Synergy version $_";
+    my $text;
+    {
+	local $/ = undef; 
+	ok(open($fh, "< $trace"), q[open trace file]);
+	$text = <$fh>;
+	close($fh);
+    }
+    ok($text =~ /quick brown fox/, q[trace file contains message]);
+    ok($text =~ /\Q$ccm\E/, q[trace file contains session ref]);
+
+    unlink($trace);
 }
-my @types_got = $ccm->types;
-verbose('types_got', \@types_got);
-ok(eq_set(\@types_expected, \@types_got), q[$ccm->types]);
+
+# test object<->cvid
+my $object = $ccm->object('main.c-1:csrc:1');
+ok($object->exists, qq[object exists]);
+my $cvid = $ccm->property(cvid => $object);
+like($cvid, qr/^\d+$/, q[check cvid]);
+my $object_from_cvid = $ccm->object_from_cvid($cvid);
+is("$object", "$object_from_cvid", q[object -> cvid -> same_object]);
+
+# test that the same objectname gives identical Perl objects
+# (when use_cached_attributes is in effect):
+# we need to rebless the VCS::CMSynergy::Objects into a dummy class
+# in order to compare them, otherwise the overloaded stringification
+# gets in our way
+SKIP: 
+{
+    skip "not using :cached_attributes", 1
+	unless VCS::CMSynergy::use_cached_attributes();
+
+    my $object2 = $ccm->object($object->objectname);
+    is(bless($object, "Reblessed"), bless($object2, "Reblessed"), 
+	q[identical Perl objects from same objectname when using :cached_attributes]);
+}
+
+# test that exists() on an non-existant object doesn't cause an exception 
+ok(!$ccm->object('frobozz.c-1:csrc:1')->exists, q[object doesn't exist]);
 
 SKIP: 
 {
@@ -55,7 +85,8 @@ SKIP:
 	q[check release table]);
 }
 
-my @trav1_expected = qw(
+my $project = 'toolkit-1.0:project:1';
+my @trav_path_expected = qw(
   toolkit
   toolkit/calculator
   toolkit/calculator/calculator
@@ -98,20 +129,42 @@ my @trav1_expected = qw(
   toolkit/misc/readme
   toolkit/misc/toolkit.ini
 );
-my @trav1_got;
-$ccm->traverse_project(
+my @trav_object_expected = @{ $ccm->query_object(
+    { recursive_is_member_of => [ $project, 'none' ] }) };
+push @trav_object_expected, $ccm->object($project);	
+# because recursive_is_member_of() does NOT include the project itself
+
+my (@trav_path_got, @trav_object_got, $trav_tree_expected, $preprocess, $postprocess);
+ok($ccm->traverse_project(
   {
     wanted => sub {
-      push @trav1_got, 
-        join("/", map { $_->name } @VCS::CMSynergy::Traversal::dirs, $_)
-	  unless $_->cvtype eq 'project';
-      },
+      push @trav_object_got, $_;
+      return if $_->is_project;
+
+      my $path = join("/", map { $_->name } @VCS::CMSynergy::Traversal::dirs, $_);
+      push @trav_path_got, $path;
+      $trav_tree_expected->{$path} = $_;
+    },
     subprojects	=> 1,
-    preprocess	=> sub { sort { $a->name cmp $b->name } @_; },
+    preprocess	=> sub { $preprocess++; return sort { $a->name cmp $b->name } @_; },
+    postprocess => sub { $postprocess++; }
   },
-  'toolkit-1.0:project:1');
-ok(eq_array(\@trav1_got, \@trav1_expected),
-  q[traverse_project with sub projects, entryies sorted by name]);
+  $project), qq[traverse_project($project)]);
+
+ok(eq_set(objectnames(\@trav_object_got), objectnames(\@trav_object_expected)),
+  q[traverse_project: check objects]);
+ok(eq_array(\@trav_path_got, \@trav_path_expected),
+  q[traverse_project: check pathnames]);
+ok($preprocess == $postprocess, 
+  q[traverse_project: compare number of preprocess and postprocess calls]);
+ok($preprocess == (grep { $_->cvtype =~ /^(dir|project)$/ } @trav_object_expected),
+  q[traverse_project: compare number of preprocess calls to projects/dirs traversed]);
+
+my $trav_tree_got = $ccm->project_tree(
+  { subprojects => 1, pathsep => "/" }, $project);
+isa_ok($trav_tree_got, "HASH", qq[project_tree($project)]);
+ok(eq_hash($trav_tree_expected, $trav_tree_got),
+  q[project_tree: compare results]);
 
 my @trav2_expected = 
 (
@@ -122,29 +175,32 @@ my @trav2_expected =
 my @trav2_got;
 $ccm->traverse_project(
   sub { push @trav2_got, $_; },
-  'toolkit-1.0:project:1', $ccm->object('misc-1:dir:1'));
+  $project, $ccm->object('misc-1:dir:1'));
 all_ok { UNIVERSAL::isa($_, 'VCS::CMSynergy::Object'); } \@trav2_got,
   q[traverse_project with start directory];
-ok(eq_set(strobjs(\@trav2_got), \@trav2_expected),
+ok(eq_set(objectnames(\@trav2_got), \@trav2_expected),
   q[traverse_project with start directory]);
 
-my @trav3_expected = 
-(
-  'toolkit-1.0:project:1',
-  'editor-1.0:project:1',
-  'guilib-1.0:project:1',
-  'calculator-1.0:project:1',
-);
+my @trav3_expected = grep { $_->is_project } @trav_object_expected;
 my @trav3_got;
 $ccm->traverse_project(
   {
-    wanted => sub { push @trav3_got, $_ if $_->cvtype eq 'project'; },
+    wanted => sub { push @trav3_got, $_ if $_->is_project; },
     subprojects	=> 1,
   },
-  'toolkit-1.0:project:1');
-all_ok { $_->cvtype eq 'project' } \@trav3_got,
+  $project);
+all_ok { $_->is_project } \@trav3_got,
   q[traverse_project for all sub projects];
-ok(eq_set(strobjs(\@trav3_got), \@trav3_expected),
+ok(eq_set(objectnames(\@trav3_got), objectnames(\@trav3_expected)),
   q[traverse_project for all sub projects]);
+
+
+BEGIN { use_ok('VCS::CMSynergy::Users'); }
+
+my $users = $ccm->users;
+isa_ok($users, 'HASH', q[return value of users()]);
+all_ok { UNIVERSAL::isa($_, 'ARRAY') } [ values %$users ],
+  q[users() returns HASH of ARRAY refs];
+ok(exists $users->{ccm_root}, q[ccm_root is in users]);
 
 exit 0;

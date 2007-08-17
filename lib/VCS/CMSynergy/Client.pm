@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 21 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 22 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -503,25 +503,25 @@ sub status
 }
 
 
-# FIXME does not work on windows 
-# (also not on unix clients that don't have the ccmdb program installed)
+# FIXME does not work on Windows 
+# (in fact, it only works on the host where Synergy's Informix engine is running)
 sub databases	
 {
     my ($this, $servername) = @_;
     $this = __PACKAGE__->_default unless ref $this;
 
-    my @ccmdb_server = 
-	(File::Spec->catfile($this->ccm_home, qw/bin ccmdb/), qw/server -status/);
-    push @ccmdb_server, $servername if defined $servername;
+    my @server_status = 
+	(File::Spec->catfile($this->ccm_home, qw/bin ccmsrv/), qw/status/);
+    push @server_status, -s => $servername if defined $servername;
 
     my ($out, $err);
-    my $rc = $this->run(\@ccmdb_server, \undef, \$out, \$err);
+    my $rc = $this->run(\@server_status, \undef, \$out, \$err);
     chomp ($out, $err);
     return $this->set_error($err || $out) unless $rc == 0;
 
     # strip leading/trailing stuff
     my ($list) = $out =~ /^===.*?$(.*?)^There is a total/ms;
-    return $this->set_error(qq[unrecognized output from "ccmdb server -status": $out])
+    return $this->set_error(qq[unrecognized output from "@server_status": $out])
 	unless defined $list;
     return grep { !/dbpath not available/ }
            map  { (split(' ', $_, 3))[2]  } 

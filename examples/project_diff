@@ -337,7 +337,7 @@ my $diff = $Diff->new($ccm);
 
 # print project header lines
 $diff->meta(0, $old_project);
-$diff->meta(1, $old_project);
+$diff->meta(1, $new_project);
 
 # NOTE: the hiding of subtrees depends on an ordering of keys %tree
 # that sorts "foo/bar/quux" _after_ "foo/bar"

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 20 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 21 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -170,8 +170,8 @@ sub set_attribute
 
 sub create_attribute
 {
-    my ($self, $attr_name, $type, $value) = @_;
     _usage(4, undef, '$name, $type, $value', \@_);
+    my ($self, $attr_name, $type, $value) = @_;
     
     my $rc = $self->ccm->create_attribute($attr_name, $type, $value, $self);
 
@@ -183,8 +183,8 @@ sub create_attribute
 
 sub delete_attribute
 {
-    my ($self, $attr_name) = @_;
     _usage(2, undef, '$name', \@_);
+    my ($self, $attr_name) = @_;
 
     my $rc = $self->ccm->delete_attribute($attr_name, $self);
 
@@ -197,8 +197,9 @@ sub delete_attribute
 
 sub copy_attribute
 {
-    my ($self, $names, @to_file_specs) = @_;
     _usage(3, undef, '{ $name | \\@names }, $to_file_spec...', \@_);
+    my ($self, $names, @to_file_specs) = @_;
+
     # NOTE: no $flags allowed, because honouring them would need
     # a project traversal to update or invalidate attribute caches
 

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.20 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.21 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -300,7 +300,7 @@ sub exec
     my ($out, $err);
 
     run3(\@cmd, \undef, \$out, \$err, 
-	 { binmode_stdout => 0, binmode_stderr => 1 });
+	 { binmode_stdout => 1, binmode_stderr => 1 });
 
     if (my $sig = $? & 127)
     {
@@ -309,6 +309,7 @@ sub exec
     }
     else
     {
+	$out =~ s/\015\012/\012/g if is_win32; 	# as if read in :crlf mode
 	chomp($out, $err);
     }
 

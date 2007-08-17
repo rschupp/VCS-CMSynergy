@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.20 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.22 % =~ /(\d+)\.(\d+)/);
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -160,7 +160,7 @@ sub _start
 	return $self->set_error($err || $out) unless $rc == 0;
 
 	$self->{env}->{CCM_ADDR} = $out;
-	$Debug && $self->trace_msg("started session `$out'\n");
+	$Debug && $self->trace_msg("started session ".$self->ccm_addr."\n");
     }
 
     # NOTE: Use of $CCM_INI_FILE fixes the annoying `Warning:
@@ -193,8 +193,7 @@ sub _start
 	if ($self->{coprocess} = $self->_spawn_coprocess)
 	{
 	    $self->{cwd} = getcwd();	# remembers coprocess' working directory
-	    $Debug && $self->trace_msg(
-		"spawned coprocess (pid=".$self->{coprocess}->pid.")\n", 8);
+	    $Debug && $self->trace_msg("spawned coprocess (pid=".$self->{coprocess}->pid.")\n", 8);
 	}
 	else
 	{
@@ -477,23 +476,21 @@ sub _parse_query_result
     # objects, e.g. "cvtype" and "attype". But CM Synergy
     # doesn't accept these where a "file_spec" is expected 
     # (at least on Unix, because they contain slashes). 
-    # Hence rewrite these fullnames to correct objectnames.
-
-    if ($want->{objectname})
+    # Hence rewrite these fullnames to objectnames.
+    for (qw(objectname object))
     {
-        # rewrite fullname if necessary
-	$row{objectname} =~ s{^ (.*?) / (.*?) / (.*?) / (.*?) $}
-		             {$3$self->{delimiter}$4:$2:$1}x;
+	if ($want->{$_})
+	{
+	    # rewrite fullname if necessary
+	    $row{$_} =~ s{^(.*?)/(.*?)/(.*?)/(.*?)$}
+			 {$3$self->{delimiter}$4:$2:$1};
+	}
     }
+
     if ($want->{object})
     {
-        # rewrite fullname if necessary
-	(my $objectname = $row{object})
-	    =~ s{^ (.*?) / (.*?) / (.*?) / (.*?) $}
-		{$3$self->{delimiter}$4:$2:$1}x;
-
 	# objectify column
-	$row{object} = $self->object($objectname);
+	$row{object} = $self->object($row{object});
     }
 
     return \%row;
@@ -689,9 +686,10 @@ sub findpath
 }
 
 
-
+# put some variables into the VCS::CMSynergy::Traversal namespace
 {
-    package VCS::CMSynergy::Traversal;
+    package 	# hide from PAUSE
+	VCS::CMSynergy::Traversal;
     our (@dirs, @projects, $prune);
 }
 

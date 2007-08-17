@@ -40,6 +40,7 @@ my $binary_obj = $ccm->object("calculator.exe-1:executable:1");
 
 {
     my $tempdir = tempdir(CLEANUP => 1);
+    $tempdir = fullwin32path($tempdir) if $^O eq 'cygwin';
     my $cleanup = Cleanup->new;
 
     ok($ccm->checkout(-project => "${pname}-1.0", 

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Users;
 
-# %version: 1.07 %
+our $VERSION = sprintf("%d.%02d", q%version: 1.08 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 

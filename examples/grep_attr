@@ -159,7 +159,7 @@ my @objects =  map { $ccm->object($_) } @ARGV;
 push @objects,
     @{ $opts->{s} ? 
 	$ccm->query_object($opts->{q}) :
-	$ccm->query_object_with_attributes($opts->{q}, $attribute) }
+	$ccm->query_object($opts->{q}, $attribute) }
     if defined $opts->{q};
 
 grep_attr($_, $_->get_attribute($attribute)) foreach @objects;

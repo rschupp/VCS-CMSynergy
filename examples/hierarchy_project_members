@@ -37,10 +37,10 @@ my ($top_proj_vers) = @ARGV;
 my $ccm = VCS::CMSynergy->new(
     %$ccm_options,
     PrintError => 0,
-    RaiseError => 1
+    RaiseError => 1,
 );
 
-foreach my $member (@{ $ccm->query_object_with_attributes(
+foreach my $member (@{ $ccm->query_object(
     { hierarchy_project_members => [ $ccm->full_project_spec($top_proj_vers), 'depth'] }, 
     qw(status wa_path)) })
 {

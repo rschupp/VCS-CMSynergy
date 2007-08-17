@@ -7,6 +7,7 @@ examples/grep_attr
 examples/hierarchy_project_members
 examples/project_diff
 examples/project_tree
+inc/End.pm
 inc/Module/Install.pm
 inc/Module/Install/Base.pm
 inc/Module/Install/Can.pm

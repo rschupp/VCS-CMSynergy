@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.26.2 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.26.3 % =~ /(\d+)\.(\d+)/);
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -1016,7 +1016,7 @@ sub set_attribute
 	    if ($Debug)
 	    {
 		my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
-		if ($Debug > 8)
+		if ($Debug >= 8)
 		{
 		    $self->trace_msg("<- ccm($self->{ccm_command})\n");
 		    $self->trace_msg("-> rc = $rc [$elapsed sec]\n");
@@ -1156,7 +1156,7 @@ sub cat_object
     if ($Debug)
     {
 	my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
-	if ($Debug > 8)
+	if ($Debug >= 8)
 	{
 	    $self->trace_msg("<- ccm($self->{ccm_command})\n");
 	    $self->trace_msg("-> rc = $rc [$elapsed sec]\n");

@@ -55,17 +55,25 @@ of the object in the project, followed by additional information:
 
 =item +
 
-marks an object added in new_project, 
+marks an object added in new_project; 
 its objectname is given as additional info
 
 =item -
 
-marks an object deleted from old_project,
+marks an object deleted from old_project;
 its objectname is given as additional info
 
 =item !
 
-marks an object that has a different version in old_project and new_project,
+marks an object that has a different version in old_project and new_project;
+the objectnames are given as additional info
+
+=item ~
+
+marks an object that has a different cvtype 
+(e.g. a  directory was replaced by a regular file) or different instance
+(e.g. object was deleted and a new object created with the same name)
+in old_project and new_project;
 the objectnames are given as additional info
 
 =back
@@ -162,13 +170,16 @@ use strict;
     sub changed
     {
 	my ($self, $path, $old, $new) = @_;
-	print "! $path $old $new\n";
+	my $indicator = ($old->cvtype eq $new->cvtype 
+	                 && $old->instance eq $new->instance) ?  "!" : "~";
+	print "$indicator $path $old $new\n";
     }
 
     sub only
     {
 	my ($self, $in, $path, $obj) = @_;
-	print "", ("-", "+")[$in], " $path $obj\n";
+	my $indicator = ("-", "+")[$in];
+	print "$indicator $path $obj\n";
     }
 
     sub meta	{ }
@@ -247,10 +258,12 @@ use strict;
 
 	# one or both of $old and $new are dir's
 	# NOTE: suppress output if both are dir's
-	print "File a/$path is a regular file while file b/$path is a directory\n" 
-	      unless $old->is_dir;
-	print "File a/$path is a directory while file b/$path is a regular file\n" 
-	      unless $new->is_dir;
+	unless ($old->is_dir && $new->is_dir)
+	{
+	    print $old->is_dir ?
+		"File a/$path is a directory while file b/$path is a regular file\n" :
+		"File a/$path is a regular file while file b/$path is a directory\n";
+	}
     }
 
     sub only

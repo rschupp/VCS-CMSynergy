@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 11 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 12 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -404,7 +404,8 @@ sub _version
 
     my %version;
     my $cmsynergy_rx = qr/(?:Continuus|CM Synergy|SYNERGY\/CM)/;
-    ($version{cmsynergy}) = $out =~ /^$cmsynergy_rx Version\s+(\S*)$/imo;
+    ($version{cmsynergy}) = $out =~ /^$cmsynergy_rx Version\s+(\S*)$/imo
+	or return $this->set_error("can't recognize version from `$out'");
     ($version{short}) = $version{cmsynergy} =~ /^(\d+\.\d+)/;
     
     ($version{schema}) = $out =~ /^$cmsynergy_rx Schema Version\s+(.*)$/imo;

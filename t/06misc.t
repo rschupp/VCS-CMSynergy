@@ -7,29 +7,26 @@ my $ccm = VCS::CMSynergy->new(%test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using Expect") if defined $ccm->{exp};
 
-my $ccm_version = $ccm->version;
-SKIP: {
-    my %types_exp = (
-	"5.1" => [ qw(
+my @types_expected;
+for (scalar $ccm->version)
+{
+    /^4\.5|^5\./ && do { @types_expected = qw(
 	    ascii binary c++ csrc dir executable incl library lsrc
 	    makefile project relocatable_obj shared_library
 	    shsrc symlink ysrc
-	)],
-	"6.2" => [ qw(
+    ), last };
+
+    /^6\./ && do { @types_expected = qw(
 	    ascii binary bitmap c++ class csrc css dir dtd
 	    executable gif html incl jar java jpeg library lsrc
 	    makefile perl project relocatable_obj shared_library
 	    shsrc xml ysrc
-	)],
-    );
+    ), last };
 
-    skip "dunno anything about CM Synergy version $ccm_version", 1 
-        unless exists $types_exp{$ccm_version};
-
-    my @types_result = $ccm->types;
-    verbose('types_result', \@types_result);
-    ok(eq_set($types_exp{$ccm_version}, \@types_result),
-       q[$ccm->types]);
+    die "don't know anything about CM Synergy version $_";
 }
+my @types_got = $ccm->types;
+verbose('types_got', \@types_got);
+ok(eq_set(\@types_expected, \@types_got), q[$ccm->types]);
 
 exit 0;

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Project;
 
-our $VERSION = do { (my $v = q%version: 7 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 8 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -486,22 +486,24 @@ sub get_member_info_hashref
 {
     my $self = shift;
     my $opts = @_ && ref $_[-1] eq "HASH" ? pop : {};
-    return $self->_get_member_info(\@_, VCS::CMSynergy::ROW_HASH(), $opts);
+    return $self->_get_member_info(\@_, $opts, 0);
 }
 
 sub get_member_info_object
 {
     my $self = shift;
     my $opts = @_ && ref $_[-1] eq "HASH" ? pop : {};
-    return $self->_get_member_info([ object => @_ ], VCS::CMSynergy::ROW_OBJECT(), $opts);
+    return $self->_get_member_info([ object => @_ ], $opts, 1);
 }
 
 # private method: wrapper for get_member_info from PC integrations intlib.a
+# if $row_object is true, returns objects, otherwise hashes
 sub _get_member_info
 {
-    my ($self, $keywords, $row_type, $opts) = @_;
+    my ($self, $keywords, $opts, $row_object) = @_;
 
-    my $want = VCS::CMSynergy::_want($keywords);
+    my $want = VCS::CMSynergy::_want($row_object, $keywords);
+
     # NOTE: $RS is at the end (because get_member_info _prepends_ the path)
     my $format = $VCS::CMSynergy::FS . join($VCS::CMSynergy::FS, values %$want) . $VCS::CMSynergy::RS;	
 
@@ -529,7 +531,7 @@ sub _get_member_info
 	substr($path, 0, $wa_path_len) = "" if $wa_path_len;
 	$path =~ s/\Q$_pathsep\E/$opts->{pathsep}/g if $opts->{pathsep};
 
-	$result{$path} = $self->ccm->_parse_query_result($want, \@cols, $row_type);
+	$result{$path} = $self->ccm->_parse_query_result($want, \@cols, $row_object);
     }
 
     return \%result;

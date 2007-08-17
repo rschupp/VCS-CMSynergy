@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 13;
+use Test::More tests => 18;
 use t::util;
 use UNIVERSAL qw(isa);
 
@@ -14,72 +14,62 @@ ok(isa($e_got, "ARRAY") && @$e_got == 0,
 
 # test query_object with old-style objectnames returned from the query
 my $b_expected;
+my $b45_expected = [
+   'base-1:admin:base',
+   'base-1:mcomp:base',
+   'base-1:model:base',
+   'binary-1:attype:base',
+   'binary-1:cvtype:base',
+   'binary-1:pdtype:base',
+   'boolean-1:attype:AC',
+   'bstype-1:cvtype:AC',
+   'bstypes-1:mcomp:AC',
+   'bstypes-1:mcomp:base',
+   'bufcolor.c-1:csrc:1',
+   'bufcolor.c-1:csrc:2',
+   'bufcolor.c-2:csrc:1',
+   'bufcolor.c-2:csrc:2',
+   'bufcolor.c-3:csrc:1',
+   'bufcolor.c-3:csrc:2',
+   'by_directory-1:bstype:base',
+   'by_name-1:bstype:AC',
+   'by_name0-1:bstype:base',
+   'by_name_wa-1:bstype:base',
+];
+my $b5_expected = [
+   'base-1:admin:base',
+   'base-1:mcomp:base',
+   'base-1:model:base',
+   'binary-1:attype:base',
+   'binary-1:cvtype:base',
+   'boolean-1:attype:AC',
+   'bstype-1:cvtype:AC',
+   'bstypes-1:mcomp:AC',
+   'bstypes-1:mcomp:base',
+   'bufcolor.c-1:csrc:1',
+   'bufcolor.c-1:csrc:2',
+   'bufcolor.c-2:csrc:1',
+   'bufcolor.c-2:csrc:2',
+   'bufcolor.c-3:csrc:1',
+   'bufcolor.c-3:csrc:2',
+   'by_directory-1:bstype:base',
+   'by_name-1:bstype:AC',
+];
 for (scalar $ccm->version)
 {
-    /^4\.5/ && do { $b_expected = [
-       'base-1:admin:base',
-       'base-1:mcomp:base',
-       'base-1:model:base',
-       'binary-1:attype:base',
-       'binary-1:cvtype:base',
-       'binary-1:pdtype:base',
-       'boolean-1:attype:AC',
-       'bstype-1:cvtype:AC',
-       'bstypes-1:mcomp:AC',
-       'bstypes-1:mcomp:base',
-       'bufcolor.c-1:csrc:1',
-       'bufcolor.c-1:csrc:2',
-       'bufcolor.c-2:csrc:1',
-       'bufcolor.c-2:csrc:2',
-       'bufcolor.c-3:csrc:1',
-       'bufcolor.c-3:csrc:2',
-       'by_directory-1:bstype:base',
-       'by_name-1:bstype:AC',
-       'by_name0-1:bstype:base',
-       'by_name_wa-1:bstype:base',
-    ], last };
+    /^4\.5/ && do { $b_expected = $b45_expected; last };
 
-    /^5\./ && do { $b_expected = [
-       'base-1:admin:base',
-       'base-1:mcomp:base',
-       'base-1:model:base',
-       'binary-1:attype:base',
-       'binary-1:cvtype:base',
-       'boolean-1:attype:AC',
-       'bstype-1:cvtype:AC',
-       'bstypes-1:mcomp:AC',
-       'bstypes-1:mcomp:base',
-       'bufcolor.c-1:csrc:1',
-       'bufcolor.c-1:csrc:2',
-       'bufcolor.c-2:csrc:1',
-       'bufcolor.c-2:csrc:2',
-       'bufcolor.c-3:csrc:1',
-       'bufcolor.c-3:csrc:2',
-       'by_directory-1:bstype:base',
-       'by_name-1:bstype:AC',
-    ], last };
+    /^5\./ && do { $b_expected = $b5_expected; last };
 
-    /^6\./ && do { $b_expected = [
-       'base-1:admin:base',
-       'base-1:mcomp:base',
-       'base-1:model:base',
-       'binary-1:attype:base',
-       'binary-1:cvtype:base',
-       'bitmap-1:attype:base',
-       'bitmap-1:cvtype:base',
-       'boolean-1:attype:AC',
-       'bstype-1:cvtype:AC',
-       'bstypes-1:mcomp:AC',
-       'bstypes-1:mcomp:base',
-       'bufcolor.c-1:csrc:1',
-       'bufcolor.c-1:csrc:2',
-       'bufcolor.c-2:csrc:1',
-       'bufcolor.c-2:csrc:2',
-       'bufcolor.c-3:csrc:1',
-       'bufcolor.c-3:csrc:2',
-       'by_directory-1:bstype:base',
-       'by_name-1:bstype:AC',
-    ], last };
+    /^6\.(\d+)/ && do { 
+        $b_expected = $b5_expected;
+	push @$b_expected,
+	   'bitmap-1:attype:base',
+	   'bitmap-1:cvtype:base';
+	push @$b_expected,
+	    'baseline-1:cvtype:base' if $1 >= 3;
+	last;
+    };
 
     die "don't know anything about CM Synergy version $_";
 }
@@ -88,7 +78,7 @@ verbose('b_got', $b_got);
 isa_ok($b_got, "ARRAY", q[query_object()]);
 all_ok { defined $_  && isa($_, "VCS::CMSynergy::Object") } $b_got,
    q[query_object() returns array ref of VCS::CMSynergy::Objects];
-ok(eq_set($b_expected, [ map { "$_" } @$b_got ]),
+ok(eq_set($b_expected, strobjs($b_got)),
    q[$ccm->query_object("name match 'b*'")]);
 
 # test query_arrayref with a multi-line valued keyword
@@ -134,16 +124,43 @@ ok(eq_array(		# eq_set does not properly cope with refs
 my $sh1_got = $ccm->query_object({ name => "bufcolor.c", instance => 1 });
 verbose('sh1_got', $sh1_got);
 isa_ok($sh1_got, "ARRAY", q[query_object()]);
-ok(eq_set([ map { $_->[0] } @$ml_expected ], [ map { "$_" } @$sh1_got ]),
+ok(eq_set([ map { $_->[0] } @$ml_expected ], strobjs($sh1_got)),
    q[shorthand query with several clauses]);
 
-#my $sh2_got = $ccm->query_object({ cvtype => "executable", create_time => [ time => '1997-09-05 17:38:51' ] });
-#verbose('sh2_got', $sh2_got);
-#isa_ok($sh2_got, "ARRAY", q[query_object()]);
-#ok(eq_set([ qw(ico-1:executable:4) ], [ map { "$_" } @$sh2_got ]),
-#   q[shorthand query with time value]);
+my $sh2_expected = 
+[
+  'calculator-1.0:project:1',
+  'editor-1.0:project:1',
+  'guilib-1.0:project:1',
+  'toolkit-1.0:project:1',
+];
+my $sh2_got = $ccm->query_object({ hierarchy_project_members => [ 'toolkit-1.0:project:1', 'none' ] });
+verbose('sh2_got', $sh2_got);
+isa_ok($sh2_got, "ARRAY", q[query_object()]);
+ok(eq_set($sh2_expected, strobjs($sh2_got)),
+   q[shorthand query with hierarchy_project_members()]);
 
-my $sh3_expected = 
+# task6: Add some fonts to the GUI library for use in the editor
+my $sh3_expected =
+[
+  'fonts.c-1:csrc:1',
+  'fonts.h-1:incl:1',
+  'includes-2:dir:3',
+  'main.c-2:csrc:2',
+  'makefile-2:makefile:2',
+  'makefile-2:makefile:3',
+  'makefile.pc-2:makefile:2',
+  'makefile.pc-2:makefile:3',
+  'readme-2:ascii:1',
+  'sources-2:dir:2',
+];
+my $sh3_got = $ccm->query_object({ task => 6 });
+verbose('sh3_got', $sh3_got);
+isa_ok($sh3_got, "ARRAY", q[query_object()]);
+ok(eq_set($sh3_expected, strobjs($sh3_got)),
+   q[shorthand query with task]);
+
+my $complex_expected = 
 [
   [ 'task-1:cvtype:base',	'base/cvtype/task/1' ],
   [ 'task1-1:task:probtrac',	'1' ],
@@ -161,16 +178,24 @@ my $sh3_expected =
   [ 'toolkit.ini-1:ascii:1',	'toolkit.ini-1' ],
   [ 'tset-1:cvtype:base',	'base/cvtype/tset/1' ]
 ];
-my $sh3_got = $ccm->query_arrayref(
-    "name match 't*' and status != 'task_automatic'", 
+push @$complex_expected,
+  [ 'toolkit-int_20021125:project:1', 'toolkit-int_20021125' ]
+  if $ccm->version >= 6.3;
+
+# NOTE: Exclude automatic tasks as they're unpredictable.
+# Exlude baseline's, releasedef's, and recon_temp's (CM Synergy >= 6.3 only).
+my $complex_got = $ccm->query_arrayref(
+    "name match 't*' and not ( (cvtype = 'task' and status = 'task_automatic') or cvtype = 'baseline' or cvtype = 'recon_temp' or cvtype = 'releasedef' )", 
     qw(objectname displayname));
-verbose('sh3_got', $sh3_got);
-isa_ok($sh3_got, "ARRAY", q[query_arrayref() returns array ref]);
+verbose('complex_got', $complex_got);
+isa_ok($complex_got, "ARRAY", q[query_arrayref() returns array ref]);
+all_ok { isa($_, "ARRAY") } $complex_got, 
+   q[query_arrayref() returns array ref of array refs];
 ok(eq_array(			# sort by first array element (object, i.e. objectname)
-   [ sort { $a->[0] cmp $b->[0] } @$sh3_expected ],
-   [ sort { $a->[0] cmp $b->[0] } @$sh3_got ]),
-   q[shorthand query with match clause]);
-all_ok { $ccm->property(displayname => $_->[0]) eq $_->[1] } $sh3_got,
+   [ sort { $a->[0] cmp $b->[0] } @$complex_expected ],
+   [ sort { $a->[0] cmp $b->[0] } @$complex_got ]),
+   q[query "name match 't*'"]);
+all_ok { $ccm->property(displayname => $_->[0]) eq $_->[1] } $complex_got,
    q[check for property(displayname)];
 
 exit 0;

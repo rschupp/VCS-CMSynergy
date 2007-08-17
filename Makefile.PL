@@ -1,5 +1,4 @@
 use ExtUtils::MakeMaker;
-use File::Spec;
 use Config;
 use strict;
 
@@ -12,7 +11,7 @@ die qq{
   ABORTED!
 } unless $ENV{CCM_HOME};
 
-my $ccm_exe = File::Spec->catfile(
+my $ccm_exe = MY->catfile(
     $ENV{CCM_HOME}, "bin", "ccm$Config{_exe}");
 die qq{  
   The value of the CCM_HOME environment variable
@@ -34,11 +33,10 @@ die qq{
 $ccm_version =~ /^(?:Continuus|CM Synergy) Version\s+(\d+\.\d+)/i;
 print "Detected CM Synergy version $1\n";
 
-warn "VCS::CMSynergy recommends Memoize.pm, but doesn't require it.\n"
-    unless eval { require Memoize; 1 };
-warn "The tied hash interface for VCS::CMSynergy::Object is only available\n" .
-     "when  Scalar::Util is installed.\n"
-    unless eval { require Scalar::Util; 1 };
+warn qq{
+  The tied hash interface for VCS::CMSynergy::Object is only available
+  when Scalar::Util is installed and implements "weaken".
+} unless eval { require Scalar::Util; import Scalar::Util qw(weaken); 1 };
 
 
 # --- Create Makefile
@@ -52,15 +50,15 @@ my %prereq =
 $prereq{'Filesys::CygwinPaths'} = 0 if $^O eq 'cygwin';
 
 WriteMakefile(
-    NAME		=> 'VCS::CMSynergy',
-    AUTHOR		=> 'Roderich Schupp <schupp@argumentum.de>',
-    VERSION_FROM	=> 'lib/VCS/CMSynergy.pm',
-    PREREQ_PM		=> \%prereq,
-    dist		=> { 
-			     COMPRESS		=> 'gzip -9f', 
-			     SUFFIX		=> 'gz' 
-			   },
-    realclean		=> { FILES		=> 't/zz_*.t', },
+    NAME	=> 'VCS::CMSynergy',
+    AUTHOR	=> 'Roderich Schupp <schupp@argumentum.de>',
+    VERSION_FROM => 'lib/VCS/CMSynergy.pm',
+    PREREQ_PM	=> \%prereq,
+    dist	=> { 
+	COMPRESS	=> 'gzip -9f', 
+	SUFFIX		=> 'gz' 
+    },
+    realclean	=> { FILES		=> 't/zz_*.t' },
 );
 
 sub MY::postamble
@@ -97,7 +95,7 @@ sub MY::post_initialize
 {
     my $self = shift;
 
-    # don't install Changes.pod
+    # don't install Changes.pod as man page
     delete $self->{MAN3PODS}->{'lib/VCS/CMSynergy/Changes.pod'};
 
     return;

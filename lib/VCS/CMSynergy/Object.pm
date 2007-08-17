@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = sprintf("%d.%02d", q%version: 1.14 % =~ /(\d+)\.(\d+)/);
+our $VERSION = sprintf("%d.%02d", q%version: 1.15 % =~ /(\d+)\.(\d+)/);
 
 =head1 NAME
 
@@ -46,10 +46,25 @@ use overload
     cmp		=> sub { $_[0]->objectname cmp $_[1]->objectname },
     fallback	=> 1;
 
-# NOTE: It's not sufficient to simply require Scalar::Util,
-# it must support weaken, too.
-my $use_tiehash = eval { require Scalar::Util; import Scalar::Util qw(weaken); 1 };
-require VCS::CMSynergy::ObjectTieHash if $use_tiehash;
+my $UseTieHash;
+
+BEGIN
+{
+    # NOTE: It's not sufficient to simply require Scalar::Util, it must 
+    # support weaken, too (which is not be avaliable in some Perl versions).
+    $UseTieHash = eval 
+	{ require Scalar::Util; import Scalar::Util qw(weaken); 1 };
+    require VCS::CMSynergy::ObjectTieHash if $UseTieHash;
+
+    # generate getter methods
+    no strict 'refs';
+    foreach my $method (qw(objectname name version cvtype instance))
+    {
+	*{$method} = $UseTieHash ?
+	    sub { my $self = shift; (tied %$self)->{$method}; } :
+	    sub { $_[0]->{$method} };
+    }
+}
 
 # VCS::CMSynergy::Object->new(ccm, name, version, cvtype, instance)
 sub new
@@ -60,53 +75,34 @@ sub new
 	return undef;
     }
     my $class = shift;
-    my $self = {};
+    my $ccm = shift;
 
-    if ($use_tiehash)
+    my %hash;
+    @hash{qw(name version cvtype instance)} = @_;
+    $hash{objectname} = $_[0] . $ccm->delimiter . "$_[1]:$_[2]:$_[3]";
+
+    if ($UseTieHash)
     {
-	tie %$self, 'VCS::CMSynergy::ObjectTieHash', @_;
+	weaken($hash{ccm} = $ccm);
+	my $self = bless {}, $class;
+	tie %$self, 'VCS::CMSynergy::ObjectTieHash', \%hash;
+	return $self;
     }
     else
     {
-	my $delim = shift->delimiter;
-	$self->{objectname} = "$_[0]${delim}$_[1]:$_[2]:$_[3]";
-	@$self{qw(name version cvtype instance)} = @_;
+	return bless \%hash, $class;
     }
 
-    return bless $self, $class;
-}
-
-{
-    no strict 'refs';
-
-    # generate getter methods
-    foreach my $method (qw(objectname name version cvtype instance))
-    {
-	*{$method} = $use_tiehash ?
-	    sub { my $self = tied %{$_[0]}; $self->{$method}; } :
-	    sub { $_[0]->{$method} };
-    }
-
-    if ($use_tiehash)
-    {
-	# generate redirect-to-tied-self methods
-	foreach my $method (
-	    qw(create_attribute delete_attribute copy_attribute list_attributes
-	       property displayname))
-	{
-	    *{$method} = sub { my $self = shift; (tied %$self)->$method(@_); };
-	}
-    }
 }
 
 sub proj_vers	
 { 
     my $self = shift;
-    $self = tied %$self if $use_tiehash;
 
     carp(__PACKAGE__ . " proj_vers: not a project: $self") unless $self->cvtype eq 'project';
 
-    (my $proj_vers = $self->objectname) =~ s/:.*//;
+    my $proj_vers = $self->objectname;
+    $proj_vers =~ s/:.*// if $self->instance eq '1';
     return $proj_vers;
 }
 

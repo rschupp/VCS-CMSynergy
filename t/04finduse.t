@@ -17,7 +17,8 @@ my $ccm = VCS::CMSynergy->new(%test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 
-my $q_expected = [
+my $q_expected = $ccm->version >= 6.3 ?
+[
   {
     'objectname' => 'main.c-1:csrc:1',
     'finduse' => {}
@@ -29,30 +30,71 @@ my $q_expected = [
   {
     'objectname' => 'main.c-1:csrc:2',
     'finduse' => {
-		   'editor-1.0'		=> 'editor/sources/main.c',
-		   'editor-int'		=> 'editor/sources/main.c'
-		 }
-  },
-  {
-    'objectname' => 'main.c-2:csrc:2',
-    'finduse' => {
-		   'editor-darcy'	=> 'editor/sources/main.c'
+		   'editor-1.0:project:1' => 'editor/sources/main.c'
 		 }
   },
   {
     'objectname' => 'main.c-1:csrc:3',
     'finduse' => {
-		   'guilib-1.0'		=> 'guilib/sources/main.c',
-		   'guilib-int'		=> 'guilib/sources/main.c',
-		   'guilib-darcy'	=> 'guilib/sources/main.c'
+		   'guilib-int_20021125:project:1' => 'guilib/sources/main.c',
+		   'guilib-1.0:project:1' => 'guilib/sources/main.c',
+		   'guilib-int:project:1' => 'guilib/sources/main.c',
+		   'guilib-darcy:project:1' => 'guilib/sources/main.c'
 		 }
   },
   {
     'objectname' => 'main.c-1:csrc:4',
     'finduse' => {
-		   'calculator-1.0'	=> 'calculator/sources/main.c',
-		   'calculator-int'	=> 'calculator/sources/main.c',
-		   'calculator-darcy'	=> 'calculator/sources/main.c'
+		   'calculator-darcy:project:1' => 'calculator/sources/main.c',
+		   'calculator-1.0:project:1' => 'calculator/sources/main.c',
+		   'calculator-int:project:1' => 'calculator/sources/main.c',
+		   'calculator-int_20021125:project:1' => 'calculator/sources/main.c'
+		 }
+  },
+  {
+    'objectname' => 'main.c-2:csrc:2',
+    'finduse' => {
+		   'editor-int_20021125:project:1' => 'editor/sources/main.c',
+		   'editor-int:project:1' => 'editor/sources/main.c',
+		   'editor-darcy:project:1' => 'editor/sources/main.c'
+		 }
+  }
+] : [
+  {
+    'objectname' => 'main.c-1:csrc:1',
+    'finduse' => {}
+  },
+  {
+    'objectname' => 'main.c-2:csrc:1',
+    'finduse' => {}
+  },
+  {
+    'objectname' => 'main.c-1:csrc:2',
+    'finduse' => {
+		   'editor-1.0:project:1' => 'editor/sources/main.c',
+		   'editor-int:project:1' => 'editor/sources/main.c'
+		 }
+  },
+  {
+    'objectname' => 'main.c-2:csrc:2',
+    'finduse' => {
+		   'editor-darcy:project:1' => 'editor/sources/main.c'
+		 }
+  },
+  {
+    'objectname' => 'main.c-1:csrc:3',
+    'finduse' => {
+		   'guilib-1.0:project:1' => 'guilib/sources/main.c',
+		   'guilib-int:project:1' => 'guilib/sources/main.c',
+		   'guilib-darcy:project:1' => 'guilib/sources/main.c'
+		 }
+  },
+  {
+    'objectname' => 'main.c-1:csrc:4',
+    'finduse' => {
+		   'calculator-1.0:project:1' => 'calculator/sources/main.c',
+		   'calculator-int:project:1' => 'calculator/sources/main.c',
+		   'calculator-darcy:project:1' => 'calculator/sources/main.c'
 		 }
   }
 ];
@@ -87,7 +129,7 @@ ok(eq_array(		# eq_set doesn't properly cope with refs
    [ sort { $a->[0] cmp $b->[0] } map { [ $_->{objectname}, $_->{finduse} ] } @$q_expected ]),
    q[$ccm->finduse(...)]);
 
-is($ccm->findpath("main.c-1:csrc:3", "guilib-darcy"),
+is($ccm->findpath("main.c-1:csrc:3", "guilib-darcy:project:1"),
    unix2native("guilib/sources/main.c"),
    q[$ccm->findpath("main.c-1:csrc:3", "guilib-darcy")]);
 ok(!defined $ccm->findpath("main.c-1:csrc:3", "blurfl"),

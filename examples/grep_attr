@@ -1,0 +1,203 @@
+#!/usr/bin/perl -w
+
+=head1 NAME
+
+grep_attr - grep attribute values of CM Synergy objects
+
+=head1 SYNOPSIS
+
+grep_attr [options] attribute [pattern] [objectname...]
+
+  attribute	name of CM Synergy attribute 
+  pattern	Perl regular expression
+  objectname	name of a CM Synergy object
+
+  Options:
+
+  -c          print of count of matching lines for each object processed
+  -d DATABASE connect to CM Synergy database DATABASE
+  -f FILE     obtain patterns from FILE, one per line
+  -h          suppress prefixing of objectnames on output
+  -i          perform case-insensitive search
+  -l          print only the objectname of each matching object
+  -q QUERY    operate on objectnames returned by "ccm query QUERY"
+  -s          safe (but slow) mode when using query
+  -F          interpret pattern(s) as fixed strings
+
+  Either "pattern" or "-f file" must be supplied.
+  Either "objectname"(s) or "-q query" must be supplied.
+  If "-d database" is not specified, the CM Synergy session given by 
+  the environment variable CCM_ADDR will be used.
+
+=head1 DESCRIPTION
+
+grep_attr retrieves the value of attribute C<attribute> for each
+object specified (or returned by C<query>). The value string is then
+grepped using the Perl regular expression C<pattern>. Matching lines
+are printed to C<stdout>, prefixed with the objectname followed by a colon.
+
+
+=head1 OPTIONS
+
+=over 4
+
+=item -c, --count
+
+suppress normal output; instead print of count of
+matching lines for each object processed
+
+=item -d I<database>, --database=I<database>
+
+connect to CM Synergy database I<database>; if this option is not
+specified, C<grep_attr> uses the established CM Synergy session
+given by the environment variable C<CCM_ADDR>
+
+=item -f I<file>, --file=I<file>
+
+obtain patterns from I<file>, instead of from the second argument
+(which must be omitted when using this option);
+C<file> should contain one pattern per line which are considered
+alternatives for the search
+
+=item -h, --no-objectname
+
+suppress prefixing of objectnames on output
+
+=item -i, --ignore-case
+
+perform case-insensitive search
+
+=item -l, --objects-with-matches
+
+suppress normal output; instead print only the objectname 
+of each matching object
+
+=item -q I<query>, --query=I<query>
+
+operate on objectnames returned by B<ccm query> I<query>; when using
+this option, no objectnames must be specified on the command line
+
+=item -s, --safe
+
+safe, but slower operation; this is only relevant when using the C<-q>
+option. When using a query, grep_attr performs the query and retrieval
+of attribute values in a single call to B<ccm query>.  This saves
+a lot of B<ccm attribute -show> calls, but may overflow the
+10 MB buffer for query results in the CM Synergy engine, esp. when
+the query returns many objects and the attribute values have substantial size.
+If C<-s> is specified, grep_attr queries for objectnames only and then
+calls B<ccm attribute -show> in a loop over the returned objectnames.
+
+=item -F, --fixed-strings
+
+interpret pattern(s) (either given as second argument or from
+file) as fixed strings, inestead of Perl regular expressions
+
+=back
+
+=head1 AUTHORS
+
+Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
+
+=cut
+  
+use Getopt::Long qw(:config bundling);
+use Pod::Usage;
+use VCS::CMSynergy;
+use strict;
+
+sub grep_attr($$);
+
+our $Options = {};
+GetOptions($Options,
+    'c|count',			# print count of matching lines
+    'd|database=s',		# connect to database
+    'f|file=s',			# patterns from file
+    'h|no-objectname',		# suppress printing objectname
+    'i|ignore-case',		# case-insensitive search
+    'l|objects-with-matches',	# print objectnames only
+    'q|query=s',		# use query to dterine objectnames
+#    'v|revert-match',		# show objetcnames that DON'T match
+    's|safe',			# safe (but slow) mode (with query)
+    'F|fixed-strings',		# treat pattern as fixed strings
+    ) or pod2usage(2);
+
+our $attribute = shift @ARGV or pod2usage(2);
+
+our $pattern;
+if (defined $Options->{f})
+{
+    local *FILE;
+    open(FILE, "< $Options->{f}") or die "can't open pattern file `$Options->{f}': $!";
+    $pattern = join("|", map { chomp; $Options->{F} ? quotemeta($_) : $_ } <FILE>);
+    close(FILE);
+}
+else
+{
+    $pattern = shift @ARGV or pod2usage(2);
+    $pattern = quotemeta($pattern) if $Options->{F};
+}
+$pattern = "(?i:$pattern)" if $Options->{i};
+
+pod2usage(2) unless (defined $Options->{q} xor @ARGV);
+
+our $re = qr/$pattern/;
+our $matches = 0;
+
+
+my @ccm_args = defined $Options->{d} ? 
+    (database => $Options->{d}) : (CCM_ADDR => $ENV{CCM_ADDR});
+my $ccm = VCS::CMSynergy->new(
+    RaiseError	=> 1,
+    PrintError	=> 0,
+    @ccm_args);
+
+if (defined $Options->{q} && !$Options->{s})
+{
+    foreach (@{ $ccm->query_arrayref($Options->{q}, 'objectname', $attribute) })
+    {
+	grep_attr($_->[0], $_->[1]) ;
+    }
+}
+else
+{
+    foreach (defined $Options->{q} ?
+	@{ $ccm->query_object($Options->{q}) } : @ARGV)
+    {
+	grep_attr($_, $ccm->get_attribute($attribute, $_));
+    }
+}
+
+exit $matches ? 0 : 1;
+
+
+sub grep_attr($$)
+{
+    my ($objectname, $value) = @_;
+
+    unless ($value =~ $re)
+    {
+	print "$objectname:0\n" if $Options->{c};
+	return;
+    }
+
+    $matches++;
+
+    if ($Options->{l}) 
+    {
+	print "$objectname\n";
+	return;
+    }
+
+    my @lines = grep { /$re/ } split(/\n/, $value);
+    if ($Options->{c})
+    {
+	printf("%s:%d\n", $objectname, int(@lines));
+	return;
+    }
+    foreach (@lines)
+    {
+	print "$objectname:" unless $Options->{h};
+	print "$_\n";
+    }
+}

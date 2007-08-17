@@ -2,19 +2,11 @@ package VCS::CMSynergy::ObjectTieHash;
 
 use Scalar::Util qw(weaken);
 
-# TIEHASH(class, ccm, name, version, cvtype, instance)
+# TIEHASH(class, { ccm => ..., name => ..., ...})
 sub TIEHASH
 {
-    my $class = shift;
-    my $self = {};
-
-    @$self{qw(ccm name version cvtype instance)} = @_;
-    weaken $self->{ccm};
-
-    my $delim = shift->delimiter;
-    $self->{objectname} = "$_[0]${delim}$_[1]:$_[2]:$_[3]";
-
-    return bless $self, $class;
+    my ($class, $href) = @_;
+    return bless $href, $class;
 }
 
 sub FETCH
@@ -32,7 +24,7 @@ sub STORE
 sub EXISTS
 {
     my ($self, $key) = @_;
-    $self->list_attributes unless $self->{attributes};
+    $self->{attributes} ||= $self->{ccm}->list_attributes($self->{objectname});
 
     return exists $self->{attributes}->{$key};
 }
@@ -40,7 +32,7 @@ sub EXISTS
 sub FIRSTKEY
 {
     my ($self) = @_;
-    $self->list_attributes unless $self->{attributes};
+    $self->{attributes} ||= $self->{ccm}->list_attributes($self->{objectname});
 
     my $dummy = keys %{ $self->{attributes} };	# reset each() iterator
     return each %{ $self->{attributes} };
@@ -49,7 +41,7 @@ sub FIRSTKEY
 sub NEXTKEY
 {
     my ($self, $lastkey) = @_;
-    $self->list_attributes unless $self->{attributes};
+    $self->{attributes} ||= $self->{ccm}->list_attributes($self->{objectname});
 
     return each %{ $self->{attributes} };
 }
@@ -57,49 +49,70 @@ sub NEXTKEY
 sub DELETE
 {
     my ($self, $key) = @_;
-    $self->delete_attribute($key);
+    $self->{ccm}->delete_attribute($key);
+}
+
+
+package VCS::CMSynergy::Object;
+
+sub get_attribute
+{
+    my ($self, $attr_name) = @_;
+    #(tied %$self)->{ccm}->get_attribute($attr_name, $self);
+    (tied %$self)->FETCH($attr_name);
+}
+
+sub set_attribute
+{
+    my ($self, $attr_name, $value) = @_;
+    #(tied %$self)->{ccm}->set_attribute($attr_name, $self, $value);
+    (tied %$self)->STORE($attr_name, $value);
 }
 
 sub list_attributes
 {
     my ($self) = @_;
-    $self->{attributes} ||= $self->{ccm}->list_attributes($self->{objectname});
+    my $tied = tied %$self;
+
+    $tied->{attributes} ||= $tied->{ccm}->list_attributes($self);
 }
 
 sub create_attribute
 {
     my ($self, $name, $type, $value) = @_;
+    my $tied = tied %$self;
     
-    my $rc = $self->{ccm}->create_attribute($name, $type, $value, $self->{objectname});
-    $self->{attributes}->{$name} = $type if $rc && $self->{attributes};
+    my $rc = $tied->{ccm}->create_attribute($name, $type, $value, $self);
+    $tied->{attributes}->{$name} = $type if $rc && $tied->{attributes};
     return $rc;
 }
 
 sub delete_attribute
 {
     my ($self, $name) = @_;
+    my $tied = tied %$self;
 
-    my $rc = $self->{ccm}->delete_attribute($name, $self->{objectname});
-    delete $self->{attributes}->{$name} if $rc && $self->{attributes};
+    my $rc = $tied->{ccm}->delete_attribute($name, $self);
+    delete $tied->{attributes}->{$name} if $rc && $tied->{attributes};
     return $rc;
 }
 
 sub copy_attribute
 {
     my ($self, $name, $flags, @to_file_specs) = @_;
-    return $self->{ccm}->copy_attribute($name, $flags, $self->{objectname}, @to_file_specs);
+    (tied %$self)->{ccm}->copy_attribute($name, $flags, $self, @to_file_specs);
 }
 
 sub property
 {
     my ($self, $keyword) = @_;
-    return $self->{ccm}->property($keyword, $self->{objectname});
+    (tied %$self)->{ccm}->property($keyword, $self);
 }
 
 sub displayname
 {
     my ($self) = @_;
-    $self->{displayname} ||= $self->property('displayname');
+    (tied %$self)->{displayname} ||= $self->property('displayname');
 }
 
 

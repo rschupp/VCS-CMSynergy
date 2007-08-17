@@ -49,13 +49,33 @@ sub all_ok(&$;$)
     pass($test_name);
 }
 
+# stringify an array of VCS::CMSynergy::Object's
+sub strobjs($)
+{
+    my $aref = shift;
+    return [ map { "$_" } @$aref ];
+}
 
+# NOTE: We want to prevent Data::Dumper to dump all attributes
+# of a VCS::CMSynergy::Object when using the tied hash interface.
 sub verbose($$)
 {
-    return unless $ENV{TEST_VERBOSE};
+    return unless defined $ENV{TEST_VERBOSE} && $ENV{TEST_VERBOSE} > 1;
 
     my ($tag, $result) = @_;
-    print STDERR Data::Dumper->Dump([ $result], [ $tag ]);
+    my $dumper = Data::Dumper->new([ $result], [ $tag ]);
+    $dumper->Freezer('Freezer');
+    print STDERR $dumper->Dump;
 }
+
+sub VCS::CMSynergy::Object::Freezer
+{
+    my $objectname = shift->objectname;
+    return bless \$objectname, "VCS::CMSynergy::Object::Dummy";
+}
+
+# Shut up annoying Data::Dumper warning
+# WARNING(Freezer method call failed): Can't locate object method "Freezer"...
+sub VCS::CMSynergy::Freezer	{ return shift; }
 
 1;

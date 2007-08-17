@@ -1,0 +1,11 @@
+CMSynergy.pm
+CMSynergy/Users.pm
+Makefile.PL
+MANIFEST
+README
+t/01session.t
+t/02autoload.t
+t/03query.t
+t/04finduse.t
+t/05history.t
+t/util.pm

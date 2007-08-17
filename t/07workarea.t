@@ -11,6 +11,7 @@ use File::Path;
 use File::Spec;
 use File::Temp qw(tempdir tempfile);
 use Digest::MD5;
+use End;
 
 BEGIN
 {
@@ -41,7 +42,6 @@ my $binary_obj = $ccm->object("calculator.exe-1:executable:1");
 {
     my $tempdir = tempdir(CLEANUP => 1);
     $tempdir = fullwin32path($tempdir) if $^O eq 'cygwin';
-    my $cleanup = Cleanup->new;
 
     ok($ccm->checkout(-project => "${pname}-1.0", 
 		      -to => $pversion, -path => $tempdir, "-copy_based"), 
@@ -53,13 +53,13 @@ my $binary_obj = $ccm->object("calculator.exe-1:executable:1");
     my $wa_path = $ccm->get_attribute(wa_path => $test_proj);
     ok(index($wa_path, $tempdir) == 0, 
 	qq[wa_path "$wa_path" is below checkout path "$tempdir"]);
-    $cleanup->add(sub
+    my $cleanup_test_proj = end
     {
 	ok($ccm->delete(-project => $test_proj), 
 	    qq[delete test project $test_proj]);
 	ok(! -d $wa_path, 
 	    q[test project workarea has been deleted]);
-    });
+    };
 
     my $ccmwaid = File::Spec->catfile(
 	$wa_path, $pname,
@@ -68,11 +68,9 @@ my $binary_obj = $ccm->object("calculator.exe-1:executable:1");
 	qq[check for ccmwaid file ($ccmwaid) in workarea]);
 
     # chdir to workarea (for testing coprocess)
-    {
-	my $pwd = getcwd;
-	ok(chdir($wa_path), q[chdir to workarea]);
-	$cleanup->add(sub { chdir($pwd); });
-    }
+    my $pwd = getcwd;
+    ok(chdir($wa_path), q[chdir to workarea]);
+    my $cleanup_chdir = end { chdir($pwd); };
 
     foreach my $obj ($ascii_obj, $binary_obj)
     {
@@ -98,11 +96,11 @@ my $binary_obj = $ccm->object("calculator.exe-1:executable:1");
 
     # check out an object
     ok($ccm->checkout($file), q[check out $file]);
-    $cleanup->add(sub
+    my $cleanup_checkout = end 
     {
 	ok($ccm->delete(-replace => $file), 
 	    qq[delete and replace $file]);
-    });
+    };
     ok(-w $file, qq[file $file is now writable]);
     is($ccm->get_attribute(status => $file), "working", 
 	q[checked out file is "working"]);
@@ -151,10 +149,3 @@ sub md5_file
     close $fh;
     return $md5->hexdigest;
 }
-
-
-package Cleanup;
-
-sub new		{ my $self = bless [], shift; $self->add(@_); $self }
-sub add		{ my $self = shift; push @$self, @_; $self; }
-sub DESTROY	{ my $self = shift; &{ pop @$self } while @$self; }

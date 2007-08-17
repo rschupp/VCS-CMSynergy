@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 14 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 16 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -122,51 +122,34 @@ sub list_attributes
 {
     my ($self) = @_;
 
-    my $private = $self->_private;
-    return $private->{attributes} ||= $private->{ccm}->list_attributes($private->{objectname});
+    return $self->_private->{attributes} ||= $self->ccm->list_attributes($self);
 }
 
 sub get_attribute
 {
     my ($self, $attr_name) = @_;
 
-    my $private = $self->_private;
-
     if (VCS::CMSynergy::use_cached_attributes())
     {
-	my $acache = $private->{acache};
+	my $acache = $self->_private->{acache};
 	return $acache->{$attr_name} if exists $acache->{$attr_name};
+    }
 
-	# actually get attribute and update cache 
-	# (even if undef, i.e. non-existent)
-	return $acache->{$attr_name} = 	
-	    $private->{ccm}->get_attribute($attr_name, $private->{objectname});
-    }
-    else
-    {
-	return $private->{ccm}->get_attribute($attr_name, $private->{objectname});
-    }
+    my $value = $self->ccm->get_attribute($attr_name, $self);
+
+    $self->_update_acache($attr_name => $value);
+    return $value;
 }
 
 sub set_attribute
 {
     my ($self, $attr_name, $value) = @_;
 
-    my $private = $self->_private;
-    my $rc = $private->{ccm}->set_attribute($attr_name, $private->{objectname}, $value);
+    my $rc = $self->ccm->set_attribute($attr_name, $self, $value);
 
-    # update cache if necessary
-    if (VCS::CMSynergy::use_cached_attributes())
-    {
-	if ($rc)
-	{
-	    $private->{acache}->{$attr_name} = $value;	# update
-	}
-	else
-	{
-	    delete $private->{acache}->{$attr_name};	# invalidate
-	}
-    }
+    if (defined $rc) { $self->_update_acache($attr_name => $value); }
+    else             { $self->_forget_acache($attr_name); }
+
     return $rc;
 }
 
@@ -177,21 +160,14 @@ sub create_attribute
     
     my $rc = $self->ccm->create_attribute($attr_name, $type, $value, $self);
 
-    # update cache and atrribute list if necessary
-    my $private = $self->_private;
-    $private->{attributes}->{$attr_name} = $type
-	if $rc && $private->{attributes};
-    if (VCS::CMSynergy::use_cached_attributes())
+    # update cache and attribute list if necessary
+    if ($rc)
     {
-	if ($rc)
-	{
-	    $private->{acache}->{$attr_name} = $value;	# update
-	}
-	else
-	{
-	    delete $private->{acache}->{$attr_name};	# invalidate
-	}
+	$self->_update_acache($attr_name => $value);
+	my $private = $self->_private;
+	$private->{attributes}->{$attr_name} = $type if $private->{attributes};
     }
+
     return $rc;
 }
 
@@ -203,21 +179,13 @@ sub delete_attribute
     my $rc = $self->ccm->delete_attribute($attr_name, $self);
 
     # update cache and attribute list if necessary
-    my $private = $self->_private;
-    delete $private->{attributes}->{$attr_name}
-	if $rc && $private->{attributes};
-    if (VCS::CMSynergy::use_cached_attributes())
+    if ($rc)
     {
-	$private->{acache}->{$attr_name} = undef;
-	if ($rc)
-	{
-	    $private->{acache}->{$attr_name} = undef;	# update
-	}
-	else
-	{
-	    delete $private->{acache}->{$attr_name};	# invalidate
-	}
+	# NOTE: the attribute may have reverted from local back to inherited
+	$self->_forget_acache($attr_name); 	
+	delete $self->_private->{attributes};
     }
+
     return $rc;
 }
 
@@ -243,14 +211,15 @@ sub copy_attribute
 	    {
 		# if we already know the value of the copied attribute(s)
 		# and the copy was successful, update the targets' caches
-		$_->_private->{acache}->{$attr_name} = $acache->{$attr_name} foreach @objects;
+		my $value = $acache->{$attr_name};
+		$_->_update_acache($attr_name => $value) foreach @objects;
 	    }
 	    else
 	    {
 		# in all other cases, invalidate the targets' caches
 		# (esp. in case of failure, since we can't know 
 		# which got actually updated)
-		delete $_->_private->{acache}->{$attr_name} foreach @objects;
+		$_->_forget_acache($attr_name) foreach @objects;
 	    }
 	}
     }
@@ -258,14 +227,33 @@ sub copy_attribute
     return $rc;
 }
 
+# $obj->_update_acache($name => $value) or
+# $obj->_update_acache(\%attributes)
 sub _update_acache
 {
-    my ($self, $attrs) = @_;
     return unless VCS::CMSynergy::use_cached_attributes();
 
-    my $acache = $self->_private->{acache};
-    @$acache{keys %$attrs} = values %$attrs;
+    my $self = shift;
+    if (@_ == 2)
+    {
+	$self->_private->{acache}->{$_[0]} = $_[1];
+    }
+    else
+    {
+	my $attrs = shift;
+	@{$self->_private->{acache}}{keys %$attrs} = values %$attrs;
+    }
 }
+
+# $obj->_forget_acache(@names)
+sub _forget_acache
+{
+    return unless VCS::CMSynergy::use_cached_attributes();
+
+    my $self = shift;
+    delete $self->_private->{acache}->{$_} foreach @_;
+}
+
 
 # test whether object exists (without causing an exception)
 sub exists
@@ -278,7 +266,9 @@ sub exists
 sub property
 {
     my ($self, $keyword) = @_;
-    return $self->ccm->property($keyword, $self);
+    my $props = $self->ccm->property($keyword, $self);
+    $self->_update_acache(UNIVERSAL::isa($keyword, 'ARRAY') ? $props : { $keyword => $props });
+    return $props;
 }
 
 sub displayname

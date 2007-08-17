@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# %version: 12 %
+# %version: 13 %
 
 use inc::Module::Install;
 use Config;
@@ -63,6 +63,8 @@ requires	'File::Temp'		=> 0;
 requires	'IPC::Run3'		=> '0.030';
 requires	'Time::HiRes'		=> 0;
 requires	'Class::Accessor::Fast' => 0;
+requires	'List::Util'		=> '1.09';
+requires	'Scalar::Util'		=> '1.09';
 requires	'Filesys::CygwinPaths'	=> 0 if $^O eq 'cygwin';
 
 build_requires	'Test::More'		=> 0;

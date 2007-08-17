@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.27.3 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.27.9 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -13,10 +13,8 @@ our @ISA = qw(VCS::CMSynergy::Client);
 
 use Carp;
 use Config;
-use Cwd;
 use File::Spec;
 use File::Temp qw(tempfile);		# in Perl core v5.6.1 and later
-use IPC::Run3;
 
 
 BEGIN
@@ -205,9 +203,8 @@ sub _start
 
     if ($self->{UseCoprocess})
     {
-	if ($self->{coprocess} = $self->_spawn_coprocess)
+	if ($self->_spawn_coprocess)
 	{
-	    $self->{cwd} = getcwd();	# remembers coprocess' working directory
 	    $Debug && $self->trace_msg("spawned coprocess (pid=".$self->{coprocess}->pid.")\n", 8);
 	}
 	else
@@ -399,6 +396,16 @@ sub query_count
 }
 
 
+# NOTE: We use \cA and \cD as record/field separators.
+# SYNERGY/Change uses \x1C-\x1E in attribute
+# "transition_log" of "problem" objects, so these are out.
+# Also people have been known to enter strange characters
+# like \cG even when using a GUI exclusively.
+# Change these at your own risk, YMMV.
+
+our $RS = "\cA";	# record separator for query etc
+our $FS = "\cD";	# field separator for query etc
+
 # helper method: query with correct handling of multi-line attributes
 sub _query
 {
@@ -409,12 +416,7 @@ sub _query
     my $want = _want($keywords);
     my $want_finduse = delete $want->{finduse};
 
-    # NOTE: We use \cA and \cD as record/field separators.
-    # Change Synergy uses \x1C-\x1E in attribute
-    # "transition_log" of "problem" objects, so these are out.
-    # Also people have been known to enter strange characters
-    # like \cG even when using a GUI exclusively.
-    my $format = "\cA" . join("\cD", values %$want) . "\cD";
+    my $format = $RS . join($FS, values %$want) . $FS;
 
     my ($rc, $out, $err) = $want_finduse ?
 	$self->ccm_with_option(
@@ -429,11 +431,11 @@ sub _query
     return $self->set_error($err || $out) unless $rc == 0;
 
     my @result;
-    foreach (split(/\cA/, $out))		# split into records 
+    foreach (split(/\Q$RS\E/, $out))		# split into records 
     {
 	next unless length($_);			# skip empty leading record
 
-	my @cols = split(/\cD/, $_, -1);	# don't strip empty trailing fields
+	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
 	my %finduse;
 
 	if ($want_finduse)
@@ -496,11 +498,15 @@ sub _parse_query_result
     # handle special keywords
 
     # Sigh. "ccm query -f %objectname" returns old-style fullnames
-    # (i.e. "instance/cvtype/name/version") for certain types of 
+    # (i.e. "instance/cvtype/name/version") for certain legacy types of 
     # objects, e.g. "cvtype" and "attype". But CM Synergy
     # doesn't accept these where a "file_spec" is expected 
     # (at least on Unix, because they contain slashes). 
     # Hence rewrite these fullnames to objectnames.
+    # Arrggh. Some monkey implemented a bogus "objectname" acc_method 
+    # for release objects (i.e. type "releasedef") that
+    # emits ":" as the first separator. These objectnames aren't
+    # accepted as file_specs either. Rewrite them, too.
     for (qw(objectname object))
     {
 	if ($want->{$_})
@@ -508,6 +514,8 @@ sub _parse_query_result
 	    # rewrite fullname if necessary
 	    $row{$_} =~ s{^(.*?)/(.*?)/(.*?)/(.*?)$}
 			 {$3$self->{delimiter}$4:$2:$1};
+	    $row{$_} =~ s{^(.*?):(.*?):releasedef:(.*?)$}
+			 {$1$self->{delimiter}$2:releasedef:$3};
 	}
     }
 
@@ -670,17 +678,17 @@ sub _history
     my $want_predecessors = delete $want->{predecessors};
     my $want_successors = delete $want->{successors};
 
-    my $format = "\cA" . join("\cD", values %$want) . "\cD";
+    my $format = $RS . join($FS, values %$want) . $FS;
 
     my ($rc, $out, $err) = $self->_ccm(qw/history -f/, $format, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my @result;
-    foreach (split(/\cA/, $out))		# split into records 
+    foreach (split(/\Q$RS\E/, $out))		# split into records 
     {
 	next unless length($_);			# skip empty leading record
 
-	my @cols = split(/\cD/, $_, -1);	# don't strip empty trailing fields
+	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
 	
 	# history information is the last "column"
 	my $history = pop @cols;
@@ -835,12 +843,12 @@ sub _relations
     # the other part. Hence both "from" and "to" part below are never
     # empty, even if $want_from or $want_to are empty.
     my $format = 
-	"\cA" . 			# record delimiter
-	join("\cD", 			# column separator
+	$RS . 			# record delimiter
+	join($FS, 			# column separator
 	    values %$want_from,		# "from" part
 	    "::", 			# will be replaced by name of relation
 	    values %$want_to) .		# "to" part
-	"\cD";				# will be followed by create_time
+	$FS;				# will be followed by create_time
 
     my ($rc, $out, $err) = $self->_ccm(
 	qw/relate -show -format/ => $format, 
@@ -853,11 +861,11 @@ sub _relations
     return $self->set_error($err || $out) unless $rc == 0;
 
     my (@result, $from, $to);
-    foreach (split(/\cA/, $out))		# split into records 
+    foreach (split(/\Q$RS\E/, $out))		# split into records 
     {
 	next unless length($_);			# skip empty leading record
 
-	my @cols = split(/\cD/, $_, -1);	# don't strip empty trailing fields
+	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
 
 	# first $ncol_from columns are the "from" part;
 	# avoid to parse "from" part more than once # if "from => ..." was specified
@@ -1142,16 +1150,49 @@ sub set_attribute
     my ($self, $attr_name, $file_spec, $value) = @_;
     _usage(4, 4, '$attr_name, $file_spec, $value', \@_);
 
-    my ($rc, $out, $err);
+    # try "ccm attribute -modify ..." first
+    my ($rc, $out, $err) = $self->_ccm_attribute(
+	-modify => $attr_name, -value => $value, $file_spec);
+
+    # if this fails because the attribute is inherited,
+    # try "ccm attribute -force -create ..."
+    if ($rc != 0 && ($err || $out) =~ /Attribute .* is inherited/)
+    {
+	# determine attribute's type 
+	# (use V::C::O method if possible, because it's cached)
+	my $attributes = UNIVERSAL::isa($file_spec, "VCS::CMSynergy::Object") ?
+	    $file_spec->list_attributes : $self->list_attributes($file_spec);
+	my $attr_type = $attributes->{$attr_name}
+	    or return $self->set_error(
+		"oops: attribute $attr_name on `$file_spec' seems inherited, but doesn't show with `ccm attr -la'");
+	
+	($rc, $out, $err) = $self->_ccm_attribute(
+	    -create => $attr_name, -value => $value, -type => $attr_type, -force => $file_spec);
+    }
+
+    return $value if $rc == 0;
+    return $self->set_error($err || $out);
+}
+
+
+# helper method (used for "ccm attr -modify" and "ccm attr -force -create")
+sub _ccm_attribute
+{
+    my ($self, @args) = @_;	# @args must contain ..., -value => $value, ...
+
+    # squeeze -value => $value from @args
+    my $value;
+    for (my $i = 0; $i < @args; $i++)
+    {
+	next unless $args[$i] =~ /^-(?:v|value)$/;
+	(undef, $value) = splice @args, $i, 2;
+	last;
+    }
+    croak(__PACKAGE__."::_ccm_attribute: mssing argument \"-value\"")
+	unless defined $value;
 
     if ($value eq "")
     {
-	# FIXME: doesn't work on Windows (CCM seems to write/read
-	# confirmation prompt and answer directly from the console
-	# window, NOT from stdout/stdin
-	return $self->set_error("setting a text attribute to an empty string is not supported on Windows")
-	    if is_win32;
-
 	# Setting a text attribute to an empty string is a real PITA:
 	# - CM Synergy will launch text_editor, even if "-v ''" was specified
 	# - if the temporary file containing the attribute's value is empty 
@@ -1159,70 +1200,40 @@ sub set_attribute
 	#	Result of edit is an empty attribute.
 	#	Confirm: (y/n) [n] 
 	
-	WITH_TEXT_EDITOR:
-	{
-	    ($rc, $out, $err) = $self->_set('text_editor');
-	    last WITH_TEXT_EDITOR unless $rc == 0;
-	    my $old_text_editor = $out;
+	# FIXME: the following doesn't work on Windows (CCM seems to read 
+	# the confirmation answer directly from CON:, _not_ from stdin)
+	return $self->_error("setting a text attribute to an empty string is not supported on Windows")
+	    if is_win32;
 
-	    ($rc, $out, $err) = $self->_set(
-		text_editor => $^O eq 'MSWin32' ?
-		    qq[cmd /c echo off > %filename ] :  	#/
-		    qq[$Config{cp} /dev/null %filename]);
-	    last WITH_TEXT_EDITOR unless $rc == 0;
+	my ($rc, $out, $err) = $self->_set('text_editor');
+	return ($rc, $out, $err) unless $rc == 0;
 
-	    $Error = $self->{error} = undef;
-	    $Ccm_command = $self->{ccm_command} = "attribute -modify $attr_name $file_spec";
+	my $old_text_editor = $out;
 
-	    my $t0 = $Debug && [ Time::HiRes::gettimeofday() ];
+	($rc, $out, $err) = $self->_set(
+	    text_editor => $^O eq 'MSWin32' ?
+		qq[cmd /c echo off > %filename ] :  	#/
+		qq[$Config{cp} /dev/null %filename]);
+	return ($rc, $out, $err) unless $rc == 0;
 
-	    local @ENV{keys %{ $self->{env} }} = values %{ $self->{env} };
+	my @result = $self->_ccm(attribute => @args, { in =>  \"y\n" });
 
-	    run3([ $self->ccm_exe, qw/attribute -modify/, $attr_name, $file_spec ], 
-		 \"y\n", \$out, \$err, 
-		 { binmode_stdout => 1, binmode_stderr => 1 });
-	    $rc = $?;
-	    my @result = ($rc, $out, $err);
+	($rc, $out, $err) = $self->_set(text_editor => $old_text_editor);
+	return ($rc, $out, $err) unless $rc == 0;
 
-	    if ($Debug)
-	    {
-		my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
-		if ($Debug >= 8)
-		{
-		    $self->trace_msg("<- ccm($self->{ccm_command})\n", 8);
-		    $self->trace_msg("-> rc = $rc [$elapsed sec]\n", 8);
-		    $self->trace_msg("-> err = \"$err\"\n", 8);
-		}
-		else
-		{
-		    my $success = $rc == 0 ? 1 : 0;
-		    $self->trace_msg("ccm($self->{ccm_command}) = $success [$elapsed sec]\n");
-		}
-	    }
-
-	    ($rc, $out, $err) = $self->_set(text_editor => $old_text_editor);
-	    last WITH_OPTION unless $rc == 0;
-
-	    ($rc, $out, $err) = @result;
-	}
+	return @result;
     }
-    elsif (($self->{coprocess} && (length($value) > 1600 || $value =~ /["\r\n]/)) ||
-        (is_win32 && (length($value) > 100 || $value =~ /[%<>&"\r\n]/)))
+
+    if (($self->{coprocess} && (length($value) > 1600 || $value =~ /["\r\n]/))
+        || (is_win32 && (length($value) > 100 || $value =~ /[%<>&"\r\n]/)))
     {
 	# Use ye olde text_editor trick if $value may cause problems
 	# (depending on execution mode and platform) because its
 	# too long or contains unquotable characters or...
-	($rc, $out, $err) = $self->ccm_with_text_editor($value, 
-	    qw/attribute -modify/, $attr_name, $file_spec);
-    }
-    else
-    {
-	($rc, $out, $err) = $self->_ccm(
-	    qw/attribute -modify/, $attr_name, -value => $value, $file_spec);
+	return $self->ccm_with_text_editor($value, attribute => @args);
     }
 
-    return $self->set_error($err || $out) unless $rc == 0;
-    return $value;
+    return $self->_ccm(attribute => @args, -value => $value);
 }
 
 
@@ -1282,21 +1293,23 @@ sub list_attributes
 sub property
 {
     my ($self, $keyword, $file_spec) = @_;
-    _usage(3, 3, '$keyword, $file_spec', \@_);
+    _usage(3, 3, '{ $keyword | \@keywords }, $file_spec', \@_);
 
-    # NOTE: CM adds a trailing blank on output
+    my $want = _want(UNIVERSAL::isa($keyword, 'ARRAY') ? $keyword : [ $keyword ]);
+    my $format = $RS . join($FS, values %$want) . $FS;
+
     my ($rc, $out, $err) = 
-	$self->_ccm(qw/properties -nf -format/, "\cA%$keyword\cD", $file_spec);
+	$self->_ccm(qw/properties -nf -format/, $format, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
-    local ($_) = $out =~ /\cA(.*)\cD/s or return undef;
-    s/\n\z//;
-    return /^<void>$/ ? undef : $_;
+    my (undef, $props) = split(/\Q$RS\E/, $out, -1);
+    my @cols = split(/\Q$FS\E/, $props, -1);	# don't strip empty trailing fields
+    my $row = $self->_parse_query_result($want, \@cols, ROW_HASH);
+
+    return UNIVERSAL::isa($keyword, 'ARRAY') ? $row : $row->{$keyword};
 }
 
 
-# FIXME $destination = \*FH or IO::Handle doesn't work 
-# because of a bug in IPC::Run3 0.01
 sub cat_object
 {
     my ($self, $object, $destination) = @_;
@@ -1312,46 +1325,24 @@ sub cat_object
     }
 
     my $want_return = @_ == 2;
-    $destination = do { my $dummy; \$dummy; } if $want_return;
+    my $out;
+    $destination = \$out if $want_return;
 
-    $Error = $self->{error} = undef;
-    $Ccm_command = $self->{ccm_command} = "cat $object";
+    my ($rc, undef, $err) = $self->_ccm(
+	cat => $object, { out => $destination, binmode_stdout => 1 });
 
-    my $t0 = $Debug && [ Time::HiRes::gettimeofday() ];
-
-    local @ENV{keys %{ $self->{env} }} = values %{ $self->{env} };
-    local $?;				# don't screw up global $?
-    my $err;
-
-    run3([ $self->ccm_exe, 'cat', $object ], \undef, $destination, \$err, 
-	 { binmode_stdout => 1, binmode_stderr => 1 });
-    my $rc = $?;
-
-    if ($Debug)
-    {
-	my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
-	if ($Debug >= 8)
-	{
-	    $self->trace_msg("<- ccm($self->{ccm_command})\n", 8);
-	    $self->trace_msg("-> rc = $rc [$elapsed sec]\n", 8);
-	    $self->trace_msg("-> err = \"$err\"\n", 8);
-	}
-	else
-	{
-	    my $success = $rc == 0 ? 1 : 0;
-	    $self->trace_msg("ccm($self->{ccm_command}) = $success [$elapsed sec]\n");
-	}
-    }
     return $self->set_error($err || "`ccm cat $object' failed") unless $rc == 0;
-    return $want_return ? $$destination : 1;
+    return $want_return ? $out : 1;
 }
 
 # [DEPRECATE < 6.3]
 sub _cat_binary
 {
     my ($self, $object, $destination) = @_;
+
     my $want_return = @_ == 2;
-    $destination = do { my $dummy; \$dummy; } if $want_return;
+    my ($rc, $out, $err);
+    $destination = \$out if $want_return;
 
     my $file;
     if (ref $destination)	# scalar ref, code ref, ....
@@ -1370,7 +1361,7 @@ sub _cat_binary
     # otherwise it won't override the view_cmd attached to the attype.
     my $view_cmd = $object->cvtype . "_cli_view_cmd";
 
-    my ($rc, $out, $err) = $self->ccm_with_option(
+    ($rc, $out, $err) = $self->ccm_with_option(
 	$view_cmd => $^O eq 'MSWin32' ?
 	    qq[cmd /c copy /b /y %filename "$file"] :  	#/
 	    qq[$Config{cp} %filename '$file'],
@@ -1380,19 +1371,25 @@ sub _cat_binary
 	unlink $file if ref $destination;
 	return $self->set_error($err || $out);
     }
+    return 1 unless ref $destination;
 
-    if (ref $destination)
+    require IPC::Run3;
+    my $type = IPC::Run3::_type($destination);
+    if ($type eq "FH")
     {
-	local $?;
-	run3([ $Config{cat}, $file ], \undef, $destination, \undef,
-	     { binmode_stdout => 1 });
-	unlink $file;
-	return $want_return ? $$destination : 1;
+	require File::Copy;
+	File::Copy::copy($file, $destination);
     }
     else
     {
-	return 1;
+	open my $fh, "<$file"
+	    or return $self->set_error("can't open temp file `$file': $!");
+	binmode $fh;
+	IPC::Run3::_read_child_output_fh("temp file", $type, $destination, $fh, {});
+	close $fh;
     }
+    unlink $file;
+    return $want_return ? $out : 1;
 }
 
 # internal method
@@ -1476,17 +1473,17 @@ sub _ls
 
     my $want = _want($keywords);
     
-    my $format = "\cA" . join("\cD", values %$want) . "\cD";
+    my $format = $RS . join($FS, values %$want) . $FS;
 
     my ($rc, $out, $err) = $self->_ccm(qw/ls -format/, $format, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my @result;
-    foreach (split(/\cA/, $out))		# split into records 
+    foreach (split(/\Q$RS\E/, $out))		# split into records 
     {
 	next unless length($_);			# skip empty leading record
 
-	my @cols = split(/\cD/, $_, -1);	# don't strip empty trailing fields
+	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
 	my $row = $self->_parse_query_result($want, \@cols, $row_type);
 	push @result, $row_type == ROW_ARRAY ? [ @$row{@$keywords} ] : $row;
     }
@@ -1829,18 +1826,9 @@ sub object_from_cvid
     my ($self, $cvid) = @_;
     _usage(2, 2, '$cvid', \@_);
 
-    # NOTES: 
-    # - CM adds a trailing blank on output
-    # - if the cvid doesn't exist, we get exit code = 0, but 
-    #   "Warning: Object version representing type does not exist." on stderr
-    my ($rc, $out, $err) = 
-	$self->_ccm(qw/properties -nf -format/, "\cA%objectname\cD", "\@=$cvid");
-    return $self->set_error($err || $out) unless $rc == 0;
-
-    my ($name) = $out =~ /\cA(.*)\cD/s;
-    return $self->set_error($err || $out) unless $name;
-
-    return $self->object($name);
+    # NOTE: if the cvid doesn't exist, "ccm property ..." has exit code 0, but 
+    # "Warning: Object version representing type does not exist." on stderr
+    return $self->property(object => "\@=$cvid");
 }
 
 1;

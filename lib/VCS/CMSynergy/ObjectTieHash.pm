@@ -1,5 +1,7 @@
 package VCS::CMSynergy::ObjectTieHash;
 
+our $VERSION = do { (my $v = q%version: 5 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+
 use base 'VCS::CMSynergy::Object';
 
 # TIEHASH(class, { ccm => ..., name => ..., ...})

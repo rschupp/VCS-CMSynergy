@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = sprintf("%d.%02d", q%version: 7 % =~ /(\d+)\.(\d+)/);
+our $VERSION = do { (my $v = q%version: 8 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 

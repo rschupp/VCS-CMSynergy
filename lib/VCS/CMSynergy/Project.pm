@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Project;
 
-our $VERSION = do { (my $v = q%version: 2 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 3 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -24,40 +24,35 @@ use Cwd;
 sub recursive_is_member_of
 {
     my $self = shift;
-    return $self->ccm->query_object_with_attributes(
-	"recursive_is_member_of('$self',depth)", @_);
+    return $self->ccm->query_object("recursive_is_member_of('$self',depth)", @_);
 }
 
 
 sub hierarchy_project_members
 {
     my $self = shift;
-    return $self->ccm->query_object_with_attributes(
-	"hierarchy_project_members('$self',depth)", @_);
+    return $self->ccm->query_object("hierarchy_project_members('$self',depth)", @_);
 }
 
 
-# NOTE: no $dir_object specified => returns project's top level dir
+# NOTE: $dir_object is undef => returns project's top level dir
 # FIXME needs test
 sub is_child_of
 {
-    _usage(1, undef, '[$dir_object, ] $keyword...', \@_);
-    my $self = shift;
-    my $dir;
-    if (@_ && ref $_[0])
+    _usage(1, undef, '[{ $dir_object | undef }, @keywords]', \@_);
+    my ($self, $dir, @keywords) = @_;
+    if (defined $dir)
     {
-	$dir = shift @_;
-	return $self->ccm->set_error("argument `$dir' must be a VCS::CMSynergy::Object")
+	croak(__PACKAGE__."::is_child_of: argument 1 ($dir) must be a VCS::CMSynergy::Object")
 	    unless UNIVERSAL::isa($dir, "VCS::CMSynergy::Object");
-	return $self->ccm->set_error("argument `$dir' must have cvtype `dir'")
+	croak(__PACKAGE__."::is_child_of: argument 1 ($dir) must have cvtype `dir'")
 	    unless $dir->is_dir;
     }
     else
     {
 	$dir = $self;
     }
-    return $self->ccm->query_object_with_attributes(
-	"is_child_of('$dir','$self')", @_);
+    return $self->ccm->query_object("is_child_of('$dir','$self')", @keywords);
 }
 
 
@@ -205,11 +200,10 @@ sub _traverse
 {
     my ($self, $wanted, $parent) = @_;
 
-    # NOTE/FIXME: can't use $self->is_child_of($parent) here 
-    # (because $parent might be not a dir (but a project))
-    my $children = $self->ccm->query_object_with_attributes(
-	{ is_child_of => [ $parent, $self ] },
-	@{ $wanted->{attributes} }) or return;
+    # NOTE: $parent is either a "dir" or "project" by construction
+    my $children = $self->is_child_of(
+	$parent->is_dir ? $parent : undef, @{ $wanted->{attributes} }) 
+	or return;
 
 
     if ($wanted->{preprocess})

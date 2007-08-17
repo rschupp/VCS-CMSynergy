@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.31 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.32 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -359,23 +359,14 @@ sub query_hashref
 
 sub query_object
 {
-    my ($self, $query) = @_;
-    _usage(2, 2, '$query', \@_);
-
-    return $self->_query($query, [ 'object' ], ROW_OBJECT);
-}
-
-
-sub query_object_with_attributes
-{
     my ($self, $query, @attributes) = @_;
-    _usage(2, undef, '$query, $attribute...', \@_);
-    # FIXME illegal @attributes: object objectname task_object find_use
-    return $self->query_object($query) unless use_cached_attributes();
+    _usage(2, undef, '$query, @attributes', \@_);
 
-    return $self->_query($query, [ 'object', @attributes ], ROW_OBJECT);
+    # FIXME illegal @attributes: object objectname task_object find_use
+    return $self->_query($query, [ object => @attributes ], ROW_OBJECT);
 }
 
+*query_object_with_attributes = \&query_object;		# compatibility alias
 
 sub query_count
 {

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 19 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 20 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -312,7 +312,7 @@ sub AUTOLOAD
 
     if ($method =~ /^(is_.*_of|has_.*)$/)
     {
-	return $this->ccm->query_object_with_attributes("$method('$this')", @_);
+	return $this->ccm->query_object("$method('$this')", @_);
     }
     croak("Can't locate object method \"$method\" via class \"$class\"");
 }
@@ -513,8 +513,8 @@ are exactly the same as
   $proj->ccm->query_object("recursive_is_member_of('$proj',depth)")
   $proj->ccm->query_object("hierarchy_project_members('$proj',depth)")
 
-If you supply extra arguments then C<query_object_with_attributes>
-is called instead of C<query_object> with these extra arguments.
+If you supply extra arguments then these are passed down
+to L<VCS::CMSynergy/query_object> as additional keywords.
 
 =head2 is_RELATION_of, has_RELATION
 
@@ -532,8 +532,8 @@ are exactly the same as
   $obj->ccm->query_object("is_RELATION_of('$obj')")
   $obj->ccm->query_object("has_RELATION('$obj')")
 
-If you supply extra arguments then C<query_object_with_attributes>
-is called instead of C<query_object> with these extra arguments.
+If you supply extra arguments then these are passed down
+to L<VCS::CMSynergy/query_object> as additional keywords.
 
 See the CM Synergy documentation for the built-in relations. Note that it's
 not considered an error to use a non-existing relation, the methods

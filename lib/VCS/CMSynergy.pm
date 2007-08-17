@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.32 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.28.5 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -89,7 +89,7 @@ sub new
 sub _start
 {
     my ($class, $client, %args) = @_;
-    croak("_start: $client is not a VCS::CMSynergy::Client")
+    croak(__PACKAGE__."::_start: $client is not a VCS::CMSynergy::Client")
 	unless UNIVERSAL::isa($client, 'VCS::CMSynergy::Client');
 
     # make a deep clone of $client 
@@ -100,7 +100,7 @@ sub _start
     my @start = qw/start -m -q -nogui/;
     while (my ($arg, $value) = each %args)
     {
-	return $self->set_error("unrecognized attribute `$arg'") 
+	croak(__PACKAGE__."::object: unrecognized argument: $arg") 
 	    unless exists $start_opts{$arg};
 
 	$self->{$arg} = $value unless $arg eq "password";
@@ -342,7 +342,7 @@ sub query
 sub query_arrayref
 {
     my ($self, $query, @keywords) = @_;
-    _usage(3, undef, '$query, $keyword...', \@_);
+    _usage(2, undef, '$query, @keywords', \@_);
 
     return $self->_query($query, \@keywords, ROW_ARRAY);
 }
@@ -351,7 +351,7 @@ sub query_arrayref
 sub query_hashref
 {
     my ($self, $query, @keywords) = @_;
-    _usage(3, undef, '$query, $keyword...', \@_);
+    _usage(2, undef, '$query, @keywords', \@_);
 
     return $self->_query($query, \@keywords, ROW_HASH);
 }
@@ -650,7 +650,7 @@ sub history
 sub history_arrayref
 {
     my ($self, $file_spec, @keywords) = @_;
-    _usage(3, undef, '$file_spec, $keyword...', \@_);
+    _usage(2, undef, '$file_spec, @keywords', \@_);
 
     return $self->_history($file_spec, \@keywords, ROW_ARRAY);
 }
@@ -659,7 +659,7 @@ sub history_arrayref
 sub history_hashref
 {
     my ($self, $file_spec, @keywords) = @_;
-    _usage(3, undef, '$file_spec, $keyword...', \@_);
+    _usage(2, undef, '$file_spec, @keywords', \@_);
 
     return $self->_history($file_spec, \@keywords, ROW_HASH);
 }
@@ -780,7 +780,7 @@ sub relations_hashref
     my %orig_args = %args;
     foreach (qw/from_attributes to_attributes/)
     {
-	croak(__PACKAGE__."::relations_hashref: optional $_ must be an array ref")
+	croak(__PACKAGE__."::relations_hashref: optional argument $_ must be an array ref")
 	    if exists $args{$_} && !UNIVERSAL::isa($args{$_}, 'ARRAY');
 
 	# default keyword "objectname"
@@ -809,11 +809,11 @@ sub relations_object
 
     foreach (qw/from_attributes to_attributes/)
     {
-	croak(__PACKAGE__."::relations_object: optional $_ must be an array ref")
+	croak(__PACKAGE__."::relations_object: optional argument $_ must be an array ref")
 	    if exists $args{$_} && !UNIVERSAL::isa($args{$_}, 'ARRAY');
 
 	# make a copy and add keyword "object"
-	$args{$_} = [ @{ $args{$_} || [] }, "object" ];	
+	$args{$_} = [ object => @{ $args{$_} || [] } ];	
     }
 
     return $self->_relations(\%args, ROW_OBJECT);
@@ -894,10 +894,10 @@ sub _relations
 sub project_tree
 {
     my ($self, $options, @projects) = @_;
-    _usage(3, undef, '\\%options, $project...', \@_);
+    _usage(2, undef, '\\%options, @projects', \@_);
 
     $options = {} unless defined $options;
-    return $self->set_error("argument 1 must be a HASH ref")
+    croak(__PACKAGE__."::project_tree: argument 1 (options) must be a HASH ref: $options")
 	unless ref $options eq "HASH";
     $options->{attributes} ||= [];
     my $mark_projects = delete $options->{mark_projects};
@@ -1026,8 +1026,8 @@ sub _ccm_attribute
 sub create_attribute
 {
     my ($self, $name, $type, $value, @file_specs) = @_;
-    _usage(5, undef, '$name, $type, $value, $file_spec...', \@_);
-    croak(__PACKAGE__.'::create_attribute: argument $value must be defined')
+    _usage(4, undef, '$name, $type, $value, @file_specs', \@_);
+    croak(__PACKAGE__.'::create_attribute: argument 3 (value) must be defined')
 	unless defined $value;
 
     my ($rc, $out, $err) = $self->_ccm_attribute(
@@ -1040,7 +1040,7 @@ sub create_attribute
 sub delete_attribute
 {
     my ($self, $name, @file_specs) = @_;
-    _usage(3, undef, '$name, $file_spec...', \@_);
+    _usage(2, undef, '$name, @file_specs', \@_);
 
     return scalar $self->ccm(qw/attribute -delete/, $name, @file_specs);
 }
@@ -1111,7 +1111,7 @@ sub cat_object
 {
     my ($self, $object, $destination) = @_;
     _usage(2, 3, '$object [, $destination]', \@_);
-    return $self->set_error("argument 1 `$object' must be a VCS::CMSynergy::Object")
+    croak(__PACKAGE__."::cat_object: argument 1 (object) must be a VCS::CMSynergy::Object: $object")
 	unless UNIVERSAL::isa($object, "VCS::CMSynergy::Object");
 
     # [DEPRECATE < 6.3]
@@ -1239,7 +1239,7 @@ sub ls
 sub ls_arrayref
 {
     my ($self, $file_spec, @keywords) = @_;
-    _usage(3, undef, '$file_spec, $keyword...', \@_);
+    _usage(2, undef, '$file_spec, @keywords', \@_);
 
     return $self->_ls($file_spec, \@keywords, ROW_ARRAY);
 }
@@ -1248,7 +1248,7 @@ sub ls_arrayref
 sub ls_hashref
 {
     my ($self, $file_spec, @keywords) = @_;
-    _usage(3, undef, '$file_spec, $keyword...', \@_);
+    _usage(2, undef, '$file_spec, @keywords', \@_);
 
     return $self->_ls($file_spec, \@keywords, ROW_HASH);
 }
@@ -1631,12 +1631,12 @@ sub object_other_version
 # $ccm->object_from_cvid(cvid) => VCS::CMSynergy::Object
 sub object_from_cvid
 {
-    my ($self, $cvid) = @_;
-    _usage(2, 2, '$cvid', \@_);
+    my ($self, $cvid, @keywords) = @_;
+    _usage(2, undef, '$cvid, @keywords', \@_);
 
     # NOTE: if the cvid doesn't exist, "ccm property ..." has exit code 0, but 
     # "Warning: Object version representing type does not exist." on stderr
-    return $self->property(object => "\@=$cvid");
+    return $self->_property("\@=$cvid", [ object => @keywords ], ROW_OBJECT);
 }
 
 1;

@@ -75,6 +75,7 @@ MANIFEST.SKIP
 META.yml
 README
 README.datetime
+README.get_member_info
 t/01session.t
 t/02autoload.t
 t/03query.t
@@ -88,6 +89,7 @@ t/09attribute.t
 t/10tied_objects+cache.t
 t/10tied_objects.t
 t/11relations.t
+t/12project.t
 t/90examples.t
 t/91pod.t
 t/92podcov.t

@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 22 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 23 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -11,8 +11,9 @@ VCS::CMSynergy::Object - convenience wrapper to treat objectnames as an object
   use VCS::CMSynergy;
   $ccm = VCS::CMSynergy->new(%attr);
   ...
-  $obj1 = $ccm->object($name, $version, $cvtype, $instance);
-  $obj2 = $ccm->object($objectname);
+  $obj = $ccm->object($name, $version, $cvtype, $instance);
+  $obj = $ccm->object($objectname);
+  print ref $obj;			# "VCS::CMSynergy::Object"
 
   # objectname and its constituents
   print "...and the object is $obj";
@@ -20,7 +21,7 @@ VCS::CMSynergy::Object - convenience wrapper to treat objectnames as an object
   print "version    = ", $obj->version;
   print "cvtype     = ", $obj->cvtype;
   print "instance   = ", $obj->instance;
-  print "objectname = ", $obj1->objectname;
+  print "objectname = ", $obj->objectname;
 
   # attribute methods, optionally caching with 
   #   use VCS::CMSynergy ':cached_attributes'
@@ -67,15 +68,15 @@ use overload
 
 my $have_weaken = eval "use Scalar::Util qw(weaken); 1";
 
-my %cv2vco_type = map 
-{ 
-    my $class = "VCS::CMSynergy::$_"; 
-    (my $pm = "$class.pm") =~ s#::#/#g;
-    (lc $_ => { class => $class, pm => $pm });
-} qw/Project/;
+
+my %cvtype2subclass = 
+( 
+    project	=> "Project",
+);
 
 
 # VCS::CMSynergy::Object->new(ccm, name, version, cvtype, instance)
+# factory method
 sub new
 {
     unless (@_ == 6)
@@ -97,10 +98,10 @@ sub new
     Scalar::Util::weaken($fields{ccm}) if $have_weaken;
     $fields{acache} = {} if VCS::CMSynergy::use_cached_attributes();
 
-    if (my $vco_type = $cv2vco_type{$fields{cvtype}})
+    if (my $subclass = $cvtype2subclass{$fields{cvtype}})
     {
-	require $vco_type->{pm};
-	$class = $vco_type->{class};
+	require "VCS/CMSynergy/$subclass.pm";
+	$class = "VCS::CMSynergy::$subclass";
     }
 
     my $self;
@@ -499,8 +500,7 @@ caches their return value in the C<VCS::CMSynergy::Object>
 
 =head1 is_RELATION_of, has_RELATION
 
-  # assume $task is a VCS::CMSynergy::Object with cvtype "task"
-  $related_objects = $task->is_associated_cv_of;
+  $tasks = $obj->has_associated_cv;
 
 These are convenience methods to quickly enumerate all objects that
 are somehow related to the invoking object:

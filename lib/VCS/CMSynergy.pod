@@ -576,8 +576,31 @@ from C<query_arrayref> or C<query_hashref>.
 =item C<task_objects>
 
 The value is a reference to an array of C<VCS::CMSynergy::Object> 
-representing the task associated with th object. The array may be
-empty if no associated tasks exist.
+representing the tasks associated with the object. The value is C<undef>
+if there are no associated tasks. This keyword is implemented using
+the Synergy built-in keyword "%task".
+
+=item C<cr_objects>
+
+The value is a reference to an array of C<VCS::CMSynergy::Object> 
+representing the change request associated with the object. 
+The value is C<undef> if there are no associated change requests.
+This keyword is implemented using 
+the Synergy built-in keyword "%change_request".
+
+=item C<baseline_project>
+
+The value is a C<VCS::CMSynergy::Project> 
+representing the object's baseline project. The value is C<undef>
+if no baseline project exists. This keyword is implemented using
+the Synergy built-in keyword "%baseline".
+
+=item C<baseline_object>
+
+The value is a C<VCS::CMSynergy::Object> 
+representing the object's baseline. The value is C<undef>
+if the object isn't in a baseline. This keyword is implemented using
+the Synergy built-in keyword "%in_baseline".
 
 =back 
 
@@ -1623,14 +1646,25 @@ to be specified as separate arguments.
 Note that no check is made whether the corresponding object really exists
 in the database, use L<VCS::CMSynergy::Object/exists> for that.
 
-=head2 folder_object, task_object
+=head2 folder_object, task_object, cr_object, baseline_object, project_object
 
   $folder_obj = $ccm->folder_object("123");
-  $task_obj = $ccm->task_object("42#mydb");
+  $task_obj = $ccm->task_object("456#mydb");
+  $cr_obj = $ccm->cr_object("42");		# SYNERGY/Change
+  $baseline_obj = $ccm->baseline_object("toolkit_2.0_INT_1");
+  $proj_obj = $ccm->project_object("toolkit-darcy");
 
-Create a C<VCS::CMSynergy::Object> (with cvtype "folder" or "task", resp)
-from the I<displayname> of a folder or task, resp. (which is typically a number
-or a number followed by the DCM database_id).
+Create a C<VCS::CMSynergy::Object> (with cvtype "folder",
+"task", "problem" or "baseline" resp.) from the I<displayname>
+of a folder, task, problem (a.k.a. change request) or baseline,
+resp. (The displayname is typically a number or a number followed
+by the DCM database_id). 
+
+C<project_object> similarly creates a C<VCS::CMSynergy::Project> from the
+displayname ("project spec") of a project; it also accepts the complete
+objectname of a project.
+
+Note: These methods work without querying the database.
 
 =head2 object_other_version
 
@@ -1656,13 +1690,33 @@ The optional list of C<@keywords> may be used to prime the
 attribute cache of the returned C<VCS::CMSynergy::Object>
 (similar to the L</query_object> method).
 
-Note: C<object_from_cvid> uses something like
+Note: C<object_from_cvid> is implemented by something like
 
   $ccm->property(objectname => "\@=$cvid")
 
-to determine the objectname corresponding to C<$cvid>.
+=head2 object_from_proj_ref
 
-=head2 base_admin, base_model, dcm_admin, cvtype, attype
+  $obj = $ccm->object_from_proj_ref($path, $proj_spec, @keywords);
+
+Returns the C<VCS::CMSynergy::Object> identified by
+workarea path C<$path> in project C<$proj_spec>.
+If no such object exists, C<undef> is returned. 
+
+C<$proj_spec> can be either a string (a Synergy "proj_spec") or
+a C<VCS::CMSynergy::Object>.
+
+C<$path> can be either a string (a workarea-relative path, using the
+platforms native path separator) or an array ref of path components.
+
+The optional list of C<@keywords> may be used to prime the
+attribute cache of the returned C<VCS::CMSynergy::Object>
+(similar to the L</query_object> method).
+
+Note: C<object_from_proj_ref> is implemented by something like
+
+  $ccm->property(objectname => "$path\@$proj_spec")
+
+=head2 base_admin, base_model, cs_admin, dcm_admin, cvtype, attype
 
     $model = $ccm->base_model;
     $project_type = $ccm->cvtype("project");
@@ -1672,12 +1726,13 @@ used to access the database model:
 
 =over 4
 
-=item C<base_admin>, C<base_model>, C<dcm_admin>
+=item C<base_admin>, C<base_model>, C<cs_admin>, C<dcm_admin>
 
 These return the C<VCS::CMSynergy::Object> corresponding to the model objects:
 
   base-1:admin:base
   base-1:model:base
+  cs-1:admin:1			# SYNERGY/Change enabled databases only
   dcm-1:admin:dcm
 
 =item C<cvtype>, C<attype>
@@ -1720,8 +1775,9 @@ or as class methods.
 
 =head1 SEE ALSO
 
-L<VCS::CMSynergy::Object>, 
 L<VCS::CMSynergy::Client>,
+L<VCS::CMSynergy::Object>, 
+L<VCS::CMSynergy::Project>, 
 L<VCS::CMSynergy::Users> 
 
 =head1 AUTHOR

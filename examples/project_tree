@@ -52,7 +52,7 @@ my $ccm = VCS::CMSynergy->new(
     RaiseError	=> 1,
     PrintError	=> 0);
 
-my $project = $ccm->object($ccm->full_project_spec($ARGV[0]));
+my $project = $ccm->project_object($ARGV[0]);
 
 my Tree::Simple $root;	# the root of the project tree
 my Tree::Simple $top;	# node corresponding to top of Traversal::dirs stack

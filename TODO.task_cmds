@@ -2,34 +2,94 @@
 
 package VCS::CMSynergy;
 
-sub create_task
+# create_task(%args)
+# copy_task($task_spec, %args)
+sub create_task		{ return shift->_create_or_copy_task(undef,@_); }
+sub copy_task		{ return shift->_create_or_copy_task(@_); }
+
+sub _create_or_copy_task
 {
-    my ($self, $opts) = @_;	# opts: hash or hash ref?
+    my ($self, $task, %args) = @_;
 
-    # FIXME check opts against VCS::CMSynergy::Task::opt2attr
-    my @cmd = qw/-create/;
-    while (my ($k, $v) = each %$opts)
+    my @flags = $task ? qw/default no_objects register/ : qw/default/;
+    my @cmd = (task => $task ? "-copy" : "-create");
+
+    # handle special %args
+    if (defined $args{change_request})
     {
-	croak(qq[FIXME invalid option "$k"]) 
-	    unless $VCS::CMSynergy::Task::opt2attr{$k};
-	push @cmd, "-$k", $v;
+	push @cmd, $ccm->version < 6.4 ? "-problem" : "-change_request", $args{change_request};
     }
+    if (defined $args{description})
+    {
+	my $tempfile = $self->_text_to_tempfile($args{description}) or return;
+	push @cmd, -descriptionfile => $tempfile;
+    }
+    foreach (@flags)
+    {
+	push @cmd, "-$_" if $args{$_};
+    }
+    delete $args{qw/change_request description/, @flags};
 
-    my ($rc, $out, $err) = $self->task(-create => @cmd);
-    return $self->set_error($err || $out) unless $rc == 0;
+    # all other %args must be in %VCS::CMSynergy::Task::opt2att
+    while (my ($k, $v) = each %args)
+    {
+	croak(__PACKAGE__."::".($task ? "copy" : "create")."_task: unknown option $k") 
+	    unless $VCS::CMSynergy::Task::opt2att{$k};
+	push @cmd, "-$k" => $v;
+    }
+    push @cmd, $task if $task;
 
-    $out =~ /Task (\S+) created/ or FIXME;
-    return $self->task_object($1);
-    # FIXME task_object: use "query task('$1')", but that works only for CCM >=6.3 ??
+    my ($rc, $out, $err) = $self->_ccm(@cmd);
+    if ($rc == 0 && $out =~ /Task (\S+) created/)
+    {
+	return $self->task_object($1);
+    }
+    return $self->set_error($err || $out);
 }
-# create fix task:  $ccm->create_task(fix => $task, ...)?
 
-# delete(file_spec or only 1 allowed...)
+
+# get_default_task()
+# return default task (VCO), undef if default task not set
+sub get_default_task
+{ 
+    my ($self) = @_;
+    my ($rc, $out, $err) = $self->_ccm(qw/task -default/);
+
+    # NOTE: expect output "task_number: synopsis"
+    if (rc == 0 && $out =~ /^(.*?):/)
+    {
+	return $self->task_object($1);
+    }
+    # NOTE: Synergy manual says:
+    # If a default task is not set and you enter  -default, 
+    # you will receive a message stating that the default is not set. 
+    # The return value from this command is 1 when the default task is not set. 
+    if ($rc == _exitstatus(1) && $out =~ /The current task is not set/ && $err eq "")
+    {
+	return undef;
+    }
+    return $self->set_error($err || $out);
+}
+
+
+# set_default_task($task_spec)
+# NOTE: unset default task if $task_spec == undef
+sub set_default_task
+{ 
+    my ($self, $task_spec) = @_;
+    $task_spec = "None" unless defined $task_spec;
+    return $self->ccm(qw/task -default/, $task_spec);
+}
+
+
+# FIXME create fix task?
+
+# delete(file_specs) (only 1 allowed??)
 sub delete
 {
     my $self = shift;
     my ($rc, $out, $err) = $self->ccm(delete => @_);
-    # FIXME parse $out for /Deleting object '(.*?)'/ (may be several)
+    # FIXME parse $out for /^Deleting object '(.*?)'/ (may be several)
     # for V:C:Os in @_ somehow mark objects as not existing anymore
 }
 
@@ -48,84 +108,248 @@ package VCS::CMSynergy::Task;
 
 use base qw/VCS::CMSynergy::Object/;
 
-=head2 task attributes
+our %opt2att = qw/
+    synopsis		task_synopsis
+    release		release
+    priority		priority
+    platform		platform
+    subsystem		task_subsys
+    time_estimate	est_duration
+    date_estimate	est_completion_date
+    resolver		resolver
+/;
 
-assigner            (string)  (local) 
-assignment_date     (time)    (local) 
-create_time         (time)    (local) 
-creator             (string)  (local) 
-cvtype              (string)  (local) 
-est_completion_date (time)    (local) 
-est_duration        (string)  (local) 
-is_asm              (boolean) (local) 
-is_model            (boolean) (local) 
-modify_time         (time)    (local) 
-name                (string)  (local) 
-owner               (string)  (local) 
-platform            (string)  (local) 
-priority            (string)  (local) 
-registration_date   (time)    (local) 
-release             (string)  (local) 
-resolver            (string)  (local) 
-status              (string)  (local) 
-status_log          (uptext)  (local) 
-subsystem           (string)  (local) 
-task_description    (text)    (local) 
-task_number         (string)  (local) 
-task_subsys         (string)  (local) 
-task_synopsis       (string)  (local) 
-version             (string)  (local) 
 
-=cut 
-
-our %opt2attr = 
-(
-    synopsis		=> "task_synopsis",
-    release		=> "release",
-    priority		=> "priority",
-    platform		=> "platform",
-    resolver		=> "resolver",
-    subsystem		=> "task_subsys",
-    time_estimate	=> "est_duration",
-    date_estimate	=> "est_completion_date",
-    description		=> "task_description",
-);
-
-# relate objects
-sub relate
+# associate objects
+# associate(@file_specs)
+sub associate
 {
     my $self = shift;
-    $self->ccm->task(-relate => $self, -object => @_);
+    return $self->ccm->ccm(qw/task -associate/, $self, -object => @_);
 }
 
-# unrelate objects
-sub unrelate
+# disassociate objects
+# disassociate(@file_specs)
+sub disassociate
 {
     my $self = shift;
-    $self->ccm->task(-unrelate => $self, -object => @_);
+    return $self->ccm->ccm(qw/task -disassociate/, $self, -object => @_);
 }
 
-# relate fix task?
-# unrelate fix task?
+# get_associated: alias for is_associated_cv_of
+# NOTE: Don't use an actual alias here because is_associated_cv_of is
+# itself autoloaded and hence would provoke a warning
+# "Use of inherited AUTOLOAD for non-method ... is deprecated"
+sub get_associated 	{ return shift->is_associated_cv_of; }
 
-# return array ref of V:C:Os 
-# (may use attributes just like query_object_with_attributes?)
-sub list_related 
-{
-    my ($self) = @_;
-    $self->ccm_>query_object({ is_associated_cv_of => [ $self ] });
-}
+# FIXME checkin (syn: complete)?
 
-# get_foo/set_foo (show information/modify task)
+# FIXME associate fix task?
+# FIXME disassociate fix task?
+
+
+# get_foo/set_foo (show/modify task)
+
+sub _mk_accessor
 {
+    my ($class, $name, $getter, $setter) = @_;
+    $setter = $getter unless $setter;
+
     no strict 'refs';
+    *{"${class}::get_$name"} = ref $getter ? 
+	$getter : sub { $_[0]->get_attribute($getter); };
+    *{"${class}::set_$name"} = ref $setter ?
+	$setter : sub { $_[0]->set_attribute($setter, $_[1]); };
+}
 
-    while (my ($opt, $attr) = each %opt2attr)
+while (my ($o, $a) = each %opt2att)
+{
+    # resolver is special: modifying it may also reset "status"
+    if ($o eq "resolver")
     {
-	*{"get_$opt"} = sub { $_[0]->get_attribute($attr); };
-	*{"set_$opt"} = sub { $_[0]->ccm->(qw/-task -modify/, "-$opt", $_[1]); };
-	# FIXME set_$opt: invalidate (whole or opt->attr) acache
-	# NOTE: use task command (instead of attribute command)
-	# because $attr may have to be created
+	__PACKAGE__->_mk_accessor($o, $a, 
+	    sub 
+	    {
+		my ($self, $value) = @_;
+		$self->_forget_acache($a, "status");	# always invalidate
+		return $self->ccm->ccm(qw/task -modify/, "-$o" => $value, $self);
+	    });
+    }
+    # description is special: use -descriptionfile if appropriate
+    elsif ($o eq "description")
+    {
+	__PACKAGE__->_mk_accessor($o, $a,
+	    sub 
+	    {
+		my ($self, $value) = @_;
+
+		$self->_forget_acache($a);		# always invalidate
+		my $tempfile = $self->ccm->_text_to_tempfile($value) or return;
+		return $self->ccm->ccm(qw/task -modify/, -descriptionfile => $tempfile, $self);
+	    });
+    }
+    else
+    {
+	__PACKAGE__->_mk_accessor($o, $a,
+	    sub 
+	    { 
+		my ($self, $value) = @_;
+		$self->_forget_acache($a);		# always invalidate
+
+		# NOTE: we use the "task" command (rather than the 
+		# "attribute" command) because it performs 
+		# additional checks on its arguments
+		return $self->ccm->ccm(qw/task -modify/, "-$o" => $value, $self);
+	    });
     }
 }
+
+
+
+__END__
+
+NOTE: in CCM < 6.4 -change_request might have been called -problem
+
+usage:  ccm task <option> 
+
+  where <option> is one of:
+
+	-associate <task_id>  -change_request <change_request_ids> |
+			      -object  <object_specs> |
+		              -fixes <task_id>
+	-create -synopsis "synopsis"
+		  [-release <release>]
+		  [-priority <priority>]
+		  [-resolver <resolver>]
+		  [-sub <subsystem>]
+		  [-plat <platform>]
+		  [-time <time_estimate>]
+		  [-date <date_estimate>]
+		  [-change_request <change_request_id>]
+		  [-description "description"]
+		  [-descriptionedit]
+		  [-descriptionfile <file_path>]
+		  [-default] [-q] |
+		 -gui
+	-copy     [-synopsis "synopsis]
+		  [-release <release>]
+		  [-priority <priority>]
+		  [-resolver <resolver>]
+		  [-sub <subsystem>]
+		  [-plat <platform>]
+		  [-time <time_estimate>]
+		  [-date <date_estimate>]
+		  [-no_objects] [-register]
+		  [-change_request <change_request_id>]
+		  [-description "description"]
+		  [-descriptionedit]
+		  [-descriptionfile <file_path>]
+		  [-default] [-q] <task_id> |
+		  -gui <task_id>
+	-fix      [-synopsis "synopsis]
+		  [-release <release>]
+		  [-priority <priority>]
+		  [-resolver <resolver>]
+		  [-sub <subsystem>]
+		  [-plat <platform>]
+		  [-time <time_estimate>]
+		  [-date <date_estimate>]
+		  [-exclude] [-register]
+		  [-change_request <change_request_id>]
+		  [-description "description"]
+		  [-descriptionedit]
+		  [-descriptionfile <file_path>]
+		  [-default] [-q] <task_id> |
+		  -gui <task_id>
+	-default [<task_id>|None] | -gui
+	-disassociate <task_id>  -change_request <change_request_id> |
+		   	         -object  <object_specs> |
+		                 -fixes <task_id>
+	-show
+		information [-v] |
+		change_request [-v]     |
+		objects          |
+		fixes            |
+		fixed_by         |
+		related [-all]
+		[-f <format_string>] [-no_sort] [-u]
+		<task_ids>
+	-show
+		synopsis    |
+		priority    |
+		resolver    |
+		sub         |
+		plat        |
+		date        |
+		time        |
+		release     |
+		description |
+		status_log
+		<task_ids>
+	-modify
+		[-synopsis "synopsis"]
+		[-priority <priority>]
+		[-resolver <resolver>]
+		[-sub <subsystem>]
+		[-plat <platform>]
+		[-date <date_estimate>]
+		[-time <time_estimate>]
+		[-release <release>]
+		[-description "description"]
+		[-descriptionedit]
+		[-descriptionfile <file_path>]
+		[-q] <task_ids>
+	-state <state>
+		[-resolver <resolver>]
+		[-description "description"]
+		[-descriptionedit]
+		[-descriptionfile <file_path>]
+		[-q] <task_ids>
+	-checkin <task_ids>|default [-comment "string"]
+		 [-time task_duration] [-y]
+	-complete <task_ids>|default [-comment "string"]
+		 [-time task_duration] [-y]
+	-checkin <task_id>|default -gui
+	-complete <task_id>|default -gui
+	-query <query_spec> [-f <format_string>] [-no_sort] [-u] | -gui
+	-query -in_release [<old_project_spec>] <project_spec> [-f <format_string>] [-no_sort] [-u]
+	-query -not_in_release <project_spec> [-f <format_string>] [-no_sort] [-u]
+	-gui <task_ids>
+
+  where <query_spec> is:
+
+	[-task_scope <task_scope>]
+	[-sub <subsystem>]
+	[-release <release>]
+	[-plat <platform>]
+	[-database_id <database_id>]
+	[-custom "<query_expression>"]
+
+
+  where <task_scope> is:
+
+	user_defined | all_my_assigned | all_my_completed |
+	all_my_tasks | all_completed   | all_tasks
+
+=== tests
+
+
+create task -rel Sandbox/1.0 -syn ... -def => t0
+  ok; check rel; check syn; check def;
+task -mod -rel Sandbox/2.0 t0
+  ok; check rel;
+task -mod -syn ... t0
+  ok; check syn
+co proj => newproj; co obj => newobj
+  check newobj assoc tasks == t0
+  check t0 get_associated == newobj
+copy task -syn ... t0 => t1
+  ok; check rel; check def; 
+set default task t1
+  check def
+assoc t1 newobj
+disassoc t0 newobj
+  check newobj assoc tasks == t1
+delete newobj, newproj
+delete task t0 t1
+

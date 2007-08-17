@@ -16,6 +16,13 @@ Known problems:
 
 =head2 Changes in Version 1.28
 
+  INCOMPATIBLE CHANGE: set_attribute() doesn't fail anymore when
+  you try to change the value of an inherited attribute. Instead, it
+  silently converts the inherited attribute to a local attribute
+  (using "ccm attribute -create -force ...").
+  This also works when using :tied_objects and assigning to
+  $obj->{attribute_name}.
+
   Implemented relations_hashref(), relations_object(), wrappers
   for "ccm relate -show" similar to the query_*() family.
 
@@ -25,7 +32,25 @@ Known problems:
   Add option "mark_projects" to project_tree(): list projects instead
   of their top level directories.
 
+  Add special handling of CM Synergy release objects 
+  (i.e. of cvtype "relasedef") to the query_*() functions because they
+  also have a non-standard objectname method.
+
+  Don't cache the results of "ccm attr -la" in VCS::CMsynergy::Object anymore 
+  because it bloated V::C::Os for little gain.
+
+  Convert VCS::CMSynergy::Object to use to Class::Accessor::Fast.
+
   Convert tests to use Test::Deep.
+
+  Use Module::Install to bundle Test::* modules i(and others)
+  required for `make test' only. Change Makefile.PL accordingsly, add
+  MANIFEST.SKIP and generate MANIFEST and META.yml.
+
+  Rewrote examples/project_diff.
+
+  Finally got rid of the (undocumented) $OneArgFoo misfeature (and
+  corresponding first parameter of _ccm()). 
 
 =head2 Changes in Version 1.27
 

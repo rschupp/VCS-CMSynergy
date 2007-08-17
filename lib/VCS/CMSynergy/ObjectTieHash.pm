@@ -1,6 +1,6 @@
 package VCS::CMSynergy::ObjectTieHash;
 
-our $VERSION = do { (my $v = q%version: 5 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 6 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use base 'VCS::CMSynergy::Object';
 
@@ -32,16 +32,15 @@ sub EXISTS
 sub FIRSTKEY
 {
     my ($self) = @_;
-    my $attributes = $self->list_attributes;
-    my $dummy = keys %$attributes;		# reset each() iterator
-    return each %$attributes;
+    $attrs = $self->list_attributes;
+    $self->_private->{_attrs} = [ keys %{ $self->list_attributes } ];
+    return pop @{ $self->_private->{_attrs} };
 }
 
 sub NEXTKEY
 {
     my ($self, $lastkey) = @_;
-    my $attributes = $self->list_attributes;
-    return each %$attributes;
+    return pop @{ $self->_private->{_attrs} };
 }
 
 

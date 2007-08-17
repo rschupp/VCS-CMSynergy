@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.27.9 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.28 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -419,7 +419,7 @@ sub _query
     my $format = $RS . join($FS, values %$want) . $FS;
 
     my ($rc, $out, $err) = $want_finduse ?
-	$self->ccm_with_option(
+	$self->_ccm_with_option(
 	    Object_format => $format, 
 	    qw/finduse -query/ => $query) :
 	$self->_ccm( 
@@ -585,11 +585,6 @@ sub _query_shortcut
 		    push @clauses, "name match '$value'";
 		    next;
 		};
-		# FIXME: rumor (D. Honey) has it that using
-		#   "has_cvtype('base/cvtype/FOO/1')"
-	        # is faster than plain
-		#   "type='FOO'"
-		# so we should treat $key =~ /^(cv?)type$/ specially, too
 		push @clauses, "$key="._quote_value($value);
 	    }
 	}
@@ -1135,10 +1130,10 @@ sub project_tree
 
 sub get_attribute
 {
-    my ($self, $attr_name, $file_spec) = @_;
-    _usage(3, 3, '$attr_name, $file_spec', \@_);
+    my ($self, $name, $file_spec) = @_;
+    _usage(3, 3, '$attribute_name, $file_spec', \@_);
 
-    my ($rc, $out, $err) = $self->_ccm(qw/attribute -show/, $attr_name, $file_spec);
+    my ($rc, $out, $err) = $self->_ccm(qw/attribute -show/, $name, $file_spec);
     return $out if $rc == 0;
     return if ($err || $out) =~ /Attribute .* does not exist on object/;
     return $self->set_error($err || $out);
@@ -1147,27 +1142,24 @@ sub get_attribute
 
 sub set_attribute
 {
-    my ($self, $attr_name, $file_spec, $value) = @_;
-    _usage(4, 4, '$attr_name, $file_spec, $value', \@_);
+    my ($self, $name, $file_spec, $value) = @_;
+    _usage(4, 4, '$attribute_name, $file_spec, $value', \@_);
 
     # try "ccm attribute -modify ..." first
     my ($rc, $out, $err) = $self->_ccm_attribute(
-	-modify => $attr_name, -value => $value, $file_spec);
+	-modify => $name, -value => $value, $file_spec);
 
     # if this fails because the attribute is inherited,
     # try "ccm attribute -force -create ..."
     if ($rc != 0 && ($err || $out) =~ /Attribute .* is inherited/)
     {
 	# determine attribute's type 
-	# (use V::C::O method if possible, because it's cached)
-	my $attributes = UNIVERSAL::isa($file_spec, "VCS::CMSynergy::Object") ?
-	    $file_spec->list_attributes : $self->list_attributes($file_spec);
-	my $attr_type = $attributes->{$attr_name}
+	my $type = $self->list_attributes($file_spec)->{$name}
 	    or return $self->set_error(
-		"oops: attribute $attr_name on `$file_spec' seems inherited, but doesn't show with `ccm attr -la'");
+		"oops: attribute $name on `$file_spec' seems inherited, but doesn't show with `ccm attr -la'");
 	
 	($rc, $out, $err) = $self->_ccm_attribute(
-	    -create => $attr_name, -value => $value, -type => $attr_type, -force => $file_spec);
+	    -create => $name, -value => $value, -type => $type, -force => $file_spec);
     }
 
     return $value if $rc == 0;
@@ -1200,28 +1192,17 @@ sub _ccm_attribute
 	#	Result of edit is an empty attribute.
 	#	Confirm: (y/n) [n] 
 	
-	# FIXME: the following doesn't work on Windows (CCM seems to read 
+	# the following doesn't work on Windows (CCM seems to read 
 	# the confirmation answer directly from CON:, _not_ from stdin)
-	return $self->_error("setting a text attribute to an empty string is not supported on Windows")
+	croak(__PACKAGE__."::_ccm_attribute: setting a text attribute to an empty string is not supported on Windows")
 	    if is_win32;
 
-	my ($rc, $out, $err) = $self->_set('text_editor');
-	return ($rc, $out, $err) unless $rc == 0;
-
-	my $old_text_editor = $out;
-
-	($rc, $out, $err) = $self->_set(
+	return $self->_ccm_with_option(
 	    text_editor => $^O eq 'MSWin32' ?
 		qq[cmd /c echo off > %filename ] :  	#/
-		qq[$Config{cp} /dev/null %filename]);
-	return ($rc, $out, $err) unless $rc == 0;
-
-	my @result = $self->_ccm(attribute => @args, { in =>  \"y\n" });
-
-	($rc, $out, $err) = $self->_set(text_editor => $old_text_editor);
-	return ($rc, $out, $err) unless $rc == 0;
-
-	return @result;
+		qq[$Config{cp} /dev/null %filename],
+	    attribute => @args, 
+	    { in =>  \"y\n" });
     }
 
     if (($self->{coprocess} && (length($value) > 1600 || $value =~ /["\r\n]/))
@@ -1244,13 +1225,10 @@ sub create_attribute
     croak(__PACKAGE__.'::create_attribute: argument $value must be defined')
 	unless defined $value;
 
-    # FIXME this should employ the same heuristic as set_attribute()
-    # and use a separate ccm_with_text_editor(..., 'attribute -modify', ...)
-    # for troublesome $value
-    # FIXME need a variant "attribute -create -force ..."
-
-    return scalar $self->ccm(qw/attribute -create/, $name, 
-                             -value => $value, -type => $type, @file_specs);
+    my ($rc, $out, $err) = $self->_ccm_attribute(
+	    -create => $name, -value => $value, -type => $type, @file_specs);
+    return $self->set_error($err || $out) unless $rc == 0;
+    return 1;
 }
 
 
@@ -1361,7 +1339,7 @@ sub _cat_binary
     # otherwise it won't override the view_cmd attached to the attype.
     my $view_cmd = $object->cvtype . "_cli_view_cmd";
 
-    ($rc, $out, $err) = $self->ccm_with_option(
+    ($rc, $out, $err) = $self->_ccm_with_option(
 	$view_cmd => $^O eq 'MSWin32' ?
 	    qq[cmd /c copy /b /y %filename "$file"] :  	#/
 	    qq[$Config{cp} %filename '$file'],
@@ -1556,7 +1534,7 @@ sub _set
 #  call _ccm(@args), restore $option; returns ($rc, $out, $err)
 #  (usually the return value from _ccm(@args) except there were errors
 #  in setting the option)
-sub ccm_with_option
+sub _ccm_with_option
 {
     my ($self, $option, $new_value, @args) = @_;
 
@@ -1579,8 +1557,7 @@ sub ccm_with_option
 	($rc, $out, $err) = @result;
     }
 
-    return $self->set_error($err || $out) unless $rc == 0;
-    return wantarray ? ($rc, $out, $err) : 1;
+    return ($rc, $out, $err);
 }
 
 # helper: implements ye olde text_editor trick for ccm commands
@@ -1620,14 +1597,17 @@ sub ccm_with_text_editor
     #     and "/y" to overwite files without prompting)
     # (2) $tempfile is safe wrt cygwin, because $Config{cp} is
     #     a cygwin program ("/usr/bin/cp") on cygwin.
-    return $self->ccm_with_option(
+    my ($rc, $out, $err) = $self->_ccm_with_option(
 	text_editor => $^O eq 'MSWin32' ?
-	    qq[cmd /c copy /b /y "$tempfile" %filename] :
+	    qq[cmd /c copy /b /y "$tempfile" %filename] :		#/
 	    qq[$Config{cp} '$tempfile' %filename],
 	@args);
+    return $self->set_error($err || $out) unless $rc == 0;
+    return wantarray ? ($rc, $out, $err) : 1;
 }
 
 
+# [DEPRECATE < 6.3]
 sub get_releases
 {
     my ($self) = @_;
@@ -1646,6 +1626,7 @@ sub get_releases
 }
 
 
+# [DEPRECATE < 6.3]
 sub set_releases
 {
     my ($self, $releases) = @_;
@@ -1662,7 +1643,6 @@ sub set_releases
 
     my ($rc, $out, $err) =
 	$self->ccm_with_text_editor($text, qw/releases -edit/);
-
     return $rc == 0 || $self->set_error($err || $out);
 }
 
@@ -1788,7 +1768,7 @@ sub folder_object
 
     # FIXME: alternatively could use 
     #    $self>query_object({ folder => [ $folder ] }) };
-    # but query function folder() appeared in CCM 6.x
+    # but query function folder() appeared first in CCM 6.x
 
     return $self->object($num, qw(1 folder), $instance);
 }
@@ -1806,7 +1786,7 @@ sub task_object
 
     # FIXME: alternatively could use 
     #    $self>query_object({ task => [ $task ] }) };
-    # but query function task() appeared in CCM 6.x
+    # but query function task() appeared first in CCM 6.x
 
     return $self->object("task$num", qw(1 task), $instance);
 }

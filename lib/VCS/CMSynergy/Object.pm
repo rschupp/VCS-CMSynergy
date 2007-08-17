@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 16 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 17 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -122,7 +122,7 @@ sub list_attributes
 {
     my ($self) = @_;
 
-    return $self->_private->{attributes} ||= $self->ccm->list_attributes($self);
+    return $self->ccm->list_attributes($self);
 }
 
 sub get_attribute
@@ -160,13 +160,8 @@ sub create_attribute
     
     my $rc = $self->ccm->create_attribute($attr_name, $type, $value, $self);
 
-    # update cache and attribute list if necessary
-    if ($rc)
-    {
-	$self->_update_acache($attr_name => $value);
-	my $private = $self->_private;
-	$private->{attributes}->{$attr_name} = $type if $private->{attributes};
-    }
+    # update attribute cache if necessary
+    $self->_update_acache($attr_name => $value) if $rc;
 
     return $rc;
 }
@@ -178,13 +173,9 @@ sub delete_attribute
 
     my $rc = $self->ccm->delete_attribute($attr_name, $self);
 
-    # update cache and attribute list if necessary
-    if ($rc)
-    {
-	# NOTE: the attribute may have reverted from local back to inherited
-	$self->_forget_acache($attr_name); 	
-	delete $self->_private->{attributes};
-    }
+    # update attribute cache if necessary
+    # NOTE: the attribute may have reverted from local back to inherited
+    $self->_forget_acache($attr_name) if $rc; 	
 
     return $rc;
 }

@@ -1637,35 +1637,12 @@ value is returned. If C<$new_value> is C<undef>, C<$option> is unset.
 In the third form, a reference to a hash is returned. The hash consists
 of all currently defined options as keys and their respective values.
 
-=head2 ccm_with_option, ccm_with_text_editor
+=head2 ccm_with_text_editor
 
-  ($rc, $out, $err) = $ccm->ccm_with_option($option, $value, @cmd);
   ($rc, $out, $err) = $ccm->ccm_with_text_editor($text_value, @cmd);
 
-These are convenience functions for executing a command 
-that is sensitive to the value of a session option, esp. B<text_editor>.
-
-C<ccm_with_option> does the following:
-
-=over 4
-
-=item *
-
-saves the old value of C<$option> and sets it to C<$value> with
-
-  $ccm->set($option, $value);
-
-=item *
-
-with the new setting in effect, executes
-
-  $ccm->ccm(@cmd);
-
-=item *
-
-finally restores the old value of C<$option>.
-
-=back
+This is a convenience functions for executing a command 
+that is sensitive to the value of the session option C<text_editor>.
 
 C<ccm_with_text_editor> is useful in scripting B<ccm> commands
 like B<ccm users>. These commands usually open a temporary file
@@ -1684,13 +1661,22 @@ say C</tmp/a5Xghd>, and writes the string C<$text_value> into it,
 
 =item *
 
-then executes (on Unix)
+saves the old value of C<text_editor> and sets it to (on Unix)
 
-  $ccm->ccm_with_value(
-    text_editor => "cp /tmp/a5Xghd %filename", @cmd);
+  "cp /tmp/a5Xghd %filename"
+
+=item *
+
+executes
+
+  $ccm->ccm(@cmd)
 
 which causes CM Synergy to accept C<$text_value> as the "updated value"
 w.r.t. to command C<@cmd>,
+
+=item *
+
+restores the value oc C<text_editor>
 
 =item *
 
@@ -1698,7 +1684,7 @@ finally removes the temporary file.
 
 =back
 
-Bot C<ccm_with_option> and C<ccm_with_text_editor> return the same
+C<ccm_with_text_editor> returns the same
 value as the inner L</ccm> method, except when there is an error setting
 the new C<$value> of C<$option>.
 

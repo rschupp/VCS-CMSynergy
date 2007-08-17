@@ -12,8 +12,6 @@ BEGIN
     ok(VCS::CMSynergy::use_cached_attributes(), q[using :cached_attributes]);
 }
 
-my @cleanup;			# cleanup actions
-
 
 my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
@@ -32,11 +30,13 @@ cmp_deeply($e_got, [], q[query with no match returns empty array]);
     ok($rc == 0, q[create folder]);
     my $rx_created = qr/Created folder (.*?)\./;
     like($out, $rx_created, "Created folder ...");
-    my ($folder) = $ccm->folder_object($out =~ $rx_created);
-    push @cleanup, end { $ccm->folder(qw/-delete -quiet -y/, $folder) };
+    my $folder = $ccm->folder_object($out =~ $rx_created);
+    my $cleanup = end { $ccm->folder(qw/-delete -quiet -y/, $folder) };
 
     my @stooges = qw(larry moe curly);
-    $ccm->create_attribute($_, string => "", $folder) foreach @stooges;
+    $ccm->attribute(-create => $_, -type => "string" , $folder) foreach @stooges;
+    # NOTE: can't use create_attribute() with an empty string here,
+    # because it doesn't work on Windows
     my ($attr) = @{ $ccm->query_hashref(
 	{ type => "folder", description => $desc }, @stooges) };
     is($attr->{$_}, "", q[empty string attribute in query]) foreach @stooges;
@@ -223,6 +223,8 @@ cmp_deeply($bc_got, array_each(code(
 	return 1;
     }
     )), qq[attributes are actually cached]);
+
+$ccm = undef;	# workaround for "seek() on closed filehandle $fh" in IPC::Run3
 
 exit 0;
 

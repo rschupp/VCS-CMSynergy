@@ -10,7 +10,7 @@ plan $@ ?
 
 pod_coverage_ok("VCS::CMSynergy");
 pod_coverage_ok("VCS::CMSynergy::Client", 
-                { also_private => [ qw/ccm exec start/ ] });
+                { also_private => [ qw/ccm start/ ] });
 pod_coverage_ok("VCS::CMSynergy::Helper");
 pod_coverage_ok("VCS::CMSynergy::Object");
 pod_coverage_ok("VCS::CMSynergy::Users");

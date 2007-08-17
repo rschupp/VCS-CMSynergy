@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 18 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 21 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -163,14 +163,20 @@ sub ccm						# class/instance method
 
 my $ccm_prompt = qr/^ccm> /;		# NOTE the trailing blank
 
-# helper: just do it (TM), returns ($rc, $out, $err) (regardless of context)
 sub _ccm
 {
-    my ($this, $cmd, @args) = @_;
-    $Error = $this->{error} = undef;
-    $Ccm_command = $this->{ccm_command} = join(" ", $cmd, @args);
+    my $this = shift;
+    my $opts = @_ && ref $_[-1] eq "HASH" ? pop : {};
 
-    my ($rc, $out, $err);
+    $Error = $this->{error} = undef;
+    $Ccm_command = $this->{ccm_command} = join(" ", @_);
+
+    my %ropts = %$opts;
+    my $rin  = exists $ropts{in}  ? delete $ropts{in}  : \undef;
+    my $rout = exists $ropts{out} ? delete $ropts{out} : do { my $s; \$s };
+    my $rerr = exists $ropts{err} ? delete $ropts{err} : do { my $s; \$s };
+    my $rc;
+
     my $t0 = $Debug && [ Time::HiRes::gettimeofday() ];
 
     CCM:
@@ -179,8 +185,11 @@ sub _ccm
 	{
 	    USE_COPROCESS:
 	    {
+		# don't use copress when using fancy run3() arguments
+		last USE_COPROCESS if %$opts;
+
 		# arguments cannot contain newlines in "interactive" ccm sessions
-		last USE_COPROCESS if grep { /\n/ } @args;
+		last USE_COPROCESS if grep { /\n/ } @_;
 
 		my ($dev, $ino) = stat(".") or last USE_COPROCESS;
 		if ($this->{co_cwd_dev} != $dev || $this->{co_cwd_ino} != $ino)
@@ -199,36 +208,42 @@ sub _ccm
 			"spawned new coprocess because cwd changed (pid=".$this->{coprocess}->pid.")\n", 8);
 		}
 
-		my ($match, $set);
-
 		# NOTE: "interactive" command arguments that contain blanks must 
 		# be quoted with double quotes; AFAICT there is no way 
 		# to quote embedded quotes!
 		$this->{coprocess}->print(
-		    join(" ", $cmd, map { qq["$_"] } @args), "\n");
+		    join(" ", map { qq["$_"] } @_), "\n");
 
-		($match, $err, undef, $out, undef) =
-		    $this->{coprocess}->expect(undef, -re => $ccm_prompt);
-		return _error("expect error: $err") unless $match;
+		$this->{coprocess}->expect(undef, -re => $ccm_prompt)
+		    or return _error("expect error: ".$this->{coprocess}->error);
 
 		# on Windows, treat output as if read in "text" mode
-		$out =~ s/\015\012/\012/g if is_win32;
-		chomp($out);
+		$$rout = $this->{coprocess}->before;
 
 		$this->{coprocess}->print("set error\n");
-		($match, $err, undef, $set, undef) =
-		    $this->{coprocess}->expect(undef, -re => $ccm_prompt);
-		return _error("expect error: $err") unless $match;
-		return _error("unrecognized result from `set error': $set")
-		    unless ($rc) = $set =~ /^(\d+)/;
-		($rc, $err) = (_exitstatus($rc), "");
+		$this->{coprocess}->expect(undef, -re => $ccm_prompt)
+		    or return _error("expect error: ".$this->{coprocess}->error);
+		my $set = $this->{coprocess}->before;
+		($rc) = $set =~ /^(\d+)/
+		    or return _error("unrecognized result from `set error': $set");
+		($rc, $$rerr) = (_exitstatus($rc), "");
 		last CCM;
 	    }
 	}
 
 	# simple ccm sub process
-	my @exec_args = ($this->ccm_exe, $cmd, @args);
-	($rc, $out, $err) = $this->exec(@exec_args);
+	$rc = $this->run([ $this->ccm_exe, @_ ], $rin, $rout, $rerr, \%ropts);
+    }
+
+    unless (exists $opts->{out})
+    {
+	$$rout =~ s/\015\012/\012/g if is_win32;	# as if read in :crlf mode
+	$$rout =~ s/\n\z//;				# chomp
+    }
+    unless (exists $opts->{err})
+    {
+	$$rerr =~ s/\015\012/\012/g if is_win32;	# as if read in :crlf mode
+	$$rerr =~ s/\n\z//;				# chomp
     }
 
     if ($Debug)
@@ -238,18 +253,34 @@ sub _ccm
 	{
 	    $this->trace_msg("<- ccm($this->{ccm_command})\n", 8);
 	    $this->trace_msg("-> rc = $rc [$elapsed sec]\n", 8);
-	    $this->trace_msg("-> out = \"$out\"\n", 8);
-	    $this->trace_msg("-> err = \"$err\"\n", 8);
+	    $this->trace_msg("-> out = \"$$rout\"\n", 8) unless exists $opts->{out};
+	    $this->trace_msg("-> err = \"$$rerr\"\n", 8) unless exists $opts->{err};
 	}
 	else
 	{
-	    my $success = $rc == 0 ? 1 : 0;
+	    my $success = $rc == 0 ? "ok" : "failed";
 	    $this->trace_msg("ccm($this->{ccm_command}) = $success [$elapsed sec]\n");
 	}
     }
 
-    ($this->{out}, $this->{err}) = ($out, $err);
-    return ($rc, $out, $err);
+    $this->{out} = $$rout unless exists $opts->{out};
+    $this->{err} = $$rerr unless exists $opts->{err};
+
+    return ($rc, exists $opts->{out} ? undef : $$rout, exists $opts->{err} ? undef : $$rerr);
+}
+
+sub run
+{
+    my $this = shift;
+    $this = __PACKAGE__->_default unless ref $this;
+
+    local @ENV{keys %{ $this->{env} }} = values %{ $this->{env} };
+
+    # don't screw up global $? (e.g. when being called 
+    # in VCS::CMSynergy::DESTROY at program termination)
+    local $?;			
+    run3(@_);
+    return $?;
 }
 
 sub _spawn_coprocess
@@ -292,37 +323,6 @@ sub _kill_coprocess
     $self->{coprocess}->print("exit\n");
     # FIXME: kill it just for paranoia (must save pid before line above!)
     $self->{coprocess} = undef;
-}
-
-# helper: execute a program with CM Synergy environment set up appropriately
-sub exec
-{
-    my ($this, @cmd) = @_;
-    $this = __PACKAGE__->_default unless ref $this;
-
-    local @ENV{keys %{ $this->{env} }} = values %{ $this->{env} };
-
-    # don't screw up global $? (e.g. when being called 
-    # in VCS::CMSynergy::DESTROY at program termination)
-    local $?;			
-
-    my ($out, $err);
-
-    run3(\@cmd, \undef, \$out, \$err, 
-	 { binmode_stdout => 1, binmode_stderr => 1 });
-
-    if (my $sig = $? & 127)
-    {
-	($out, $err) = ("", "Killed by signal $sig");
-	$err .= " (core dumped)" if $? & 128;
-    }
-    else
-    {
-	$out =~ s/\015\012/\012/g if is_win32; 	# as if read in :crlf mode
-	chomp($out, $err);
-    }
-
-    return ($?, $out, $err);
 }
 
 # helper: return pathname to ccm executable
@@ -511,10 +511,12 @@ sub databases
     $this = __PACKAGE__->_default unless ref $this;
 
     my @ccmdb_server = 
-	(File::Spec->catfile($this->ccm_home, qw(bin ccmdb)), qw/server -status/);
+	(File::Spec->catfile($this->ccm_home, qw/bin ccmdb/), qw/server -status/);
     push @ccmdb_server, $servername if defined $servername;
 
-    my ($rc, $out, $err) = $this->exec(@ccmdb_server);
+    my ($out, $err);
+    my $rc = $this->run(\@ccmdb_server, \undef, \$out, \$err);
+    chomp ($out, $err);
     return $this->set_error($err || $out) unless $rc == 0;
 
     # strip leading/trailing stuff
@@ -536,7 +538,9 @@ sub hostname
     my $ccm_home = $this->ccm_home;
     unless (exists $Hostname{$ccm_home})
     {
-	my ($rc, $out, $err) = $this->exec(File::Spec->catfile($ccm_home, qw(bin util ccm_hostname)));
+	my ($out, $err);
+	my $rc = $this->run([ File::Spec->catfile($ccm_home, qw/bin util ccm_hostname/) ], \undef, \$out, \$err);
+	chomp($out, $err);
         # ignore bogus exit code (seems to be length of output in bytes, arghh)
 	$Hostname{$ccm_home} = $out;
     }
@@ -1005,6 +1009,14 @@ Normally the method name is deduced from C<caller(1)>.
 The L</set_error> method normally returns C<undef>.  The C<$rv>and C<@rv>
 parameters provides an alternate return value if L</set_error> was
 called in scalar or in list context, resp.
+
+=head2 run
+
+  $client->run(\@cmd, $in, $out, $err);
+
+Runs C<run3> from L<IPC::Run3> with the given arguments in an
+environment (C<$ENV{CCM_HOME}>, C<$ENV{PATH> etc) set up for C<$client>.
+Returns the exit status (i.e. C<$?>) from executing C<@cmd>.
 
 =head2 databases
 

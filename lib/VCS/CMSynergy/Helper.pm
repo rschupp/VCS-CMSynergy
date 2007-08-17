@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Helper;
 
-our $VERSION = do { (my $v = q%version: 3 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 4 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -74,8 +74,7 @@ If no database was specified C<GetOptions> adds
 
   CCM_ADDR => $ENV{CCM_ADDR}
 
-to the returned hash; it will L<croak|Carp/croak> if $ENV{CCM_ADDR}
-is not defined.
+to the returned hash.
 
 Note that all recognized single letter options are in uppercase so that
 scripts using C<VCS::CMSynergy::Helper::GetOptions> still
@@ -97,7 +96,7 @@ can cut and paste into your script's POD:
 require Getopt::Long;
 use Carp;
 
-sub GetOptions()
+sub GetOptions
 {
     my %opts;
     
@@ -109,19 +108,21 @@ sub GetOptions()
 	'user|U=s',
 	'password|P=s',
 	'ui_database_dir=s');
-    $opts{remote_client} = 1 if exists $opts{ui_database_dir};
 
     Getopt::Long::Configure(qw(no_passthrough));
 
-    unless (defined $opts{database})
-    {
-	# default CCM_ADDR from environment if no --database was specified;
-	# croak if neither was specified
-	$opts{CCM_ADDR} = $ENV{CCM_ADDR} or
-	    croak "Don't know how to connect to CM Synergy:\nneither CCM_ADDR set in environment, nor database specified in options (with -D or --database)\n";
-    }
+    $opts{remote_client} = 1 if defined $opts{ui_database_dir};
+    $opts{CCM_ADDR} = $ENV{CCM_ADDR} unless defined $opts{database};
 
     return %opts;
+}
+
+sub CheckOptions
+{
+    my ($opts) = @_;
+
+    croak "Don't know how to connect to CM Synergy: no database specified in options (with -D or --database) and CCM_ADDR not set in environment"
+	unless defined $opts->{database} || defined $opts->{CCM_ADDR};
 }
 
 1;

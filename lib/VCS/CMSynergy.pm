@@ -1,12 +1,12 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.27 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.28 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
 
 use VCS::CMSynergy::Client qw(
-    is_win32 $Debug $Error $Ccm_command $OneArgFoo %new_opts 
+    is_win32 $Debug $Error $Ccm_command %new_opts 
     _exitstatus _error _usage);
 our @ISA = qw(VCS::CMSynergy::Client);
 
@@ -162,7 +162,7 @@ sub _start
 	}
 	push @start, "-f", $self->{ini_file};
 
-	my ($rc, $out, $err) = $self->_ccm(0, @start);
+	my ($rc, $out, $err) = $self->_ccm(@start);
 	return $self->set_error($err || $out) unless $rc == 0;
 
 	$self->{env}->{CCM_ADDR} = $out;
@@ -213,7 +213,7 @@ sub _start
 
     # cache some info from database; this also doubles as a test for a valid session
     {
-	my ($rc, $out, $err) = $self->_ccm(0, 'delimiter');
+	my ($rc, $out, $err) = $self->_ccm(qw/delimiter/);
 	return $self->set_error($err || $out) unless $rc == 0;
 	$self->{delimiter} = $out;
 
@@ -280,7 +280,7 @@ sub DESTROY
     # don't stop session if KeepSession is set 
     unless ($self->{KeepSession})
     {
-	$self->_ccm(0, 'stop');
+	$self->_ccm(qw/stop/);
 	$Debug && $self->trace_msg("stopped session ".$self->ccm_addr."\n");
     }
 
@@ -324,7 +324,7 @@ sub query
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm($OneArgFoo && @_ == 1, qw/query -u/, @_);
+    my ($rc, $out, $err) = $self->_ccm(qw/query -u/, @_);
 
     # NOTE: if there are no hits, `ccm query' exits with status 1, 
     # but produces no output on either stdout and stderr
@@ -398,7 +398,7 @@ sub query_count
     my ($self, $query) = @_;
     _usage(2, 2, '$query', \@_);
 
-    my ($rc, $out, $err) = $self->_ccm(0, 
+    my ($rc, $out, $err) = $self->_ccm(
 	qw/query -u -ns -nf -format X/, $self->_expand_query($query));
 
     # NOTE: if there are no hits, `ccm query' exits with status 1, 
@@ -432,7 +432,7 @@ sub _query
 	$self->ccm_with_option(
 	    Object_format => $format, 
 	    qw/finduse -query/, $query) :
-	$self->_ccm(0, 
+	$self->_ccm( 
 	    qw/query -u -ns -nf -format/, $format, $query);
 
     # NOTE: if there are no hits, `ccm query' exits with status 1, 
@@ -629,7 +629,7 @@ sub history
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm($OneArgFoo && @_ == 1, 'history', @_);
+    my ($rc, $out, $err) = $self->_ccm(history => @_);
     return $self->set_error($err || $out) unless $rc == 0;
 
     return [ split(/^\*+\n?/m, $out) ];
@@ -666,8 +666,7 @@ sub _history
 
     my $format = "\cA" . join("\cD", values %want) . "\cD";
 
-    my ($rc, $out, $err) = $self->_ccm(0, 
-	qw/history -f/, $format, $file_spec);
+    my ($rc, $out, $err) = $self->_ccm(qw/history -f/, $format, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my @result;
@@ -714,7 +713,7 @@ sub finduse
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm($OneArgFoo && @_ == 1, 'finduse', @_);
+    my ($rc, $out, $err) = $self->_ccm(finduse => @_);
 
     # NOTE: `ccm finduse ...' without `-query' complains if some of 
     # the given objects do not exist (and exits with status 1 unless at least
@@ -1003,7 +1002,7 @@ sub get_attribute
     my ($self, $attr_name, $file_spec) = @_;
     _usage(3, 3, '$attr_name, $file_spec', \@_);
 
-    my ($rc, $out, $err) = $self->_ccm(0, qw/attribute -show/, $attr_name, $file_spec);
+    my ($rc, $out, $err) = $self->_ccm(qw/attribute -show/, $attr_name, $file_spec);
     return $out if $rc == 0;
     return if ($err || $out) =~ /Attribute .* does not exist on object/;
     return $self->set_error($err || $out);
@@ -1090,7 +1089,7 @@ sub set_attribute
     }
     else
     {
-	($rc, $out, $err) = $self->_ccm(0,
+	($rc, $out, $err) = $self->_ccm(
 	    qw/attribute -modify/, $attr_name, -value => $value, $file_spec);
     }
 
@@ -1144,7 +1143,7 @@ sub list_attributes
     my ($self, $file_spec) = @_;
     _usage(2, 2, '$file_spec', \@_);
 
-    my ($rc, $out, $err) = $self->_ccm(0, qw/attribute -la/, $file_spec);
+    my ($rc, $out, $err) = $self->_ccm(qw/attribute -la/, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my %attrs = $out =~ /^(\S+) \s* \( (.*?) \)/gmx;
@@ -1159,7 +1158,7 @@ sub property
 
     # NOTE: CM adds a trailing blank on output
     my ($rc, $out, $err) = 
-	$self->_ccm(0, qw/properties -nf -format/, "\cA%$keyword\cD", $file_spec);
+	$self->_ccm(qw/properties -nf -format/, "\cA%$keyword\cD", $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
     local ($_) = $out =~ /\cA(.*)\cD/s or return undef;
@@ -1289,7 +1288,7 @@ sub _attype_is_binary
 sub types
 {
         my $self = shift;
-	my ($rc, $out, $err) = $self->_ccm(0, qw/show -types/);
+	my ($rc, $out, $err) = $self->_ccm(qw/show -types/);
 	return $self->set_error($err || $out) unless $rc == 0;
 	return split(/\n/, $out);
 }
@@ -1298,7 +1297,7 @@ sub types
 sub migrate_auto_rules
 {
         my $self = shift;
-	my ($rc, $out, $err) = $self->_ccm(0, qw/show -migrate_auto_rules/);
+	my ($rc, $out, $err) = $self->_ccm(qw/show -migrate_auto_rules/);
 	return $self->set_error($err || $out) unless $rc == 0;
 	return map { [ split(/ /, $_) ] } split(/\n/, $out);
 }
@@ -1308,7 +1307,7 @@ sub ls
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm($OneArgFoo && @_ == 1, 'ls', @_);
+    my ($rc, $out, $err) = $self->_ccm(ls => @_);
     return $self->set_error($err || $out) unless $rc == 0;
 
     return [ split(/\n/, $out) ];
@@ -1357,7 +1356,7 @@ sub _ls
     
     my $format = "\cA" . join("\cD", values %want) . "\cD";
 
-    my ($rc, $out, $err) = $self->_ccm(0, qw/ls -format/, $format, $file_spec);
+    my ($rc, $out, $err) = $self->_ccm(qw/ls -format/, $format, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my @result;
@@ -1380,7 +1379,7 @@ sub set
 
     if (@_ == 1)
     {
-	my ($rc, $out, $err) = $self->_ccm(0, 'set');
+	my ($rc, $out, $err) = $self->_ccm(qw/set/);
 	return $self->set_error($err || $out) unless $rc == 0;
 
 	my %options;
@@ -1417,7 +1416,7 @@ sub _set
 
     if (@_ == 2)
     {
-	my ($rc, $out, $err) = $self->_ccm(0, set => $option);
+	my ($rc, $out, $err) = $self->_ccm(set => $option);
 	$out = undef if $rc == 0 &&  $out eq "(unset)";
 	return ($rc, $out, $err);
     }
@@ -1425,8 +1424,8 @@ sub _set
     if (@_ == 3)
     {
 	my ($rc, $out, $err) = defined $new_value ?
-	    $self->_ccm(0, set => $option, $new_value) :
-	    $self->_ccm(0, unset => $option);
+	    $self->_ccm(set => $option, $new_value) :
+	    $self->_ccm(unset => $option);
 	return ($rc, $out, $err);
     }
     
@@ -1435,7 +1434,7 @@ sub _set
 
 
 # helper: save value of $option, set it to $new_value, 
-#  call _ccm(0, @args), restore $option; returns ($rc, $out, $err)
+#  call _ccm(@args), restore $option; returns ($rc, $out, $err)
 #  (usually the return value from _ccm(@args) except there were errors
 #  in setting the option)
 sub ccm_with_option
@@ -1453,7 +1452,7 @@ sub ccm_with_option
 	($rc, $out, $err) = $self->_set($option, $new_value);
 	last WITH_OPTION unless $rc == 0;
 
-	my @result = $self->_ccm(0, @args);
+	my @result = $self->_ccm(@args);
 
 	($rc, $out, $err) = $self->_set($option, $old_value);
 	last WITH_OPTION unless $rc == 0;
@@ -1514,7 +1513,7 @@ sub get_releases
 {
     my ($self) = @_;
 
-    my ($rc, $out, $err) = $self->_ccm(0, qw/releases -show/);
+    my ($rc, $out, $err) = $self->_ccm(qw/releases -show/);
     return $self->set_error($err || $out) unless $rc == 0;
 
     my %releases;
@@ -1553,7 +1552,7 @@ sub dcm_delimiter
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm(0, qw/dcm -show -delimiter/);
+    my ($rc, $out, $err) = $self->_ccm(qw/dcm -show -delimiter/);
     return $self->set_error($err || $out) unless $rc == 0;
 
     return $out;
@@ -1565,7 +1564,7 @@ sub dcm_database_id
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm(0, qw/dcm -show -database_id/);
+    my ($rc, $out, $err) = $self->_ccm(qw/dcm -show -database_id/);
     return $self->set_error($err || $out) unless $rc == 0;
 
     return $out;
@@ -1611,7 +1610,7 @@ sub AUTOLOAD
     {
 	my $self = shift;
 
-	my ($rc, $out, $err) = $self->_ccm($OneArgFoo && @_ == 1, $method, @_);
+	my ($rc, $out, $err) = $self->_ccm($method, @_);
 
 	return wantarray ? ($rc, $out, $err) : 1 if $rc == 0;
 	return $self->set_error($err || $out, undef, 0, $rc, $out, $err);
@@ -1625,7 +1624,7 @@ sub AUTOLOAD
 # test whether session is still alive (without causing an exception)
 sub ping
 {
-    my ($rc) = shift->_ccm(0, 'delimiter');
+    my ($rc) = shift->_ccm(qw/delimiter/);
     return $rc == 0;
 }
 
@@ -1713,7 +1712,7 @@ sub object_from_cvid
     # - if the cvid doesn't exist, we get exit code = 0, but 
     #   "Warning: Object version representing type does not exist." on stderr
     my ($rc, $out, $err) = 
-	$self->_ccm(0, qw/properties -nf -format/, "\cA%objectname\cD", "\@=$cvid");
+	$self->_ccm(qw/properties -nf -format/, "\cA%objectname\cD", "\@=$cvid");
     return $self->set_error($err || $out) unless $rc == 0;
 
     my ($name) = $out =~ /\cA(.*)\cD/s;

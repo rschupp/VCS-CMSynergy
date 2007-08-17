@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Object;
 
-our $VERSION = do { (my $v = q%version: 11 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 12 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -266,7 +266,7 @@ sub copy_attribute
 sub exists
 {
     my $self = shift;
-    my ($rc) = $self->ccm->_ccm(0, qw(attribute -show version), $self);
+    my ($rc) = $self->ccm->_ccm(qw/attribute -show version/, $self);
     return $rc == 0;
 }
 

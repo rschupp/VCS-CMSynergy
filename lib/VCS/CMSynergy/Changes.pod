@@ -9,8 +9,6 @@ Known problems:
 - 'make test' on Windows with out-of-the-box CM Synergy installation:
    probably needs to specify -u and -home options for "ccm start"
 
-- OneArgFoo option lacks documentation
-
 - traverse_project()
 	what about absolute subprojects (with subprojects => 1)
 

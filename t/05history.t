@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 14;
+use Test::More tests => 10;
 use t::util;
 use strict;
 
@@ -47,83 +47,57 @@ Predecessors:
 Successors:
 '
 ];
-my $h0_result = $ccm->history("bufcolor.c-1:csrc:2");
-verbose('h0_result', $h0_result);
-isa_ok($h0_result, "ARRAY", "history()");
+my $h0_got = $ccm->history("bufcolor.c-1:csrc:2");
+verbose('h0_got', $h0_got);
+isa_ok($h0_got, "ARRAY", "history()");
 # sigh, datetimes can't be handled reliably (cf. README.datetime)
 s/^Created:.*$/Created:/m foreach (@$h0_exp);
-s/^Created:.*$/Created:/m foreach (@$h0_result);
-ok(eq_set($h0_result, $h0_exp),
+s/^Created:.*$/Created:/m foreach (@$h0_got);
+ok(eq_set($h0_got, $h0_exp),
    q[$ccm->history("bufcolor.c-1:csrc:2")]);
 
 my $h1_exp = [
    {
-     'object' => 'bufcolor.c-1:csrc:2',
-     'task' => undef,
-     'status_log' => 'Fri Sep  5 08:38:16 1997: Status set to \'working\' by ccm_root in role ccm_admin
+     object => vco('bufcolor.c-1:csrc:2'),
+     task => undef,
+     status_log => 'Fri Sep  5 08:38:16 1997: Status set to \'working\' by ccm_root in role ccm_admin
 Fri Sep  5 08:53:24 1997: Status set to \'released\' by ccm_root in role ccm_admin',
-     'predecessors' => [],
-     'successors' => [ 'bufcolor.c-2:csrc:2' ]
+     predecessors => [],
+     successors => bag(vco('bufcolor.c-2:csrc:2')),
    },
    {
-     'object' => 'bufcolor.c-2:csrc:2',
-     'task' => '25',
-     'status_log' => 'Fri Sep  5 09:04:57 1997: Status set to \'working\' by ccm_root in role ccm_admin
+     object => vco('bufcolor.c-2:csrc:2'),
+     task => '25',
+     status_log => 'Fri Sep  5 09:04:57 1997: Status set to \'working\' by ccm_root in role ccm_admin
 Fri Sep  5 09:06:02 1997: Status set to \'integrate\' by ccm_root in role ccm_admin',
-     'predecessors' => [ 'bufcolor.c-1:csrc:2' ],
-     'successors' => [ 'bufcolor.c-3:csrc:2' ]
+     predecessors => bag(vco('bufcolor.c-1:csrc:2')),
+     successors => bag(vco('bufcolor.c-3:csrc:2')),
    },
    {
-     'object' => 'bufcolor.c-3:csrc:2',
-     'task' => '26',
-     'status_log' => 'Fri Sep  5 09:06:20 1997: Status set to \'working\' by ccm_root in role ccm_admin
+     object => vco('bufcolor.c-3:csrc:2'),
+     task => '26',
+     status_log => 'Fri Sep  5 09:06:20 1997: Status set to \'working\' by ccm_root in role ccm_admin
 Fri Sep  5 09:06:48 1997: Status set to \'integrate\' by ccm_root in role ccm_admin',
-     'predecessors' => [ 'bufcolor.c-2:csrc:2' ],
-     'successors' => []
+     predecessors => bag(vco('bufcolor.c-2:csrc:2')),
+     successors => [],
    }
 ];
-my $h1_result = $ccm->history_hashref(
+my $h1_got = $ccm->history_hashref(
     "bufcolor.c-3:csrc:2", qw(object predecessors successors task status_log));
-verbose('h1_result', $h1_result);
-isa_ok($h1_result, "ARRAY", "history_hashref()");
-all_ok { UNIVERSAL::isa($_, "HASH") } $h1_result,
-   q[history_hashref(): isa HASH];
-all_ok { UNIVERSAL::isa($_->{object}, "VCS::CMSynergy::Object") } $h1_result,
-    q[history_hashref(): query keyword "object" isa V::C::O];
-all_ok 
-    { 
-	my $succ = $_->{successors};
-	!defined($succ) || are_vcos($succ);
-    } $h1_result,
-    q[history_hashref(): keyword "successors" isa ARRAY of V::C::Os];
-all_ok 
-    { 
-	my $pred = $_->{predecessors};
-	!defined($pred) || are_vcos($pred)
-    } $h1_result,
-    q[history_hashref(): keyword "predecessors" isa ARRAY of V::C::Os];
-
-# stringify all Objects in $h1_result for following comparison
-# (because eq_set cops out on object refs)
-foreach my $row (@$h1_result)
-{
-    $row->{object} = "$row->{object}";
-    $row->{predecessors} = objectnames($row->{predecessors});
-    $row->{successors} = objectnames($row->{successors});
-}
-ok(eq_array(
-   [ sort { $a->{object} cmp $b->{object} } @$h1_result ], 
-   [ sort { $a->{object} cmp $b->{object} } @$h1_exp ]), 
-   q[$ccm->history_hashref("bufcolor.c-3:csrc:2", qw(object predecessors successors task status_log))]);
+verbose('h1_got', $h1_got);
+cmp_deeply($h1_got, array_each(isa("HASH")),
+   q[history_hashref(): isa ARRAY of HASH]);
+cmp_deeply($h1_got, $h1_exp,
+    q[history_hashref("bufcolor.c-3:csrc:2", ...)]);
 
 # test autoloaded is_FOO_of/has_FOO V::C::O methods
 my $predecessors = $ccm->object("bufcolor.c-3:csrc:2")->has_successor;
-ok(are_vcos($predecessors), q[has_successor returns list of V::C::Os]);
-ok(eq_set(objectnames($predecessors), [ qw/bufcolor.c-2:csrc:2/ ]),
-    q[has_successor check]);
+cmp_deeply($predecessors, vco_array(), 
+    q[has_successor() returns list of V::C::Os]);
+cmp_bag($predecessors, [ vco('bufcolor.c-2:csrc:2') ], q[has_successor check]);
 my $successors = $ccm->object("bufcolor.c-2:csrc:2")->is_successor_of;
-ok(are_vcos($successors), q[is_successor_of returns list of V::C::Os]);
-ok(eq_set(objectnames($successors), [ qw/bufcolor.c-3:csrc:2/ ]),
-    q[is_successor_of check]);
+cmp_deeply($successors, vco_array(),
+    q[is_successor_of() returns list of V::C::Os]);
+cmp_bag($successors, [ vco('bufcolor.c-3:csrc:2') ], q[is_successor_of check]);
 
 exit 0;

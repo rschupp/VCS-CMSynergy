@@ -145,7 +145,7 @@ Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 
 use Getopt::Long qw(:config bundling);
 use Pod::Usage;
-use VCS::CMSynergy 1.27 qw(:tied_objects);
+use VCS::CMSynergy 1.27 qw(:cached_attributes :tied_objects);
 use VCS::CMSynergy::Helper; 
 use strict;
 
@@ -318,8 +318,7 @@ my $ccm = VCS::CMSynergy->new(
     RaiseError	=> 1,
     PrintError	=> 0);
 
-my ($old_project, $new_project) = 
-    map { $ccm->object($ccm->full_project_spec($_)) } @ARGV;
+my ($old_project, $new_project) = map { $ccm->project_object($_) } @ARGV;
 
 my $diff_status;
 END { $? = defined $diff_status ? $diff_status : 2; }

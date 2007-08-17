@@ -5,7 +5,7 @@ build_requires:
   Test::Deep: 0.093
   Test::More: 0
 distribution_type: module
-generated_by: Module::Install version 0.61
+generated_by: Module::Install version 0.64
 license: perl
 name: VCS-CMSynergy
 no_index: 

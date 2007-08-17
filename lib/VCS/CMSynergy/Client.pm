@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-our $VERSION = do { (my $v = q%version: 24 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 26 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 =head1 NAME
 
@@ -13,7 +13,7 @@ VCS::CMSynergy::Client - base class for CM Synergy methods that don't require a 
   $client = VCS::CMSynergy::Client->new(%attr);
 
   $ary_ref = $client->ps;
-  $ccm_version = $client->version;
+  $short_version = $client->version;
   @ary = $client->status;
 
   $client->trace(1, "trace.out");
@@ -42,18 +42,15 @@ use IO::File;
 use IO::Pipe;					# make ActiveState PerlApp happy
 
 use constant is_win32 => $^O eq 'MSWin32' || $^O eq 'cygwin';
-use constant ROW_ARRAY	=> 0;
-use constant ROW_HASH	=> 1;
-use constant ROW_OBJECT	=> 2;
+use constant _pathsep => $^O eq "MSWin32" ? "\\" : "/" ;
 
 our ($Debug, $Debugfh, $Error, $Ccm_command, $Default);
 
 use Exporter();
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
-    is_win32 $Debug $Error $Ccm_command %new_opts 
-    _exitstatus _error _usage
-    ROW_ARRAY ROW_HASH ROW_OBJECT);
+    is_win32 _pathsep $Debug $Error $Ccm_command
+    _exitstatus _error _usage);
 
 {
     $Debug = $ENV{CMSYNERGY_TRACE} || 0;
@@ -78,7 +75,7 @@ our @EXPORT_OK = qw(
     }
 }
 
-our %new_opts = 
+our %opts = 
 (
     HandleError		=> undef,
     PrintError		=> undef,
@@ -108,7 +105,7 @@ sub new
     while (my ($arg, $value) = each %args)
     {
 	croak(__PACKAGE__."::new: unrecognized argument: $arg") 
-	    unless exists $new_opts{$arg};
+	    unless exists $opts{$arg};
 
 	$self->{$arg} = $value;
     }
@@ -116,9 +113,13 @@ sub new
     return $self->set_error("CCM_HOME is not set (neither as parameter to new() nor in environment")
 	unless defined $self->{CCM_HOME};
     $self->{env}->{CCM_HOME} = delete $self->{CCM_HOME};
+
+    my $ccm_exe = File::Spec->catfile(
+	$self->{env}->{CCM_HOME}, "bin", "ccm$Config{_exe}");
     return $self->set_error("CCM_HOME = `$self->{env}->{CCM_HOME}' does not point to a valid CM Synergy installation")
-	unless -x $self->ccm_exe || ($^O eq 'cygwin' && -e $self->ccm_exe);
+	unless -x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe);
 	# NOTE: -x $ccm_exe fails on cygwin
+    $self->{ccm_exe} = $ccm_exe;
 
     return $self;
 }
@@ -126,17 +127,17 @@ sub new
 
 sub _memoize_method 
 {
-    my ($class, $method, $slot) = @_;
-    $slot ||= $method;
+    my ($class, $method, $code) = @_; 
+    _usage(3, 3, '$class, $method, $code', \@_);
+    croak("`$code' is not a code ref") unless ref $code eq "CODE";
+    my $slot = $method;
 
     no strict 'refs';
     no warnings 'redefine';
-    my $name = $class . '::' . $method;
-    my $coderef = *{$name}{CODE};
-    *{$name} = sub 
+    *{"${class}::${method}"} = sub 
     {
 	my $self = shift;
-	$self->{$slot} = &$coderef($self, @_) unless exists $self->{$slot};
+	$self->{$slot} = &$code($self, @_) unless exists $self->{$slot};
 	return $self->{$slot};
     };
 }
@@ -166,6 +167,7 @@ sub ccm						# class/instance method
     # NOTE: most failing ccm commands issue there error messages on stdout!
 }
 
+
 my $ccm_prompt = qr/^ccm> /;		# NOTE the trailing blank
 
 sub _ccm
@@ -182,7 +184,18 @@ sub _ccm
     my $rerr = exists $ropts{err} ? delete $ropts{err} : do { my $s; \$s };
     my $rc;
 
-    my $t0 = $Debug && [ Time::HiRes::gettimeofday() ];
+    my $t0;
+    if ($Debug)
+    {
+	$t0 = [ Time::HiRes::gettimeofday() ];
+	if ($Debug >= 8)
+	{
+	    # NOTE: log the command _before_ executing it to help
+	    # diagnose "hung" scripts (e.g. a ccm command waiting for 
+	    # user confirmation)
+	    $this->trace_msg("<- ccm($this->{ccm_command})\n", 8);
+	}
+    }
 
     CCM:
     {
@@ -256,7 +269,6 @@ sub _ccm
 	my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
 	if ($Debug >= 8)
 	{
-	    $this->trace_msg("<- ccm($this->{ccm_command})\n", 8);
 	    $this->trace_msg("-> rc = $rc [$elapsed sec]\n", 8);
 	    $this->trace_msg("-> out = \"$$rout\"\n", 8) unless exists $opts->{out};
 	    $this->trace_msg("-> err = \"$$rerr\"\n", 8) unless exists $opts->{err};
@@ -330,13 +342,6 @@ sub _kill_coprocess
     $self->{coprocess} = undef;
 }
 
-# helper: return pathname to ccm executable
-sub ccm_exe
-{
-    return File::Spec->catfile(shift->ccm_home, "bin", "ccm$Config{_exe}");
-}
-__PACKAGE__->_memoize_method('ccm_exe');
-
 # helper: inverse function of POSIX::WEXITSTATUS()
 sub _exitstatus	{ return $_[0] << 8; }
 
@@ -376,6 +381,13 @@ sub ccm_home					# class/instance method
     return $this->{env}->{CCM_HOME};
 }
 
+sub ccm_exe					# class/instance method
+{
+    my $this = shift;
+    $this = __PACKAGE__->_default unless ref $this;
+    return $this->{ccm_exe};
+}
+
 sub out 					# class/instance method
 {
     my $this = shift;
@@ -390,6 +402,8 @@ sub err 					# class/instance method
     return $this->{err};
 }
 
+# NOTE: we can't memoize "version", as the memoizing wrapper
+# assumes an object (not a class) as invocant
 sub version					# class/instance method
 {
     my $this = shift;
@@ -400,20 +414,20 @@ sub version					# class/instance method
     return $version->{short};
 }
 
-sub _version
+__PACKAGE__->_memoize_method(_version => sub
 {
-    my $this = shift;
+    my $self = shift;
 
     # "version" is not a recognized "interactive" command
-    local $this->{coprocess} = undef;
+    local $self->{coprocess} = undef;
 
-    my ($rc, $out, $err) = $this->_ccm(qw/version -all/);
-    return $this->set_error($err || $out) unless $rc == 0;
+    my ($rc, $out, $err) = $self->_ccm(qw/version -all/);
+    return $self->set_error($err || $out) unless $rc == 0;
 
     my %version;
     my $cmsynergy_rx = qr/(?:Continuus|CM Synergy|SYNERGY\/CM)/;
     ($version{cmsynergy}) = $out =~ /^$cmsynergy_rx Version\s+(\S*)$/imo
-	or return $this->set_error("can't recognize version from `$out'");
+	or return $self->set_error("can't recognize version from `$out'");
     ($version{short}) = $version{cmsynergy} =~ /^(\d+\.\d+)/;
     
     ($version{schema}) = $out =~ /^$cmsynergy_rx Schema Version\s+(.*)$/imo;
@@ -421,8 +435,7 @@ sub _version
     $version{patches} = [ split(/\n/, $1) ]
 	if $out =~ /^$cmsynergy_rx Patch Version\s+(.*?)(?:\Z|^$cmsynergy_rx|^Informix)/imso; 
     return \%version;
-}
-__PACKAGE__->_memoize_method('_version', 'version');
+});
 
 
 sub ps	

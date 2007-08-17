@@ -1,12 +1,12 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.28.7 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q%version: 1.28.9 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
 
 use VCS::CMSynergy::Client qw(
-    is_win32 $Debug $Error $Ccm_command %new_opts 
+    is_win32 $Debug $Error $Ccm_command
     _exitstatus _error _usage);
 our @ISA = qw(VCS::CMSynergy::Client);
 
@@ -79,12 +79,13 @@ sub new
 {
     my ($class, %args) = @_;
 
-    my %new_args;
+    my %client_args;
     foreach (keys %args)
     {
-	$new_args{$_} = delete $args{$_} if exists $new_opts{$_};
+	$client_args{$_} = delete $args{$_} 
+	    if exists $VCS::CMSynergy::Client::opts{$_};
     }
-    return $class->_start(VCS::CMSynergy::Client->new(%new_args), %args);
+    return $class->_start(VCS::CMSynergy::Client->new(%client_args), %args);
 }
 
 
@@ -312,18 +313,20 @@ sub ccm_addr	{ return shift->{env}->{CCM_ADDR}; }
 sub delimiter	{ return shift->{delimiter}; }
 
 
-sub database	
+sub _my_ps
 { 
-    my $self = shift;
+    my ($self, $field) = @_;
 
-    # determine database path (in canonical format) from `ccm ps'
     my $ccm_addr = $self->ccm_addr;
     my $ps = $self->ps(rfc_address => $ccm_addr);
-    return $self->set_error("can't find session `$ccm_addr' in `ccm ps'") 
+    return $self->set_error("can't find current session `$ccm_addr' in `ccm ps'") 
 	unless $ps && @$ps > 0;
-    return $ps->[0]->{database};
+    return $ps->[0]->{$field};
 }
-__PACKAGE__->_memoize_method('database');
+
+# determine database path (in canonical format) etc from `ccm ps'
+__PACKAGE__->_memoize_method(database => sub { shift->_my_ps('database'); });
+__PACKAGE__->_memoize_method(user => sub { shift->_my_ps('user'); });
 
 
 sub query
@@ -364,7 +367,7 @@ sub query_object
     _usage(2, undef, '$query, @attributes', \@_);
     my ($self, $query) = splice @_, 0, 2;
 
-    # FIXME illegal @attributes: object objectname task_object find_use
+    # FIXME illegal @attributes: objectname, find_use, object, task_objects ...
     return $self->_query($query, [ object => @_ ], ROW_OBJECT);
 }
 
@@ -417,7 +420,7 @@ sub _query
 
     # NOTE: if there are no hits, `ccm query' exits with status 1, 
     # but produces no output on either stdout and stderr
-    return [ ] if $rc == _exitstatus(1) and $out eq "" and $err eq "";
+    return [ ] if $rc == _exitstatus(1) && $out eq "" && $err eq "";
     return $self->set_error($err || $out) unless $rc == 0;
 
     my @result;
@@ -442,13 +445,12 @@ sub _query
 	    #   "project_objectname" => "relative_path/name"
 
 	    # NOTE: Starting with CCM 6.3, project objects may have instances
-	    # other than '1' (either for DCM reasosns, or because someone
+	    # other than '1' (either for DCM reasons, or because someone
 	    # created a second project with the same name while the
 	    # model attribute "multiple_local_proj_instances" was TRUE).
 	    # CCM 6.3 apparently still returns "proj_vers" if instance='1' and
 	    # the full objectname otherwise. We return the full objectname
 	    # in any case.
-
 
 	    unless ($fu_lines =~ /Object is not used in scope/)
 	    {
@@ -458,7 +460,7 @@ sub _query
 		    my ($path, $project) = /$self->{finduse_rx}/
 			or return $self->set_error(
 			    qq[unrecognizable line returned from "finduse -query": "$_"]);
-		    $finduse{$self->full_project_spec($project)} = $path;
+		    $finduse{$self->_projspec2objectname($project)} = $path;
 		}
 	    }
 	}
@@ -470,6 +472,84 @@ sub _query
     }
 
     return \@result;
+}
+
+# Sigh. "ccm query -f %objectname" returns old-style fullnames
+# (i.e. "instance/cvtype/name/version") for certain legacy types of 
+# objects, e.g. "cvtype" and "attype". But CM Synergy
+# doesn't accept these where a "file_spec" is expected 
+# (at least on Unix, because they contain slashes). 
+# Hence rewrite these fullnames to objectnames.
+# Arrggh. Some moron implemented a bogus "objectname" acc_method 
+# for release objects (i.e. type "releasedef") that
+# emits ":" as the first separator. These objectnames aren't
+# accepted as file_specs either. Rewrite them, too.
+sub _fullname2objectname
+{
+    my ($self, $fullname) = @_;
+    $fullname =~ s{^(.*?)/(.*?)/(.*?)/(.*?)$}
+	          {$3$self->{delimiter}$4:$2:$1};
+    $fullname =~ s{^(.*?):(.*?):releasedef:(.*?)$}
+	          {$1$self->{delimiter}$2:releasedef:$3};
+    return $fullname;
+}
+
+# NOTE: The Synergy pseudo attributes (e.g. %task) are implemented in
+# baselib/src/base/pseudo_attrs.ac (except for the hard-wired %objectname
+# and %displayname) and the table in attribute "pseudo_attrs" 
+# of base-1:model:base.
+
+# NOTE: out methods are never called with $_[1] undef
+my %_rewrite_rule = 
+(
+    objectname => 
+    {
+	in  => "%objectname",
+	out => sub { $_[0]->_fullname2objectname($_[1]); }
+    },
+    object => 
+    {
+	in  => "%objectname",
+	out => sub { $_[0]->object($_[0]->_fullname2objectname($_[1])); }
+    },
+    task_objects => 
+    {
+	in  => "%task",
+	out => sub { [ map { $_[0]->task_object($_) } split(/,/, $_[1]) ]; }
+    },
+    cr_objects =>
+    {
+	in  => "%change_request",
+	out => sub { [ map { $_[0]->cr_object($_) } split(/,/, $_[1]) ]; }
+    },
+    baseline_project =>
+    {
+	in  => "%baseline",
+	out => sub { $_[0]->project_object($_[0]); }
+    },
+    baseline_object =>
+    {
+	in  => "%in_baseline",
+	out => sub { $_[0]->baseline_object($_[1]); }
+    },
+);
+
+# helper (not a method): build "want" array from keyword list (common case)
+sub _want
+{
+    my ($keywords) = @_;
+    my %want = map { $_ => "%$_" } @$keywords;
+
+    # handle special keywords
+    foreach (keys %want)
+    {
+	if ($_rewrite_rule{$_})
+	{
+	    $want{$_} = $_rewrite_rule{$_}->{in};
+	}
+    }
+
+    return \%want;
 }
 
 sub _parse_query_result
@@ -484,40 +564,12 @@ sub _parse_query_result
     @row{keys %$want} = map { s/\n\z//; /^<void>$/ ? undef : $_ } @$cols;
     
     # handle special keywords
-
-    # Sigh. "ccm query -f %objectname" returns old-style fullnames
-    # (i.e. "instance/cvtype/name/version") for certain legacy types of 
-    # objects, e.g. "cvtype" and "attype". But CM Synergy
-    # doesn't accept these where a "file_spec" is expected 
-    # (at least on Unix, because they contain slashes). 
-    # Hence rewrite these fullnames to objectnames.
-    # Arrggh. Some monkey implemented a bogus "objectname" acc_method 
-    # for release objects (i.e. type "releasedef") that
-    # emits ":" as the first separator. These objectnames aren't
-    # accepted as file_specs either. Rewrite them, too.
-    for (qw(objectname object))
+    foreach (keys %$want)
     {
-	if ($want->{$_})
+	if ($_rewrite_rule{$_} && defined $row{$_})
 	{
-	    # rewrite fullname if necessary
-	    $row{$_} =~ s{^(.*?)/(.*?)/(.*?)/(.*?)$}
-			 {$3$self->{delimiter}$4:$2:$1};
-	    $row{$_} =~ s{^(.*?):(.*?):releasedef:(.*?)$}
-			 {$1$self->{delimiter}$2:releasedef:$3};
+	    $row{$_} = $_rewrite_rule{$_}->{out}->($self, $row{$_});
 	}
-    }
-
-    if ($want->{task_objects})
-    {
-	# split comma-separated list of task numbers and objectify them
-	$row{task_objects} = 
-	    [ map { $self->task_object($_) } split(/,/, $row{task_objects}) ];
-    }
-
-    if ($want->{object})
-    {
-	# objectify column
-	$row{object} = $self->object($row{object});
     }
 
     if ($row_type == ROW_OBJECT)
@@ -568,7 +620,7 @@ sub _query_shortcut
 	    {
 		/^task$/ && do 		# same as "ccm query -task ..."
 		{
-		    push @clauses, "is_associated_cv_of(cvtype='task' and task_number='$value')";
+		    push @clauses, "is_associated_cv_of(task('$value'))";
 		    next;
 		};
 		/^match$/ && do
@@ -625,16 +677,6 @@ sub _quote_value
     return /^(TRUE|FALSE)$/ ? $_ : # don't quote boolean
 	   /'/ ? qq["$_"] :	   # use double quotes if contains single quote
 	   qq['$_'];		   # use single quotes otherwise
-}
-
-# helper (not a method): build "want" array from keyword list (common case)
-sub _want
-{
-    my ($keywords) = @_;
-    my %want = map { $_ => "%$_" } @$keywords;
-    $want{object} = "%objectname" if $want{object};
-    $want{task_objects} = "%task" if $want{task_objects};
-    return \%want;
 }
 
 
@@ -748,7 +790,7 @@ sub finduse
 	    if (/$self->{finduse_rx}/)
 	    {
 		my ($path, $project) = ($1, $2);
-		$uses->{$self->full_project_spec($project)} = $path;
+		$uses->{$self->_projspec2objectname($project)} = $path;
 		next;
 	    }
 
@@ -908,7 +950,7 @@ sub project_tree
     my %tree;
     my $tag = 0;
     foreach my $proj (
-	map { ref $_ ?  $_ : $self->object($self->full_project_spec($_)) } @projects)
+	map { ref $_ ?  $_ : $self->project_object($_) } @projects)
     {
 	$proj->traverse(
 	    { 
@@ -1236,7 +1278,8 @@ sub ls
     my ($rc, $out, $err) = $self->_ccm(ls => @_);
     return $self->set_error($err || $out) unless $rc == 0;
 
-    return [ split(/\n/, $out) ];
+    # filter out messages that a file has been implicitly synced 
+    return [ grep { !/^\tUpdating database/ } split(/\n/, $out) ];
 }
 
 
@@ -1278,6 +1321,9 @@ sub _ls
 
     my ($rc, $out, $err) = $self->_ccm(qw/ls -format/, $format, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
+
+    # filter out messages that a file has been implicitly synced 
+    $out =~ s/^\tUpdating database.*?(?:\n|\z)//m;
 
     my @result;
     foreach (split(/\Q$RS\E/, $out))		# split into records 
@@ -1383,6 +1429,29 @@ sub _ccm_with_option
     return ($rc, $out, $err);
 }
 
+# helper: write text to temporary file and return its name
+# BEWARE: may re-use the same temporary file (deleted on script exit)
+sub _text_to_tempfile
+{
+    my ($self, $text) = @_;
+
+    my $fh;
+    if ($self->{_tempfile})
+    {
+	open $fh, "> $self->{_tempfile}"
+	    or return $self->set_error(qq[can't open temp file "$self->{_tempfile}": $!]); #'
+    }
+    else
+    {
+	($fh, $self->{_tempfile}) = tempfile(UNLINK => 1)
+	    or return $self->set_error(qq[can't create temp file: $!]); #'
+    }
+    print $fh $text;
+    close $fh;
+
+    return $self->{_tempfile};
+}
+
 # helper: implements ye olde text_editor trick for ccm commands
 # that would interactively open an editor in order to let the user modify
 # some (text) value; ccm_with_text_editor writes $text_value 
@@ -1391,25 +1460,9 @@ sub _ccm_with_option
 # calls $self->_ccm(@args).
 sub ccm_with_text_editor
 {
-    my ($self, $text_value, @args) = @_;
+    my ($self, $text, @args) = @_;
 
-    # try to re-use the temp file
-    my $tempfile = $self->{ccm_with_text_editor_file};
-    unless (defined $tempfile)
-    {
-	(undef, $tempfile) = tempfile();
-	return $self->set_error("can't create temp file to set text value: $!")
-	    unless defined $tempfile;
-
-	push @{ $self->{files_to_unlink} }, $tempfile;
-	$self->{ccm_with_text_editor_file} = $tempfile;
-    }
-
-    local *TEXT;
-    open(TEXT, ">$tempfile")
-	or return _error("can't open temp file `$tempfile' to set text value: $!");
-    print TEXT $text_value;
-    close(TEXT);
+    my $tempfile = $self->_text_to_tempfile($text) or return;
 
     # NOTE: 
     # (1) $Config{cp} is "copy" on Win32, but CMSynergy doesn't invoke
@@ -1470,7 +1523,7 @@ sub set_releases
 }
 
 
-sub dcm_delimiter
+__PACKAGE__->_memoize_method(dcm_delimiter => sub
 {
     my $self = shift;
 
@@ -1478,11 +1531,10 @@ sub dcm_delimiter
     return $self->set_error($err || $out) unless $rc == 0;
 
     return $out;
-}
-__PACKAGE__->_memoize_method('dcm_delimiter');
+});
 
 
-sub dcm_database_id
+__PACKAGE__->_memoize_method(dcm_database_id => sub
 {
     my $self = shift;
 
@@ -1490,23 +1542,21 @@ sub dcm_database_id
     return $self->set_error($err || $out) unless $rc == 0;
 
     return $out;
-}
-__PACKAGE__->_memoize_method('dcm_database_id');
+});
 
 
 sub dcm_enabled		{ shift->dcm_database_id ne ""; }
 
 
-sub default_project_instance
+__PACKAGE__->_memoize_method(default_project_instance => sub
 {
     my $self = shift;
     return $self->version >= 6.3 && $self->dcm_enabled ?
 	$self->dcm_database_id . $self->dcm_delimiter . '1' : '1';
-}
-__PACKAGE__->_memoize_method('default_project_instance');
+});
 
 
-sub full_project_spec
+sub _projspec2objectname
 {
     my ($self, $project) = @_;
     $project .= ':project:' . $self->default_project_instance
@@ -1581,46 +1631,57 @@ sub object
 }
 
 # convenience methods to get the base model object etc
-sub base_admin	{ $_[0]->object(qw(base 1 admin base)); }
+# NOTE: base_model should actually be determined from attribute "active_model"
+# of "default-1:admin:AC" (the value is an old-style fullname,
+# but I've never seen anything else than "base/model/base/1").
 sub base_model	{ $_[0]->object(qw(base 1 model base)); }
+sub base_admin	{ $_[0]->object(qw(base 1 admin base)); }
 sub dcm_admin	{ $_[0]->object(qw(dcm 1 admin dcm)); }
+sub cs_admin	{ $_[0]->object(qw(cs 1 admin 1)); }
 sub cvtype	{ $_[0]->object($_[1], qw(1 cvtype base)); }
 sub attype	{ $_[0]->object($_[1], qw(1 attype base)); }
 
-# get foler object from displayname (without querying Synergy)
-sub folder_object
+# FIXME: instead of implementing the inverse function to the
+# ACcent method "displayname" of folder/task/problem objects, one could use
+#    $self>query_object("query_function('$displayname')");
+# but query functions like folder() didn't appear before CCM 6.x;
+sub _displayname2object
 {
-    my ($self, $folder) = @_;
+    my ($self, $name, $cvtype, $format, $subsys) = @_;
 
-    # displayname is either <number> (for a local folder)
-    # or <dbid><dcm_delimiter><number> (for a foreign folder)
-    my ($instance, $num) = $folder =~ /^(?:(.*)\D)?(\d+)$/;
-    $instance = $self->dcm_enabled ? $self->dcm_database_id : "probtrac"
-	unless defined $instance;
+    # displayname is either <number> (for a local object)
+    # or <dbid><dcm_delimiter><number> (for a foreign object)
+    if ($self->dcm_enabled)
+    {
+	$self->{dcm_prefix_rx} ||= do { my $rx = quotemeta($self->dcm_delimiter); qr/$rx/; };
+	my @parts = split($self->{dcm_prefix_rx}, $name);
+	if (@parts == 2)	{ ($subsys, $name) = @parts; }
+	else			{ $subsys = $self->dcm_database_id; }
+    }
 
-    # FIXME: alternatively could use 
-    #    $self>query_object({ folder => [ $folder ] }) };
-    # but query function folder() appeared first in CCM 6.x
-
-    return $self->object($num, qw(1 folder), $instance);
+    return $self->object(sprintf($format, $name), "1", $cvtype, $subsys);
 }
 
-# get task object from displayname (without querying Synergy)
-sub task_object
+# get folder/task/problem/... object from displayname (without querying Synergy)
+sub folder_object				# folder('id')
+{ 
+    $_[0]->_displayname2object($_[1], qw/folder %s probtrac/); 
+}
+sub task_object					# task('id')
+{ 
+    $_[0]->_displayname2object($_[1], qw/task task%s probtrac/); 
+}	
+sub cr_object					# cr('id')
+{ 
+    $_[0]->_displayname2object($_[1], qw/problem problem%s probtrac/); 
+}	
+sub baseline_object				# baseline('id')
+{ 
+    $_[0]->_displayname2object($_[1], qw/baseline %s 1/); 
+}	
+sub project_object
 {
-    my ($self, $task) = @_;
-
-    # displayname is either <number> (for a local task)
-    # or <dbid><dcm_delimiter><number> (for a foreign task)
-    my ($instance, $num) = $task =~ /^(?:(.*)\D)?(\d+)$/;
-    $instance = $self->dcm_enabled ? $self->dcm_database_id : "probtrac"
-	unless defined $instance;
-
-    # FIXME: alternatively could use 
-    #    $self>query_object({ task => [ $task ] }) };
-    # but query function task() appeared first in CCM 6.x
-
-    return $self->object("task$num", qw(1 task), $instance);
+    $_[0]->object($_[0]->_projspec2objectname($_[1]));
 }
 
 
@@ -1648,19 +1709,14 @@ sub object_from_cvid
 
 
 # $ccm->object_from_proj_ref($path, $proj_spec) => VCS::CMSynergy::Object
-# NOTE: $path is either sa tring (wa relative path) 
-# or array ref of path components
-# FIXME needs pod
-# FIXME needs test
 sub object_from_proj_ref
 {
     _usage(3, undef, '{ $path | \\@path_components }, $proj_spec, @keywords', \@_);
     my ($self, $path, $proj_spec) = splice @_, 0, 3;
 
-    $path = join("/", @$path) if ref $path; # FIXME use native path delim here
+    $path = join(VCS::CMSynergy::Client::_pathsep, @$path) if ref $path; 
 
-    return $self->ccm->_property(
-	"$path\@$proj_spec,", [ object => @_ ], ROW_OBJECT);
+    return $self->_property("$path\@$proj_spec", [ object => @_ ], ROW_OBJECT);
     # NOTE/FIXME: no error if path isn't bound? possible errors:
     #   Specified project not found in database: '$self'
     #   Object version could not be identified from reference form: '$path'

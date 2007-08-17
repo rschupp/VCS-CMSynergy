@@ -16,12 +16,28 @@ Known problems:
 
 =head2 Changes in Version 1.29
 
+  Implemented get_member_info_hashref() and get_member_info_object() 
+  as wrappers for the optional command "get_member_info" (from
+  the "PC Integrations" package), cf. README.get_member_info.
+
+  New class VCS::CMSynergy::Project (subclass of VCS::CMSynergy::Object)
+  for methods on Synergy projects. All VCS::CMSynergy::Object producing
+  methods will automatically return a VCS::CMSynergy::Project if the
+  the object's cvtype is "project".
+
   query_object() subsumes query_object_with_attributes() which 
   is only kept as an alias for backward compatibility.
-  FIXME still need to update POD
 
   object_from_cvid() now takes an optional list of keywords (to prime
   the object's attributes when using :cached_attributes.).
+
+  Implemented object_from_proj_ref().
+
+  More special keywords recognized in query_* (and related) methods:
+  "cr_objects", "baseline_project", "baseline_object". These are similar
+  to "task_objects" (which splits the list of tasks returned from 
+  Synergy's pseudo attribute %task and objectifies the elements)
+  for the pseudo attributes %change_request, %baseline, %in_baseline.
 
 =head2 Changes in Version 1.28
 

@@ -63,22 +63,22 @@ my $h1_exp = [
      status_log => 'Fri Sep  5 08:38:16 1997: Status set to \'working\' by ccm_root in role ccm_admin
 Fri Sep  5 08:53:24 1997: Status set to \'released\' by ccm_root in role ccm_admin',
      predecessors => [],
-     successors => bag(vco('bufcolor.c-2:csrc:2')),
+     successors => vcoset([ qw(bufcolor.c-2:csrc:2) ]),
    },
    {
      object => vco('bufcolor.c-2:csrc:2'),
      task => '25',
      status_log => 'Fri Sep  5 09:04:57 1997: Status set to \'working\' by ccm_root in role ccm_admin
 Fri Sep  5 09:06:02 1997: Status set to \'integrate\' by ccm_root in role ccm_admin',
-     predecessors => bag(vco('bufcolor.c-1:csrc:2')),
-     successors => bag(vco('bufcolor.c-3:csrc:2')),
+     predecessors => vcoset([ qw(bufcolor.c-1:csrc:2) ]),
+     successors => vcoset([ qw(bufcolor.c-3:csrc:2) ]),
    },
    {
      object => vco('bufcolor.c-3:csrc:2'),
      task => '26',
      status_log => 'Fri Sep  5 09:06:20 1997: Status set to \'working\' by ccm_root in role ccm_admin
 Fri Sep  5 09:06:48 1997: Status set to \'integrate\' by ccm_root in role ccm_admin',
-     predecessors => bag(vco('bufcolor.c-2:csrc:2')),
+     predecessors => vcoset([ qw(bufcolor.c-2:csrc:2) ]),
      successors => [],
    }
 ];
@@ -92,12 +92,12 @@ cmp_deeply($h1_got, $h1_exp,
 
 # test autoloaded is_FOO_of/has_FOO V::C::O methods
 my $predecessors = $ccm->object("bufcolor.c-3:csrc:2")->has_successor;
-cmp_deeply($predecessors, vco_array(), 
+cmp_deeply($predecessors, array_each(isa("VCS::CMSynergy::Object")), 
     q[has_successor() returns list of V::C::Os]);
-cmp_bag($predecessors, [ vco('bufcolor.c-2:csrc:2') ], q[has_successor check]);
+cmp_vcos($predecessors, [ qw(bufcolor.c-2:csrc:2) ], q[has_successor check]);
 my $successors = $ccm->object("bufcolor.c-2:csrc:2")->is_successor_of;
-cmp_deeply($successors, vco_array(),
+cmp_deeply($successors, array_each(isa("VCS::CMSynergy::Object")),
     q[is_successor_of() returns list of V::C::Os]);
-cmp_bag($successors, [ vco('bufcolor.c-3:csrc:2') ], q[is_successor_of check]);
+cmp_vcos($successors, [ qw(bufcolor.c-3:csrc:2) ], q[is_successor_of check]);
 
 exit 0;

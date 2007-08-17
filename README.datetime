@@ -16,7 +16,7 @@ Here create_time is formatted by the engine while for
 
     ccm attr -s create_time ...
 
-it's formatted by the client. Both methods will only yield identical results
+it's formatted by the client Both methods will only yield identical results
 if the setting of CCM_DATETIME_FMT is propagated from the client to
 the engine at the start of the session. Unfortunately this depends
 on your method to start the engine. It works correctly for an engine
@@ -25,6 +25,16 @@ well for remote engines started in the "classical" way (i.e. using
 rsh for Unix to Unix and rexec for Windows to Unix). It fails when
 using the Engine Startup Daemon (ESD) introduced in Synergy 6.2.
 This is a known bug that Telelogic is unwilling to fix.
+
+Here is an incomplete list of ccm commands and whether they print timestamps 
+formatted by the engine or the client: 
+
+    query		engine
+    properties		engine
+    history		engine
+    ls			engine
+    get_member_info	engine
+    attribute -show	client
 
 In addition, there's a problem with timezones. Synergy reports all
 datetimes as local times. Depending on whether the client or the engine

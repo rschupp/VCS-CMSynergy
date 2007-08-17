@@ -1,7 +1,6 @@
 #!/usr/bin/perl -w
 
 use Test::More tests => 11;
-use Test::Deep 0.093;
 use t::util;
 use strict;
 

@@ -1,15 +1,15 @@
 #!/usr/bin/perl
 
 use Test::More tests => 6;
-use Test::Deep 0.093;
 use t::util;
 use strict;
 
 BEGIN { use_ok('VCS::CMSynergy'); }
 
 # convert project reference from Unix pathnames to native pathnames
-# NOTE: We cant use File::Spec here since Cygwin uses slash as the path
-# delimiter, but CM Synergy on NT returns backslashes in project references.
+# NOTE: We can't use File::Spec here since Cygwin uses slash as the path
+# delimiter, but CM Synergy on Windows returns backslashes 
+# in project references.
 sub native_path
 {
     local $_ = shift;
@@ -120,10 +120,10 @@ cmp_bag($q_got, $q_expected,
    q[$ccm->query_hashref("name = 'main.c'", qw(objectname finduse))]);
    
 my $fu_expected = [ map { [ $_->{objectname}, $_->{finduse} ] } @$q_expected ];
-my $old_format = $ccm->set("Object_format", "%objectname");
+my $old_format = $ccm->set(Object_format => "%objectname");
 my $fu_got = $ccm->finduse(map { $_->{objectname} } @$q_expected);
 verbose('fu_got', $fu_got);
-$ccm->set("Object_format", $old_format);
+$ccm->set(Object_format => $old_format);
 cmp_bag($fu_got, $fu_expected, q[$ccm->finduse(...)]);
 
 is($ccm->findpath("main.c-1:csrc:3", "guilib-darcy:project:1"),

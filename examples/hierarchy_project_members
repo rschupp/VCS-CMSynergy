@@ -41,7 +41,7 @@ my $ccm = VCS::CMSynergy->new(
 );
 
 foreach my $member (@{ $ccm->query_object(
-    { hierarchy_project_members => [ $ccm->full_project_spec($top_proj_vers), 'depth'] }, 
+    { hierarchy_project_members => [ $ccm->project_object($top_proj_vers), 'depth'] }, 
     qw(status wa_path)) })
 {
     print "$member <$member->{status}> $member->{wa_path}\n";

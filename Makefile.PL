@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-# %version: 14 %
+# %version: 8 %
 
 use ExtUtils::MakeMaker;
 use Config;
@@ -34,7 +34,7 @@ die qq{
   ABORTED!
 } unless $? == 0;
 
-$ccm_version =~ /^(?:Continuus|CM Synergy) Version\s+(\d+\.\d+)/i;
+$ccm_version =~ /^(?:Continuus|CM Synergy|SYNERGY\/CM) Version\s+(\d+\.\d+)/i;
 print "Detected CM Synergy version $1\n";
 
 warn qq{

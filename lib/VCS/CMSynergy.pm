@@ -103,7 +103,7 @@ sub _start
     my @start = qw/start -m -q -nogui/;
     while (my ($arg, $value) = each %args)
     {
-	croak(__PACKAGE__."::object: unrecognized argument: $arg") 
+	croak(__PACKAGE__.q[::object: unrecognized argument "$arg"]) 
 	    unless exists $start_opts{$arg};
 
 	$self->{$arg} = $value unless $arg eq "password";
@@ -408,8 +408,8 @@ sub _query
     my $want = _want($row_type == ROW_OBJECT, $keywords);
 
     my $want_finduse = delete $want->{finduse};
-    croak("keyword finduse not allowed when ROW_OBJECT wanted") 
-	if $row_type == ROW_OBJECT && $want_finduse;
+    croak(__PACKAGE__.qq[::_query: keyword "finduse" not allowed when ROW_OBJECT wanted])
+	if $want_finduse && $row_type == ROW_OBJECT;
 
     my $format = $RS . join($FS, values %$want) . $FS;
 
@@ -423,7 +423,13 @@ sub _query
     # NOTE: if there are no hits, `ccm query' exits with status 1, 
     # but produces no output on either stdout and stderr
     return [ ] if $rc == _exitstatus(1) && $out eq "" && $err eq "";
-    return $self->set_error($err || $out) unless $rc == 0;
+
+    # NOTE: if the query string contained a syntax error, Synergy
+    # prints "Syntax error in query request", but won't tell you the
+    # query string, making it hard to diagnose the problem.
+    # So append the query string to the error message.
+    return $self->set_error(($err || $out).qq[\n  Query was "$query"]) 
+	unless $rc == 0;
 
     my @result;
     foreach (split(/\Q$RS\E/, $out))		# split into records 
@@ -560,7 +566,7 @@ sub _want
     {
 	if (my $rule = $_rewrite_rule{$_})
 	{
-	    croak("keyword $_ not allowed when ROW_OBJECT wanted") 
+	    croak(__PACKAGE__.qq[::_want: keyword "$_" not allowed when ROW_OBJECT wanted]) 
 		if $want_row_object && !$rule->{row_object_ok};
 	    $want{$_} = $rule->{in};
 	}
@@ -631,7 +637,8 @@ sub _query_shortcut
     my @clauses;
     while (my ($key, $value) = each %$hashref)
     {
-	if (ref $value eq '')
+	my $ref = ref $value;
+	if ($ref eq '')
 	{
 	    for ($key)
 	    {
@@ -659,12 +666,12 @@ sub _query_shortcut
 		push @clauses, "$key="._quote_value($value);
 	    }
 	}
-	elsif (ref $value eq 'ARRAY')
+	elsif ($ref eq 'ARRAY')
 	{
 	    my $args = join(",", map { _quote_value($_) } @$value);
 	    push @clauses, "$key($args)";
 	}
-	elsif (ref $value eq 'HASH')
+	elsif ($ref eq 'HASH')
 	{
 	    my $nested = $self->_query_shortcut($value);
 	    push @clauses, "$key($nested)";
@@ -672,7 +679,7 @@ sub _query_shortcut
 	else
 	{
 	    (my $method = (caller(1))[3]) =~ s/^.*:://;
-	    croak("$method: dunno how to handle $key => ".(ref $value)." in shortcut query");
+	    croak(qq[$method: dunno how to handle "$key => $ref" in shortcut query]);
 	}
     }
 
@@ -733,8 +740,8 @@ sub _history
     my $want = _want($row_type == ROW_OBJECT, $keywords);
     my $want_predecessors = delete $want->{predecessors};
     my $want_successors = delete $want->{successors};
-    croak("keyword predecessors or successors not allowed when ROW_OBJECT wanted") 
-	if $row_type == ROW_OBJECT && ($want_predecessors || $want_successors);
+    croak(__PACKAGE__.qq[::_history: keyword "predecessors" or "successors" not allowed when ROW_OBJECT wanted]) 
+	if ($want_predecessors || $want_successors) && $row_type == ROW_OBJECT;
 
     my $format = $RS . join($FS, values %$want) . $FS;
 
@@ -849,7 +856,7 @@ sub relations_hashref
     my %defaulted;
     foreach my $arg (qw/from_attributes to_attributes/)
     {
-	croak(__PACKAGE__."::relations_hashref: optional argument $arg must be an array ref")
+	croak(__PACKAGE__.qq[::relations_hashref: optional argument "$arg" must be an array ref])
 	    if exists $args{$arg} && !UNIVERSAL::isa($args{$arg}, 'ARRAY');
 
 	# default keyword "objectname"
@@ -882,7 +889,7 @@ sub relations_object
 
     foreach my $arg (qw/from_attributes to_attributes/)
     {
-	croak(__PACKAGE__."::relations_object: optional argument $arg must be an array ref")
+	croak(__PACKAGE__.qq[::relations_object: optional argument "$arg" must be an array ref])
 	    if $args{$arg} && !UNIVERSAL::isa($args{$arg}, 'ARRAY');
 	$args{$arg} ||= [];		# _relations below likes 'em defined
     }
@@ -968,7 +975,7 @@ sub project_tree
     my ($self, $options, @projects) = @_;
 
     $options = {} unless defined $options;
-    croak(__PACKAGE__."::project_tree: argument 1 (options) must be a HASH ref: $options")
+    croak(__PACKAGE__.qq[::project_tree: argument 1 ("options") must be a HASH ref: $options])
 	unless ref $options eq "HASH";
     $options->{attributes} ||= [];
     my $mark_projects = delete $options->{mark_projects};
@@ -1056,7 +1063,7 @@ sub _ccm_attribute
 	(undef, $value) = splice @args, $i, 2;
 	last;
     }
-    croak(__PACKAGE__."::_ccm_attribute: mssing argument \"-value\"")
+    croak(__PACKAGE__.qq[::_ccm_attribute: mssing argument "-value"])
 	unless defined $value;
 
     if ($value eq "")
@@ -1184,7 +1191,7 @@ sub cat_object
     _usage(2, 3, '$object [, $destination]', \@_);
     my ($self, $object, $destination) = @_;
 
-    croak(__PACKAGE__."::cat_object: argument 1 (object) must be a VCS::CMSynergy::Object: $object")
+    croak(__PACKAGE__.qq[::cat_object: argument 1 (object) must be a VCS::CMSynergy::Object: $object])
 	unless UNIVERSAL::isa($object, "VCS::CMSynergy::Object");
 
     # [DEPRECATE < 6.3]

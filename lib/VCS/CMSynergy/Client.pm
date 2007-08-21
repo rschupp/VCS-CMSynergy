@@ -129,7 +129,8 @@ sub _memoize_method
 {
     my ($class, $method, $code) = @_; 
     _usage(3, 3, '$class, $method, $code', \@_);
-    croak("`$code' is not a code ref") unless ref $code eq "CODE";
+    croak(__PACKAGE__.qq[::_memoize_method: "$code" must be a CODE ref]) 
+	unless ref $code eq "CODE";
     my $slot = $method;
 
     no strict 'refs';

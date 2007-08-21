@@ -438,11 +438,11 @@ hash reference. Possible keys are:
 
 =over 4
 
-=item C<subprojects>
+=item C<subprojects> (boolean)
 
 whether to list members of sub projects (recursively), default: false
 
-=item C<pathsep>
+=item C<pathsep> (string)
 
 separator to use for the workarea pathnames, default: the platform's
 native path separator
@@ -639,7 +639,110 @@ sub object_from_proj_ref
     _usage(2, undef, '{ $path | \\@path_components }, @keywords', \@_);
     my ($self, $path) = splice @_, 0, 2;
 
-    return $self->ccm->object_from_proj_ref($path, $self);
+    return $self->ccm->object_from_proj_ref($path, $self, @_);
+}
+
+
+=head1 MISCELLANEOUS
+
+=head2 show_reconfigure_properties
+
+  $objects = $proj->show_reconfigure_properties($what, @keywords, \%options);
+
+Shows information about the project's reconfigure properties
+depending on C<$what>. C<@keywords> and C<\%options> are optional.
+Returns a reference to an array of C<VCS::CMSynergy::Objects>.
+
+C<$what> must be one of the following strings:
+
+=over 4
+
+=item C<"tasks">
+
+shows tasks that are directly in the project’s reconfigure properties
+
+=item C<"folders">
+
+shows folders that are in the project’s reconfigure properties
+
+=item C<"tasks_and_folders">
+
+shows tasks and folders that are directly in the project’s 
+reconfigure properties
+
+=item C<"all_tasks">
+
+shows all tasks that are directly or indirectly in the project’s 
+reconfigure properties (indirectly means the task is in a folder 
+that is in the project’s reconfigure properties) 
+
+=item C<"objects">
+
+shows objects in the task that are either directly or indirectly
+in the project’s reconfigure properties
+
+=back
+
+See the description of  L<VCS::CMSynergy/query_hashref> or 
+L<VCS::CMSynergy/query_object>, resp., for the meaning of 
+C<@keywords>. 
+
+C<show_reconfigure_properties> also accepts an optional trailing  
+hash reference. Possible keys are:
+
+=over 4
+
+=item C<subprojects> (boolean)
+
+whether to include the reconfigure properties 
+of sub projects (recursively), default: false
+
+=item C<automatic> (boolean)
+
+whether automatic tasks are to be shown, default: false; 
+this option is only relevant if C<$what> is "tasks", "tasks_and_folders" 
+or "all_tasks"
+
+=back
+
+Example: 
+
+  $tasks = $proj->show_reconfigure_properties(
+	     all_tasks => qw/task_synopsis completion_date/, 
+	     { subprojects => 1, automatic => 0 });
+
+=cut 
+
+sub show_reconfigure_properties
+{
+    _usage(2, undef, '$what [, @keywords] [, \%options]', \@_);
+    my ($self, $what) = splice @_, 0, 2;
+    my $opts = @_ && ref $_[-1] eq "HASH" ? pop : {};
+    croak(__PACKAGE__."::show_reconfigure_properties:".
+	  " argument 1 (what) must be one of tasks|folders|tasks_and_folders|all_tasks|objects")
+	unless $what =~ /^(tasks|folders|tasks_and_folders|all_tasks|objects)$/;
+
+    my $want = VCS::CMSynergy::_want(1, \@_);
+    my $format = $VCS::CMSynergy::RS . join($VCS::CMSynergy::FS, values %$want) . $VCS::CMSynergy::FS;
+
+    my @rp = qw/reconfigure_properties -u -ns/;
+    push @rp, $opts->{automatic} ? "-auto" : "-no_auto" if $what =~ /tasks/;
+    push @rp, "-r" if $opts->{subprojects};
+
+    my ($rc, $out, $err) = $self->ccm->_ccm(
+	@rp, -format => $format, -show => $what, $self);
+    return $self->set_error($err || $out) unless $rc == 0;
+    # NOTE: if the reconf properties are empty, Synergy shows the string "None"
+    return [ ] if $out eq "None";
+
+    my @result;
+    foreach (split(/\Q${VCS::CMSynergy::RS}\E/, $out))	# split into records 
+    {
+	next unless length($_);				# skip empty leading record
+	my @cols = split(/\Q${VCS::CMSynergy::FS}\E/, $_, -1);	# don't strip empty trailing fields
+	push @result, $self->ccm->_parse_query_result($want, \@cols, 1);
+    }
+    return \@result;
 }
 
 

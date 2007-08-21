@@ -605,7 +605,6 @@ sub trace_msg
 sub set_error 
 {
     my ($this, $error, $method, $rv, @rv) = @_;
-    $method = (caller(1))[3] unless defined $method;
 
     $Error = $this->{error} = $error;
 
@@ -613,6 +612,20 @@ sub set_error
     # consider the error handled if it returns true
     my $handler = $this->{HandleError};
     return wantarray ? @rv : $rv if $handler and &$handler($error, $this, $rv, @rv);
+
+    # unless $method was explicitly specified, use our caller 
+    # except skip private methods of VCS::CMsynergy... packages
+    unless (defined $method)
+    {
+	$method = (caller(0))[3];
+	for (my $n = 1;; $n++)
+	{
+	    my $next = (caller($n))[3];
+	    last unless defined $next;
+	    $method = $next;
+	    last unless $method =~ /^VCS::CMSynergy.*::_\w*$/;
+	}
+    }
 
     my $msg = "$method: $error";
     croak($msg) if $this->{RaiseError};	

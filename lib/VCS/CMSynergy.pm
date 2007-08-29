@@ -1,6 +1,8 @@
 package VCS::CMSynergy;
 
-our $VERSION = do { (my $v = q%version: 1.30.1 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+# $Revision$
+
+our $VERSION = '1.31';
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;

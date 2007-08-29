@@ -1,6 +1,6 @@
 package VCS::CMSynergy::ObjectTieHash;
 
-our $VERSION = do { (my $v = q%version: 6 %) =~ s/.*://; sprintf("%d.%02d", split(/\./, $v), 0) };
+our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; };
 
 use base 'VCS::CMSynergy::Object';
 

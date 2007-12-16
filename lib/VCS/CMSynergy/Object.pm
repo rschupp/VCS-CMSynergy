@@ -171,9 +171,10 @@ sub set_attribute
 
 sub create_attribute
 {
-    _usage(4, undef, '$name, $type, $value', \@_);
-    my ($self, $attr_name, $type, $value) = @_;
-    
+    my $self = shift;
+    _usage(@_, 3, 3, '$name, $type, $value');
+
+    my ($attr_name, $type, $value) = @_;
     my $rc = $self->ccm->create_attribute($attr_name, $type, $value, $self);
 
     # update attribute cache if necessary
@@ -184,9 +185,10 @@ sub create_attribute
 
 sub delete_attribute
 {
-    _usage(2, undef, '$name', \@_);
-    my ($self, $attr_name) = @_;
+    my $self = shift;
+    _usage(@_, 1, 1, '$name');
 
+    my ($attr_name) = @_;
     my $rc = $self->ccm->delete_attribute($attr_name, $self);
 
     # update attribute cache if necessary
@@ -198,8 +200,10 @@ sub delete_attribute
 
 sub copy_attribute
 {
-    _usage(3, undef, '{ $name | \\@names }, $to_file_spec...', \@_);
-    my ($self, $names, @to_file_specs) = @_;
+    my $self = shift;
+    _usage(@_, 2, undef, '{ $name | \\@names }, $to_file_spec...');
+
+    my ($names, @to_file_specs) = @_;
 
     # NOTE: no $flags allowed, because honouring them would need
     # a project traversal to update or invalidate attribute caches

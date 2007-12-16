@@ -284,9 +284,10 @@ my %traverse_opts =
 
 sub traverse
 {
-    _usage(2, 3, '{ \\&wanted | \\%wanted } [, $dir_object]', \@_);
-    my ($self, $wanted, $dir) = @_;
+    my $self = shift;
+    _usage(@_, 1, 2, '{ \\&wanted | \\%wanted } [, $dir_object]');
 
+    my ($wanted, $dir) = @_;
     if (ref $wanted eq 'CODE')
     {
 	$wanted = { wanted => $wanted };
@@ -564,18 +565,20 @@ to L<VCS::CMSynergy/query_object> as additional keywords.
 
 sub recursive_is_member_of
 {
-    _usage(1, undef, '[{ $order_spec | undef }, @keywords]', \@_);
-    my ($self, $order_spec) = splice @_, 0, 2;
-    $order_spec ||= "none";
+    my $self = shift;
+    _usage(@_, 0, undef, '[{ $order_spec | undef }, @keywords]');
+
+    my $order_spec = shift || "none";
     return $self->ccm->query_object("recursive_is_member_of('$self',$order_spec)", @_);
 }
 
 
 sub hierarchy_project_members
 {
-    _usage(1, undef, '[{ $order_spec | undef }, @keywords]', \@_);
-    my ($self, $order_spec) = splice @_, 0, 2;
-    $order_spec ||= "none";
+    my $self = shift;
+    _usage(@_, 0, undef, '[{ $order_spec | undef }, @keywords]');
+
+    my $order_spec = shift || "none";
     return $self->ccm->query_object("hierarchy_project_members('$self',$order_spec)", @_);
 }
 
@@ -604,9 +607,10 @@ to L<VCS::CMSynergy/query_object> as additional keywords.
 
 sub is_child_of
 {
-    _usage(1, undef, '[{ $dir_object | undef }, @keywords]', \@_);
-    my ($self, $dir) = splice @_, 0, 2;
+    my $self = shift;
+    _usage(@_, 0, undef, '[{ $dir_object | undef }, @keywords]');
 
+    my $dir = shift;
     if (defined $dir)
     {
 	croak(__PACKAGE__."::is_child_of: argument 1 ($dir) must be a VCS::CMSynergy::Object")
@@ -636,9 +640,10 @@ is exactly the same as
 
 sub object_from_proj_ref
 {
-    _usage(2, undef, '{ $path | \\@path_components }, @keywords', \@_);
-    my ($self, $path) = splice @_, 0, 2;
+    my $self = shift;
+    _usage(@_, 1, undef, '{ $path | \\@path_components }, @keywords');
 
+    my $path = shift;
     return $self->ccm->object_from_proj_ref($path, $self, @_);
 }
 
@@ -715,9 +720,11 @@ Example:
 
 sub show_reconfigure_properties
 {
-    _usage(2, undef, '$what [, @keywords] [, \%options]', \@_);
-    my ($self, $what) = splice @_, 0, 2;
+    my $self = shift;
     my $opts = @_ && ref $_[-1] eq "HASH" ? pop : {};
+    _usage(@_, 1, undef, '$what [, @keywords] [, \%options]');
+
+    my $what = shift;
     croak(__PACKAGE__."::show_reconfigure_properties:".
 	  " argument 1 (what) must be one of tasks|folders|tasks_and_folders|all_tasks|objects")
 	unless $what =~ /^(tasks|folders|tasks_and_folders|all_tasks|objects)$/;

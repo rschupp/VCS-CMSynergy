@@ -51,6 +51,7 @@ our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
     is_win32 _pathsep $Debug $Error $Ccm_command
     _exitstatus _error _usage);
+sub _usage(\@$$$);
 
 {
     $Debug = $ENV{CMSYNERGY_TRACE} || 0;
@@ -127,8 +128,9 @@ sub new
 
 sub _memoize_method 
 {
+    _usage(@_, 3, 3, '$class, $method, $code');
+
     my ($class, $method, $code) = @_; 
-    _usage(3, 3, '$class, $method, $code', \@_);
     croak(__PACKAGE__.qq[::_memoize_method: "$code" must be a CODE ref]) 
 	unless ref $code eq "CODE";
     my $slot = $method;
@@ -350,17 +352,18 @@ sub _exitstatus	{ return $_[0] << 8; }
 sub _error	{ return (_exitstatus(255), "", $_[0]) }
 
 # helper: check usage
-# check min ($minargs) and max ($maxargs) number of arguments 
-# (numbers include $self); use $maxargs=undef for unlimited arguments;
+# check min ($minargs) and max ($maxargs) number of arguments;
+# use $maxargs=undef for unlimited arguments;
+# for methods, you should shift $self off @_ before calling _usage();
 # croak with message constructed from $usage
-sub _usage
+sub _usage(\@$$$)
 {
-    my ($minargs, $maxargs, $usage, $argsref) = @_;
-    return if $minargs <= @$argsref && (!defined $maxargs || @$argsref <= $maxargs);
+    my ($args, $minargs, $maxargs, $usage) = @_;
+    return 1 if $minargs <= @$args && (!defined $maxargs || @$args <= $maxargs);
     my $fullname = (caller(1))[3];
     (my $method = $fullname) =~ s/^.*:://;
-    croak("$fullname: invalid number of arguments" .
-          "\n  usage: \$ccm->${method}(${usage})");
+    croak("$fullname: called with invalid number of arguments" .
+          "\n  should be $usage");
 }
 
 sub error

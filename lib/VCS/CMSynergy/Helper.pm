@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Helper;
 
-our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; };
+our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; $v };
 
 =head1 NAME
 

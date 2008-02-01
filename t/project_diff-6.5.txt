@@ -1,0 +1,10 @@
+! toolkit/editor/makefile makefile-1:makefile:2 makefile-2:makefile:2
+! toolkit/editor/makefile.pc makefile.pc-1:makefile:2 makefile.pc-2:makefile:2
+! toolkit/editor/sources/main.c main.c-1:csrc:2 main.c-2:csrc:2
+! toolkit/guilib/includes includes-1:dir:3 includes-2:dir:3
++ toolkit/guilib/includes/fonts.h fonts.h-1:incl:1
+! toolkit/guilib/makefile makefile-1:makefile:3 makefile-2:makefile:3
+! toolkit/guilib/makefile.pc makefile.pc-1:makefile:3 makefile.pc-2:makefile:3
+! toolkit/guilib/sources sources-1:dir:2 sources-2:dir:2
++ toolkit/guilib/sources/fonts.c fonts.c-1:csrc:1
+! toolkit/misc/readme readme-1:ascii:1 readme-2:ascii:1

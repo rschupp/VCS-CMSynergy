@@ -102,6 +102,16 @@ sub _start
     $self->{env} = { %{ $client->{env} } } if $client->{env};
     bless $self, $class;
 
+    # Cygwin: some start options denote path names that are 
+    # passed down to Synergy; convert them to native Windows form
+    if ($^O eq 'cygwin')
+    {
+	foreach (qw/home ini_file ui_database_dir/)
+	{
+	    $args{$_} = fullwin32path($args{$_}) if defined $args{$_};
+	}
+    }
+
     my @start = qw/start -m -q -nogui/;
     while (my ($arg, $value) = each %args)
     {

@@ -14,9 +14,22 @@ Known problems:
 
 =head1 CHANGES
 
+=head2 Changes in Version 1.31
+ 
+  Implemented show_reconfigure_properties() Project method.
+
+  On Cygwin, make sure that path names that are passed down to Synergy
+  are in native Windows form.
+
+  Added -ui_database_dir to session in test suite (bug 27260).
+  This should make the tests run with an out-of-the-box Synergy
+  client installation.
+
+  Tested with Synergy 6.5 SP1 and Perl 5.10.
+
 =head2 Changes in Version 1.30
 
-  Ported CM/Synergy 6.5: the product is now called "Telelogic Synergy".
+  Ported to CM/Synergy 6.5: the product is now called "Telelogic Synergy".
   Also some changes to the test suite, but it still requires 
   the "tutorial" database from CCM 6.4 before SP1 (upgraded, of course,
   to your Synergy version).

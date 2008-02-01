@@ -171,7 +171,7 @@ sub ccm						# class/instance method
 }
 
 
-my $ccm_prompt = qr/^ccm> /;		# NOTE the trailing blank
+my $ccm_prompt = qr/^ccm> /m;		# NOTE the trailing blank
 
 sub _ccm
 {

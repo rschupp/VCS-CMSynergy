@@ -157,11 +157,11 @@ use VCS::CMSynergy 1.29 qw(:cached_attributes :tied_objects);
 use VCS::CMSynergy::Helper; 
 use strict;
 
-use constant OLD => 0;
-use constant NEW => 1;
-
 {
     package Terse;
+
+    use constant OLD => 0;
+    use constant NEW => 1;
 
     sub new		
     {
@@ -236,8 +236,8 @@ use constant NEW => 1;
 	unless ($old->is_dir || $new->is_dir)
 	{
 	    print "diff -u a/$path b/$path\n";
-	    $self->meta(::OLD, $old);
-	    $self->meta(::NEW, $new);
+	    $self->meta(Terse::OLD, $old);
+	    $self->meta(Terse::NEW, $new);
 
 	    # generate diff
 	    $self->{ccm}->diff($old, $new);
@@ -306,7 +306,7 @@ use constant NEW => 1;
 	$range[$in] = $nlines == 1 ? "1" : "1,$nlines";
 	print "--- a/$path\n",
 	      "+++ b/$path\n",
-	      "\@\@ -$range[::OLD] +$range[::NEW] \@\@\n",
+	      "\@\@ -$range[Terse::OLD] +$range[Terse::NEW] \@\@\n",
 	      $contents;
     }
 }
@@ -350,8 +350,8 @@ my $tree = $ccm->project_tree(
 my $diff = $Diff->new($ccm);
 
 # print project header lines
-$diff->meta(OLD, $old_project);
-$diff->meta(NEW, $new_project);
+$diff->meta(Terse::OLD, $old_project);
+$diff->meta(Terse::NEW, $new_project);
 
 # NOTE: the hiding of subtrees depends on an ordering of keys %tree
 # that sorts "foo/bar/quux" _after_ "foo/bar"
@@ -374,7 +374,7 @@ foreach my $path (sort keys %$tree)
 	    next if $hide{$dirname};
 	}
 
-	$diff->only(OLD, $path, $old);
+	$diff->only(Terse::OLD, $path, $old);
 	next;
     }
     unless (defined $old)		# added object
@@ -389,7 +389,7 @@ foreach my $path (sort keys %$tree)
 	    next if $hide{$dirname};
 	}
 
-	$diff->only(NEW, $path, $new);
+	$diff->only(Terse::NEW, $path, $new);
 	next;
     }
     next if $old eq $new; 		# same object

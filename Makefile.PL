@@ -6,44 +6,51 @@ use inc::Module::Install;
 use Config;
 use strict;
 
-# --- Check that CM Synergy CLI is installed
+# --- Check that Telelogic Synergy CLI is installed
 
-die qq{  
-  The CCM_HOME environment variable must be set.
-  It must be set to hold the path to a CM Synergy installation directory
-  on this machine. See the README file for more information.
+sub nay { warn(@_); exit(0); }
+# NOTE: Don't die if the following checks fail,
+# just exit(0) without producing a Makefile -
+# the automated CPAN tests will interpret this as an indicator that
+# a prerequisite of this module is missing and will generate 
+# an NA report instead of FAIL.
+
+nay qq{
+  The CCM_HOME environment variable must be set
+  to the path of the Telelogic Synergy installation directory.
+  See the README file for more information.
   ABORTED!
 } unless $ENV{CCM_HOME};
 
 my $ccm_exe = MY->catfile(
     $ENV{CCM_HOME}, "bin", "ccm$Config{_exe}");
-die qq{  
-  The value of the CCM_HOME environment variable
-  ($ENV{CCM_HOME}) is not valid.
-  It must be set to hold the path to a CM Synergy installation directory
-  on this machine. See the README file for more information.
+nay qq{  
+  The value ($ENV{CCM_HOME})
+  of the CCM_HOME environment variable is not valid.
+  It must be set to the path of the Telelogic Synergy installation directory.
+  See the README file for more information.
   ABORTED!
 } unless -x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe);
 # NOTE: -x $ccm_exe fails on cygwin
 
 my $ccm_version = qx("$ccm_exe" version);
-die qq{  
-  The CM Synergy CLI programm ($ccm_exe)
+nay qq{  
+  The Telelogic Synergy CLI program ($ccm_exe)
   doesn't appear to work on this machine. 
   See the README file for more information.
   ABORTED!
-} unless $? == 0;
+} unless $? == 0 && $ccm_version =~ /synergy/i;
 
 $ccm_version =~ m{(?:Continuus|CM Synergy|SYNERGY/CM|Telelogic Synergy)\s+Version\s+(\d+\.\d+)}i;
-print "Detected CM Synergy version $1\n";
+print "Detected Telelogic Synergy version $1\n";
 
 warn qq{
   Please install module Scalar::Util and make sure it implements weaken().
-  Without weaken(), CM Synergy session might not be stopped as soon
+  Without weaken(), a Synergy session might not be stopped as soon
   as the corresponding VCS::CMSynergy object goes out of scope
-  (but not that all sessions will be stopped when perl exits anyway). 
+  (however, all sessions will be stopped when the script exits).
   Cf. "Why is Scalar::Util recommended?" in the POD for 
-  VCS::CMSynergy::Object.pm for details.
+  VCS::CMSynergy::Object for details.
 } unless (eval "use Scalar::Util qw(weaken); 1");
 
 

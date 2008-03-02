@@ -294,7 +294,9 @@ sub run
     my $this = shift;
     $this = __PACKAGE__->_default unless ref $this;
 
-    local @ENV{keys %{ $this->{env} }} = values %{ $this->{env} };
+    # augment %ENV
+    my $env = $this->{env};
+    local @ENV{keys %$env} = values %$env if defined $env;
 
     # don't screw up global $? (e.g. when being called 
     # in VCS::CMSynergy::DESTROY at program termination)
@@ -313,6 +315,7 @@ sub _spawn_coprocess
 	return;
     }
 
+    # augment %ENV
     my $env = $self->{env};
     local @ENV{keys %$env} = values %$env if defined $env;
 

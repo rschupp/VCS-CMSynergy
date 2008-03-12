@@ -31,4 +31,4 @@ requires:
   Scalar::Util: 1.09
   Time::HiRes: 0
   perl: 5.6.0
-version: 1.32
+version: 1.33

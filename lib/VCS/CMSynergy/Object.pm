@@ -123,9 +123,9 @@ sub is_dir	{ return shift->cvtype eq "dir"; }
 sub is_project	{ return shift->cvtype eq "project"; }
 
 
-# NOTE: All access to a VCS::CMSynergy::Objects data must either use
+# NOTE: All access to a VCS::CMSynergy::Objects data _must_ either use
 # methods, e.g. "$self->foo", or use _private(), e.g. "$self->_private->{foo}".
-# Don't access its member directly, e.g. "$slef->{data}", becaus this
+# _Don't_ access its member directly, e.g. "$self->{data}", because this
 # doesn't work when :tied_objects are enabled.
 # The only exception to this rule are the primary getter methods (objectname,
 # version etc) which use direct access for speed. Hence they need to be
@@ -133,6 +133,13 @@ sub is_project	{ return shift->cvtype eq "project"; }
 
 # access to private parts
 sub _private 	{ return shift; }
+
+sub data
+{
+    my ($self) = @_;
+    return $self->_private->{data} ||= {};
+}
+
 
 sub list_attributes
 {
@@ -299,7 +306,6 @@ sub cvid
 }
 
 
-
 # $obj->is_foo_of: short for $ccm->query_object({is_foo_of => [ $obj ]})
 # same for has_foo
 sub AUTOLOAD
@@ -416,6 +422,13 @@ is C<"project"> or C<"dir">, resp.
 
 C<ccm> returns the session (a C<VCS::CMSynergy>) that is associated
 with the object.
+
+=head2 data
+
+Sometimes it is handy to be able to store some arbitrary data 
+in a C<VCS::CMSynergy::Object>. This method returns a reference
+to a hash associated with the object. It is totally irrelevant
+w.r.t. Synergy operations. 
 
 =head1 ATTRIBUTE METHODS
 

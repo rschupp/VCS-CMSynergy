@@ -305,6 +305,13 @@ sub cvid
     return $self->_private->{cvid} ||= $self->property('cvid');
 }
 
+sub cat_object
+{
+    my $self = shift;
+    # NOTE: careful here to correctly handle the case when 
+    # no destination was given
+    return $self->ccm->cat_object($self, @_);
+}
 
 # $obj->is_foo_of: short for $ccm->query_object({is_foo_of => [ $obj ]})
 # same for has_foo

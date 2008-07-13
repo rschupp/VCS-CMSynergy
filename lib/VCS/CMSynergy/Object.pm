@@ -430,6 +430,13 @@ is C<"project"> or C<"dir">, resp.
 C<ccm> returns the session (a C<VCS::CMSynergy>) that is associated
 with the object.
 
+=head2 cat_object
+
+  $contents = $obj->cat_object();
+  $obj->cat_object($destination);
+
+A convenience wrapper for L<VCS::CMSynergy/cat_object>.
+
 =head2 data
 
 Sometimes it is handy to be able to store some arbitrary data 

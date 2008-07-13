@@ -456,28 +456,50 @@ sub ps
     my ($rc, $out, $err) = $this->_ccm(ps => @filter);
     return $this->set_error($err || $out) unless $rc == 0;
 
-    my @ps = ();
-    my $process;
-    foreach (split(/\n/, $out))
-    {
-	if (/^rfc address \((.*?)\)/)
-	{
-	    $process = { rfc_address => $1 };
-	    push @ps, $process;
-	    next;
-	} 
-	next unless defined $process;
+    # split at "rfc address..." header lines;
+    # discard first item (the line "All Rfc processes..." or
+    # "Processes with...")
+    # NOTE: We do it this way (and not by splitting into lines
+    # first, then recognizing "rfc address..." lines as 
+    # record headers) to work around a Synergy glitch:
+    # if the single line in $CCM_HOME/etc/.router.adr ends with
+    # a newline, then the record for the router process
+    # will look like:
+    #   rfc address (macarthur:5418:127.0.1.1:192.168.57.10
+    #   )
+    #         process (router)
+    #         user (ccm_root)
+    # i.e. the address contains an embedded newline. This
+    # breaks line-based parsing.
+    my @rfcs = split(/^rfc address \((.*?)\)/sm, $out);
+    shift @rfcs;	
 
-	if (/^\tdb:(.*) \(\)/)		# special fields for object registrar
+    my @ps;
+    while (@rfcs)
+    {
+	my ($rfc_address, $rest) = splice @rfcs, 0, 2;
+	chomp ($rfc_address, $rest);
+
+	my %fields = $rest =~ /^\t(\S+) \((.*?)\)/gm;
+
+	# the ps entry for the objreg process contains lines of the form
+	#   db:/var/lib/telelogic/ccm65/tutorial_pre64sp1/db ()
+	# transform the (database) paths into a list 
+	# as the value of key "db"
+	my @dbs;
+	foreach my $key (keys %fields)
 	{
-	    push @{ $process->{db} }, $1;
-	    next;
+	    if ($key =~ /^db:(.*)$/)
+	    {
+		push @dbs, $1;
+		delete $fields{$key};
+	    }
 	}
-	if (/^\t(\S+) \((.*?)\)/)
-	{
-	    $process->{$1} = $2;
-	    next;
-	}
+
+	$fields{rfc_address} = $rfc_address;
+	$fields{db} = \@dbs if @dbs;
+
+	push @ps, \%fields;
     }
 
     return \@ps;

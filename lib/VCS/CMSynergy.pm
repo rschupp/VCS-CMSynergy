@@ -115,7 +115,7 @@ sub _start
     my @start = qw/start -m -q -nogui/;
     while (my ($arg, $value) = each %args)
     {
-	croak(__PACKAGE__.q[::object: unrecognized argument "$arg"]) 
+	croak(__PACKAGE__.q[[::_start: unrecognized argument "$arg"]]) 
 	    unless exists $start_opts{$arg};
 
 	$self->{$arg} = $value unless $arg eq "password";

@@ -859,7 +859,7 @@ contain a leading C<%>. Example:
   $ary_ref = $ccm->finduse(@args);
 
 Executes the B<ccm finduse> command with the given C<@args> as parameters.
-It returns a reference to an array of rows, usually one per C<file_spec> given
+It returns a reference to an array of rows, one per C<file_spec> given
 in C<@args>, or one per query result if C<-query $query_expression>
 is present in C<@args>. 
 
@@ -867,15 +867,17 @@ Each row is a reference to an array of two elements.  The first
 element is the description of the object.  The second element is a
 reference to a hash identifying in what parts of what projects the
 object is used. 
-A key in the hash is the project's objectname.
-The hash value is the corresponding
-relative path (including the object's name) in the project.  If there
+A key in this hash is the project's objectname 
+and the value is the corresponding
+relative path in the project.  If there
 are no uses of the object in the given scope the hash is empty.  This
 usage information is in the same form as that for the pseudo keyword
 C<finduse>  of the  L<query_arrayref|/"query_arrayref, query_hashref"> 
 and  L<query_hashref|/"query_arrayref, query_hashref"> methods.
 
-If there was an error, C<undef> is returned.
+If there was an error, C<undef> is returned. If an element of C<@args>
+refers to a non-existent object, the corresponding element in 
+the return value is C<undef>.
 
 Note that you must pass every B<ccm finduse> argument or option as a single
 Perl argument. For literal arguments the C<qw()> notation may come in handy.

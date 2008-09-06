@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 45;
+use Test::More tests => 55;
 use t::util;
 use strict;
 
@@ -34,10 +34,14 @@ my $result = $ccm->query_object(
     qq[type='project' and name='$pname' and version match 'test*']);
 ok(@$result == 0, qq[test project ${pname}-test* does not exist yet]);
 
-my $md5 = Digest::MD5->new;
-my (%md5_expected, %path);
-my $ascii_obj = $ccm->object("clear.c-1:csrc:2");
-my $binary_obj = $ccm->object("calculator.exe-1:executable:1");
+my %md5_expected;
+
+my %objects =
+(
+    "clear.c-1:csrc:2"			=> "calculator/sources/clear.c",
+    "calculator.exe-1:executable:1"	=> "calculator/calculator.exe",
+);
+
 
 {
     my $tempdir = tempdir(CLEANUP => 1);
@@ -72,70 +76,88 @@ my $binary_obj = $ccm->object("calculator.exe-1:executable:1");
     ok(chdir($wa_path), q[chdir to workarea]);
     my $cleanup_chdir = end { chdir($pwd); };
 
-    foreach my $obj ($ascii_obj, $binary_obj)
+    # set Object_format so that we may predict the first element
+    # of an element of @$finduse
+    my $old_format = $ccm->set(Object_format => "%objectname");
+    my $finduse = $ccm->finduse(keys %objects);
+    $ccm->set(Object_format => $old_format);
+    isa_ok($result, "ARRAY", qq[finduse return value]);
+
+    foreach my $name (keys %objects)
     {
-	$result = $ccm->finduse($obj);
-	ok(@$result == 1, qq[finduse returns one record]);
-	my $fu = $result->[0]->[1];
-	isa_ok($fu, "HASH", qq[finduse record cdr]);
-	my $file = $path{$obj} = $fu->{$test_proj};
-	ok(defined $file, qq[$obj found in project $test_proj]);
-	ok(-e $file, qq[file ($file) for $obj found in workarea]);
+	my ($info, $uses) = @{ shift @$finduse };
+	is($info, $name, qq[finduse elem[0] for $name]);
+	isa_ok($uses, "HASH", qq[finduse elem[1] for $name]);
+
+	my $path = $uses->{$test_proj};
+	is($path, $objects{$name}, qq[$name found in project $test_proj]);
+	ok(-e $path, qq[$name found in workarea as $path]);
 
 	# note MD5 for later tests
-	$md5_expected{$obj} = md5_file($file);
+	$md5_expected{$name} = md5_file($path);
+
+	# use workarea name to specify an object
+	is($ccm->get_attribute(status => $path), "released",
+	   q[get_attribute via workarea name]);
+
+	# check out an object
+	ok(! -w $path, qq[file $path is read-only]);
+	ok($ccm->checkout($path), q[check out $path]);
+	my $cleanup_checkout = end 
+	{
+	    ok($ccm->delete(-replace => $path), 
+		qq[delete and replace $path]);
+	};
+	ok(-w $path, qq[file $path is now writable]);
+	is($ccm->get_attribute(status => $path), "working", 
+	    q[checked out file is "working"]);
     }
-
-    my $file = $path{$ascii_obj};
-    ok(-e $file, qq[file $file exists]);
-    ok(! -w $file, qq[file $file is read-only]);
-
-    # use workarea name to specify an object
-    is($ccm->get_attribute(status => $file), "released",
-       q[get_attribute via workarea name]);
-
-    # check out an object
-    ok($ccm->checkout($file), q[check out $file]);
-    my $cleanup_checkout = end 
-    {
-	ok($ccm->delete(-replace => $file), 
-	    qq[delete and replace $file]);
-    };
-    ok(-w $file, qq[file $file is now writable]);
-    is($ccm->get_attribute(status => $file), "working", 
-	q[checked out file is "working"]);
 }
 
-foreach my $obj ($ascii_obj, $binary_obj)
+# test cat_object()
+my $md5 = Digest::MD5->new;
+foreach my $name (keys %objects)
 {
+    my $obj = $ccm->object($name);
+    my $md5_exp = $md5_expected{$name};
+
     my (undef, $tmpfile) = tempfile(CLEANUP => 1);
     ok($ccm->cat_object($obj, $tmpfile), q[cat_object to file]);
-    is(md5_file($tmpfile), $md5_expected{$obj}, qq[compare MD5 for $obj]);
+    is(md5_file($tmpfile), $md5_exp, qq[compare MD5 for $obj]);
 
     my $contents;
-    ok($ccm->cat_object($obj, \$contents), q[cat_object to string]);
-    is($md5->add($contents)->hexdigest, $md5_expected{$obj}, qq[compare MD5 for $obj]);
+    $md5->reset;
+    ok($ccm->cat_object($obj, \$contents), q[cat_object to SCALAR]);
+    is($md5->add($contents)->hexdigest, $md5_exp, qq[compare MD5 for $obj]);
 
+    $md5->reset;
     my $retval = $ccm->cat_object($obj);
-    ok(defined $retval, q[cat_object return contents]);
-    is($md5->add($retval)->hexdigest, $md5_expected{$obj}, qq[compare MD5 for $obj]);
+    ok(defined $retval, q[cat_object returns contents]);
+    is($md5->add($retval)->hexdigest, $md5_exp, qq[compare MD5 for $obj]);
 
     my ($fh, $tmpfile2) = tempfile(CLEANUP => 1);
     ok($ccm->cat_object($obj, $fh), q[cat_object to filehandle]);
     close $fh;
-    is(md5_file($tmpfile2), $md5_expected{$obj}, qq[compare MD5 for $obj]);
+    is(md5_file($tmpfile2), $md5_exp, qq[compare MD5 for $obj]);
+
+    # test second argument of CODE or ARRAY for ascii objects only 
+    # (because these operate by lines)
+    SKIP: 
+    {
+	skip "cat_object to CODE or ARRAY on non-ascii object", 4
+	    unless $obj->get_attribute("super_type") eq "ascii";
+
+	$md5->reset;
+	my @lines;
+	ok($ccm->cat_object($obj, \@lines), q[cat_object to ARRAY]);
+	$md5->add($_) foreach @lines;
+	is($md5->hexdigest, $md5_exp, qq[compare MD5 for $obj]);
+
+	$md5->reset;
+	ok($ccm->cat_object($obj, sub { $md5->add($_); }), q[cat_object to CODE]);
+	is($md5->hexdigest, $md5_exp, qq[compare MD5 for $obj]);
+    }
 }
-
-# test with CODE and ARRAY for ascii object only 
-# (because they operate by lines)
-
-my @lines;
-ok($ccm->cat_object($ascii_obj, \@lines), q[cat_object to array]);
-$md5->add($_) foreach @lines;
-is($md5->hexdigest, $md5_expected{$ascii_obj}, qq[compare MD5 for $ascii_obj]);
-
-ok($ccm->cat_object($ascii_obj, sub { $md5->add($_); }), q[cat_object to sub]);
-is($md5->hexdigest, $md5_expected{$ascii_obj}, qq[compare MD5 for $ascii_obj]);
 
     
 exit 0;
@@ -143,7 +165,8 @@ exit 0;
 sub md5_file
 {
     my ($file) = @_;
-    open my $fh, "<$file" or die "can't open $file: $!";
+    my $md5 = Digest::MD5->new;
+    open my $fh, "<", $file or die "can't open $file: $!";
     binmode $fh;
     $md5->addfile($fh);
     close $fh;

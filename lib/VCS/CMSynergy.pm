@@ -115,7 +115,7 @@ sub _start
     my @start = qw/start -m -q -nogui/;
     while (my ($arg, $value) = each %args)
     {
-	croak(__PACKAGE__.q[[::_start: unrecognized argument "$arg"]]) 
+	croak(__PACKAGE__.qq[::_start: unrecognized argument "$arg"]) 
 	    unless exists $start_opts{$arg};
 
 	$self->{$arg} = $value unless $arg eq "password";
@@ -824,35 +824,42 @@ sub finduse
     # the command exits with status 1 and produces no output on either 
     # stdout and stderr. (This is the same behaviour as for `ccm query ...'.) 
     # We will not produce an error in any case. However, the returned array
-    # may contain fewer elements than the number of file_spec arguments.
-
-    if ($rc == 0)
-    {
-	my (@result, $uses);
-	foreach (split(/\n/, $out))
-	{
-	    # ignore complaints about non-existing objects 
-	    # and the dummy "use" line printed if object is not used anywhere
-
-	    next if /Object version could not be identified|Object is not used in scope/;
-
-	    # a usage line is matched by finduse_rx
-	    if (/$self->{finduse_rx}/)
-	    {
-		my ($path, $project) = ($1, $2);
-		$uses->{$self->_projspec2objectname($project)} = $path;
-		next;
-	    }
-
-	    # otherwise the line describes an object satisfying the query
-	    # in the format given by option `Object_format' (default:
-	    # "%displayname %status %owner %type %project %instance %task")
-	    push(@result, [ $_, $uses = {} ]);
-	}
-	return \@result;
-    }
+    # will contain undef in postions corresponding to non-existing objects.
     return [ ] if $rc == _exitstatus(1) and $out eq "" and $err eq "";
-    return $self->set_error($err || $out);
+    return $self->set_error($err || $out) unless $rc == 0;
+
+    my (@result, $uses);
+    foreach (split(/\n/, $out))
+    {
+	# push undef for any non-existing objects 
+	if (/Object version could not be identified/)
+	{
+	    push @result, undef;
+	    next;
+	}
+
+	# ignore the dummy "use" line printed if object is not used anywhere
+	if (/Object is not used in scope/)
+	{
+	    next;
+	}
+
+	# a usage line is matched by finduse_rx
+	if (/$self->{finduse_rx}/)
+	{
+	    my ($path, $project) = ($1, $2);
+	    $uses->{$self->_projspec2objectname($project)} = $path;
+	    next;
+	}
+
+	# otherwise the line describes an object satisfying the query
+	# in the format given by option `Object_format' (default:
+	# "%displayname %status %owner %type %project %instance %task");
+	# push it with an empty hash of uses (will be filled in by the
+	# following lines)
+	push(@result, [ $_, $uses = {} ]);
+    }
+    return \@result;
 }
 
 

@@ -237,7 +237,7 @@ sub _start
 	$self->{delimiter} = $out;
 
 	$self->{objectname_rx} = 
-	    qr/^(.*?)\Q$self->{delimiter}\E(.*?):(.*?):(.*?)$/;
+	    qr/^(.*?)(?:\Q$self->{delimiter}\E|:)(.*?):(.*?):(.*?)$/;
 					# -> (name, version, cvtype, instance)
 	$self->{finduse_rx} = 
 	    qr/^\t(.*?)\Q$self->{delimiter}\E.*?\@(.*?)$/;

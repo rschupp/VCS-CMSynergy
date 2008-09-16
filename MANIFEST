@@ -5,7 +5,6 @@ examples/find_parallel_versions
 examples/find_parallel_versions2
 examples/grep_attr
 examples/hierarchy_project_members
-examples/project_diff
 examples/project_tree
 inc/End.pm
 inc/Module/Install.pm
@@ -77,6 +76,7 @@ META.yml
 README
 README.datetime
 README.get_member_info
+sccript/ccm_project_diff
 t/01session.t
 t/02autoload.t
 t/03query.t

@@ -81,6 +81,10 @@ include		'Test::Deep';
 test_requires	'End'			=> 0;
 include		'End';
 
+# --- Build data
+
+install_script	'script/ccm_project_diff';
+
 clean_files	't/zz_*.t';
 
 no_index	module			=> 'VCS::CMSynergy::ObjectTieHash';

@@ -12,14 +12,6 @@ project_diff [options] old_project new_project
               project specs, either in the form "proj_vers"
               or as four part objectname
 
-  Common options:
-
-  -D PATH | --database PATH       database path
-  -H HOST | --host HOST           engine host
-  -U NAME | --user NAME           user name
-  -P STRING | --password STRING   user's password
-  --ui_database_dir PATH          path to copy database information to
-
   Options:
 
   -t | --terse       terse diff listing (default)
@@ -27,6 +19,14 @@ project_diff [options] old_project new_project
   -p | --patch       produce patch listing like "diff -urN"
   -h | --hide        hide contents of added/deleted subtrees (for --terse)
   -r | --recursive   recurse into sub projects
+
+  Synergy options:
+
+  -D PATH | --database PATH       database path
+  -H HOST | --host HOST           engine host
+  -U NAME | --user NAME           user name
+  -P STRING | --password STRING   user's password
+  --ui_database_dir PATH          path to copy database information to
 
 =head1 DESCRIPTION
 
@@ -46,72 +46,84 @@ following form:
   ! toolkit/guilib/makefile makefile-1:makefile:3 makefile-2:makefile:3
   + toolkit/guilib/sources/fonts.c fonts.c-1:csrc:1
   ! toolkit/misc/readme readme-1:ascii:1 readme-2:ascii:1
+  ...
 
 After the two header lines showing information about the projects,
-lines start with one of +, -, or !, followed by the workarea pathname
-of the object in the project, followed by additional information:
+lines start with one of C<+>, C<->, C<!>, or C<~> 
+followed by the workarea pathname
+of the object in the project, followed by additional information
+(separated by tabs):
 
 =over 4
 
-=item +
+=item C<+>
 
-marks an object added in new_project; 
-its objectname is given as additional info
+marks a path added in new_project; 
+the correponding objectname is given as additional info
 
-=item -
+=item C<->
 
-marks an object deleted from old_project;
-its objectname is given as additional info
+marks a path deleted from old_project;
+the correponding objectname is given as additional info
 
-=item !
+=item C<!>
 
-marks an object that has a different version in old_project and new_project;
+marks a path where the corresponding objects have different versions
+in old_project and new_project;
 the objectnames are given as additional info
 
-=item ~
+=item C<~>
 
-marks an object that has a different cvtype 
-(e.g. a  directory was replaced by a regular file) or different instance
+marks a path where the corresponding objects are of different "lineage":
+either different instances
 (e.g. object was deleted and a new object created with the same name)
-in old_project and new_project;
+or a different cvtype 
+(e.g. a  directory was replaced by a regular file);
 the objectnames are given as additional info
 
 =back
 
-All objects in a added/deleted subtree are shown. This can be suppressed
+All objects in an added/deleted subtree are shown. This can be suppressed
 with option C<--hide> which will only show the root of such a subtree.
 
 =head2 C<--diff> listing
 
 With this option the output resembles that of B<diff -ur>:
 
-  Only in a: vc/CMSynergy/Users.pm
-  Only in a: vc/CMSynergy/users.pl
-  --- a/vc/MANIFEST	2002-08-02 14:39:43.000000000 +0200
-  +++ b/vc/MANIFEST	2004-05-04 17:25:15.000000000 +0200
-  @@ -1,11 +1,32 @@
-  -CMSynergy.pm
-  -CMSynergy/Users.pm
-  +lib/VCS/CMSynergy.pm
-  +lib/VCS/CMSynergy/Client.pm
-  ...
-  Only in b: vc/META.yml
-  --- a/vc/Makefile.PL	2002-08-02 14:39:43.000000000 +0200
-  +++ b/vc/Makefile.PL	2004-05-03 13:35:10.000000000 +0200
-  @@ -1,16 +1,110 @@
-   use ExtUtils::MakeMaker;
-  +use Config;
-  +use strict;
+  synergy a: toolkit-1.0:project:1	Tue Nov 26 23:26:36 2002
+  synergy b: toolkit-darcy:project:1	Tue Dec 17 01:46:21 2002
+  Only in b: toolkit/guilib/includes/fonts.h
+  synergy b: fonts.h-1:incl:1	Wed Nov 17 04:23:11 1999
+  diff -u a/toolkit/guilib/makefile b/toolkit/guilib/makefile
+  synergy a: makefile-1:makefile:3	Wed Nov 17 04:23:10 1999
+  synergy b: makefile-2:makefile:3	Wed Nov 17 04:23:11 1999
+  --- a/toolkit/guilib/makefile
+  +++ b/toolkit/guilib/makefile
+  @@ -2,7 +2,8 @@
+   INCLUDE_DIR =	includes
+   
+   OBJ_FILES = 	$(SOURCE_DIR)/main.o \
+  -				$(SOURCE_DIR)/controls.o
+  +				$(SOURCE_DIR)/controls.o \
+  +				$(SOURCE_DIR)/fonts.o
+   
+   INCLUDES =		-I$(INCLUDE_DIR)
+   OPT_CFLAGS =	-g
   ...
 
 Files that are only present in one project are indicated
 by "Only in a: ..." or "Only in b: ..." lines.
-Differences in directories (i.e. both objects are of 
-cvtype "dir", but different versions) are not shown.
 An object that changes cvtype from "dir" to non-"dir" or vice versa is
 indicated by a line of the form:
 
   File a/foo is a regular file while file b/foo is a directory
+
+Differences in directories (i.e. both objects are of 
+cvtype "dir", but different versions) are not shown.
+
+Additional CM Synergy information (objectname, modified_time)
+is given by lines starting with "synergy a:" or "synergy b:"
+immediately following any of the above "header" lines.
 
 Note that C<--diff> implies C<--hide> (the top of a added/deleted
 subtree is still indicated by a "Only in ..." line).
@@ -136,7 +148,7 @@ Traverse also subprojects.
 
 Hide added/deleted subtrees in C<--terse> output format.
 
-=head2 CCM OPTIONS
+=head2 SYNERGY OPTIONS
 
 See L<VCS::CMSynergy::Helper/GetOptions>.
 
@@ -174,14 +186,14 @@ use strict;
 	my ($self, $path, $old, $new) = @_;
 	my $indicator = ($old->cvtype eq $new->cvtype 
 	                 && $old->instance eq $new->instance) ?  "!" : "~";
-	print "$indicator $path $old $new\n";
+	print "$indicator $path\t$old\t$new\n";
     }
 
     sub only
     {
 	my ($self, $in, $path, $obj) = @_;
 	my $indicator = ("-", "+")[$in];
-	print "$indicator $path $obj\n";
+	print "$indicator $path\t$obj\n";
     }
 
     sub meta	{ }
@@ -227,7 +239,7 @@ use strict;
 	unlink($self->{temp}) if $self->{temp};
     }
 
-    my @ab = ("a", "b");
+    my ($a, $b) = qw(a b);
 
     sub changed
     {
@@ -235,7 +247,7 @@ use strict;
 
 	unless ($old->is_dir || $new->is_dir)
 	{
-	    print "diff -u a/$path b/$path\n";
+	    print "diff -u $a/$path $b/$path\n";
 	    $self->meta(Terse::OLD, $old);
 	    $self->meta(Terse::NEW, $new);
 
@@ -247,9 +259,8 @@ use strict;
 	    # eat and fake the two header lines (because they contain
 	    # pathnames that point either into the CM Synergy database's
 	    # cache area, the work area or a temp file)
-	    <$fh> foreach @ab;
-	    print "--- a/$path\n",
-		  "+++ b/$path\n";
+	    <$fh>; print "--- $a/$path\n";
+	    <$fh>; print "+++ $b/$path\n";
 
 	    # copy through the rest
 	    print while <$fh>;
@@ -263,8 +274,8 @@ use strict;
 	unless ($old->is_dir && $new->is_dir)
 	{
 	    print $old->is_dir ?
-		"File a/$path is a directory while file b/$path is a regular file\n" :
-		"File a/$path is a regular file while file b/$path is a directory\n";
+		"File $a/$path is a directory while file $b/$path is a regular file\n" :
+		"File $a/$path is a regular file while file $b/$path is a directory\n";
 	}
     }
 
@@ -272,7 +283,7 @@ use strict;
     {
 	my ($self, $in, $path, $obj) = @_;
 	
-	print "Only in $ab[$in]: $path\n";
+	print( ("Only in $a: ", "Only in $b: ")[$in], $path, "\n" );
 	$self->meta($in, $obj);
 
     }
@@ -280,7 +291,7 @@ use strict;
     sub meta
     {
 	my ($self, $in, $obj) = @_;
-	print "synergy $ab[$in]: $obj\t$obj->{modify_time}\n";
+	print( ("synergy $a: ", "synergy $b: ")[$in], "$obj\t$obj->{modify_time}\n" );
     }
 }
 
@@ -289,25 +300,28 @@ use strict;
 
     use base qw/Diff/;
 
+    my ($a, $b) = qw(a b);
+
     sub only
     {
 	my ($self, $in, $path, $obj) = @_;
 
-	print "diff -u a/$path b/$path\n";
+	print "diff -u $a/$path $b/$path\n";
 	$self->meta($in, $obj);
 
-	my $sign = ("-", "+")[$in];
-	my $contents;
-	$self->{ccm}->cat_object($obj, \$contents);
-	my $nlines = $contents =~ s/^/$sign/gm;
+	my @lines;
+	$self->{ccm}->cat_object($obj, \@lines);
 
 	# fake a diff with /dev/null
+	my $sign = ("-", "+")[$in];
 	my @range = ("0,0", "0,0");
+	my $nlines = @lines;
 	$range[$in] = $nlines == 1 ? "1" : "1,$nlines";
-	print "--- a/$path\n",
-	      "+++ b/$path\n",
-	      "\@\@ -$range[Terse::OLD] +$range[Terse::NEW] \@\@\n",
-	      $contents;
+
+	print "--- $a/$path\n",
+	      "+++ $b/$path\n",
+	      "\@\@ -$range[0] +$range[1] \@\@\n";
+	print $sign, $_ foreach @lines;
     }
 }
 

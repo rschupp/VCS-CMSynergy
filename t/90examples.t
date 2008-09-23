@@ -23,7 +23,9 @@ my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 $ENV{CCM_ADDR} = $ccm->ccm_addr;
 
-is(run_perl(qw(-c examples/project_diff)), 0, q[examples/project_diff: compile it]);
+my $project_diff = "script/ccm_project_diff";
+
+is(run_perl(-c => $project_diff), 0, qq[$project_diff: compiles]);
 
 SKIP: 
 {
@@ -40,8 +42,8 @@ SKIP:
 	$_;
     };
 
-    my ($rc, $got) = run_perl(qw(examples/project_diff -r toolkit-1.0 toolkit-darcy));
-    is($rc, 1 << 8, q[examples/project_diff: exit status 1]);
+    my ($rc, $got) = run_perl($project_diff, qw(-r toolkit-1.0 toolkit-darcy));
+    is($rc, 1 << 8, qq[$project_diff: exit status 1]);
 
     foreach ($got, $exp)
     {
@@ -49,7 +51,7 @@ SKIP:
 	s:\\:/:g;			# normalize pathnames
 	s:\t.*?\t:\t:;			# remove timestamps (in first two lines)
     }
-    is($got, $exp, q[examples/project_diff: compare output]);
+    is($got, $exp, qq[$project_diff: compare output]);
 }
 
 is(run_perl(qw(-c examples/grep_attr)), 0, q[examples/grep_attr: compile it]);

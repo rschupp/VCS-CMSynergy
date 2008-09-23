@@ -169,7 +169,7 @@ Specifies the RFC address of an established CM Synergy session.
 
 If you specify this attribut L</new> does not create a new session,
 but will attach to the one specified. Also, implicitly sets C<KeepSession>
-to "on" so that destruction of the new session
+to true so that destruction of the new session
 handle will not cause a B<ccm stop>. However, setting C<KeepSession> 
 explicitly will take precedence.
 
@@ -212,10 +212,10 @@ won't do, as this file is I<not> read by L</new> by default).
 
 =item C<remote_client> (boolean)
 
-If the value is "on", it specifies that you want to start the CM Synergy
+If the value is true, it specifies that you want to start the CM Synergy
 session as a remote client. This corresponds to the C<-rc> option for
 B<ccm start>. This option is only useful on Unix systems. It defaults
-to "off".
+to false.
 
 =item C<PrintError> (boolean)
 
@@ -224,7 +224,7 @@ L<carp|Carp/carp>) in addition to returning error codes in the normal way.
 When set to true, any method which results in an error occuring will cause
 the corresponding C<< $ccm->error >> to be printed to stderr.
 
-It defaults to "on".
+It defaults to true.
 
 Note: L</PrintError> and L</RaiseError> below are stolen from the excellent
 L<DBI> module.
@@ -237,7 +237,7 @@ When set to true, any method which results in an error will cause
 effectively a C<die> with the actual C<< $ccm->error >>
 as the message. 
 
-It defaults to "off".
+It defaults to false.
 
 If you turn C<RaiseError> on then you'd normally turn C<PrintError> off.
 If C<PrintError> is also on, then the C<PrintError> is done first (naturally).
@@ -283,7 +283,7 @@ For example, to "die" with a full stack trace for any error:
 
 =item C<KeepSession> (boolean)
 
-If this attribute is "on" then destruction of the new session handle
+If this attribute is true then destruction of the new session handle
 will not cause a B<ccm stop>. 
 
 This may be used if you want to
@@ -293,7 +293,7 @@ operation). In this case you should use C</ccm_addr> to extract
 the session's RFC address (after C</new> returns) and somehow pass it
 on to the other program.
 
-It defaults to "off" unless you also specify C<CCM_ADDR>.
+It defaults to false unless you also specify C<CCM_ADDR>.
 
 =item C<UseCoprocess> (boolean)
 
@@ -303,7 +303,7 @@ B<You must have the L<Expect> module installed to use this feature.>
 (Since L<Expect> is not available for Win32 systems, 
 C<UseCoprocess> is ignored there.)
 
-If C<UseCoprocess> is "off", C<VCS::CMSynergy.pm> executes a separate
+If C<UseCoprocess> is false, C<VCS::CMSynergy.pm> executes a separate
 C<ccm> process whenever it invokes the CM Synergy CLI, e.g.
 
   $ccm->checkout('foo.c');
@@ -320,7 +320,7 @@ In particular, we incur the startup overhead of B<ccm> three times.
 This overhead is noticable, esp. if you are doing 
 lots of CM Synergy operations.
 
-If C<UseCoprocess> is "on", only one B<ccm> process per CM Synergy
+If C<UseCoprocess> is true, only one B<ccm> process per CM Synergy
 session ever gets executed. The way it works is that
 C<< VCS::CMSynergy->new >> starts an "interactive"
 (i.e. one invoked without arguments) B<ccm> process in the background.
@@ -356,7 +356,7 @@ C<UseCoprocess> does not work under Win32 at all.
 
 =back
 
-The default value of C<UseCoprocess> is "off".
+The default value of C<UseCoprocess> is false.
 
 =back
 
@@ -1066,10 +1066,15 @@ of options for project traversal:
 
 =item C<subprojects> (boolean)
 
-If this option is set, the mapping will recurse into
-subprojects. It is "off" by default.
+If this option is true, the mapping will recurse into
+subprojects. It is false by default.
 It corresponds to the option of the same name for
 L<VCS::CMSynergy::Project/traverse>.
+If this option is false and C<mark_projects> is also false,
+no indication of sub projects is present in the tree;
+if C<mark_projects> is true, then the tree will contain 
+just the sub project  C<VCS::CMSynergy::Object>s, but nothing
+"below" them.
 
 =item C<attributes> (array ref)
 
@@ -1087,14 +1092,17 @@ for the operating system the script is running on.
 
 =item C<mark_projects> (boolean)
 
-This option is "off" by default.
-If a path corresponds to a (sub) project, the correspondig hash
-value refers to the (sub) project's top level directory 
-(a C<VCS::CMSynergy::Object> with C<< ->cvtype >> "dir");
-if this option is set, the hash value refers to the (sub) project itself
-(a C<VCS::CMSynergy::Object> with C<< ->cvtype >> "project").
-Note that in this case the top level directory is omitted from the 
-mapping (because it has the same path as its project).
+It decides what will be shown as the value for a path
+corresponding to a (sub) project. If false, the value
+refers to the (sub) project's top level directory 
+(a C<VCS::CMSynergy::Object> of cvtype "dir").
+If true, the value refers to the (sub) project itself
+(a C<VCS::CMSynergy::Object> with cvtype "project").
+
+This option is false by default.
+
+Note that if C<subprojects> is false, this option also decides
+whether a path corresponding to a sub project is present in the tree at all.
 
 =back
 

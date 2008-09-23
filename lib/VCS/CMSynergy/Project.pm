@@ -280,6 +280,8 @@ my %traverse_opts =
     preprocess	=> "CODE",
     postprocess	=> "CODE",
     attributes	=> "ARRAY",
+    bydepth	=> 0,
+    subprojects	=> 0,
 );
 
 sub traverse
@@ -294,20 +296,22 @@ sub traverse
     }
     elsif (ref $wanted eq 'HASH')
     {
-	croak(__PACKAGE__."::traverse: argument 1 (wanted hash ref): option `wanted' is mandatory")
-	    unless exists $wanted->{wanted};
-	while (my ($key, $type) = each %traverse_opts)
+	while (my ($opt, $value) = each %$wanted)
 	{
-	    next unless exists $wanted->{$key};
-	    croak(__PACKAGE__."::traverse: argument 1 (wanted hash ref): option `$key' must be a $type: $wanted->{$key}")
-		unless UNIVERSAL::isa($wanted->{$key}, $type);
+	    croak(__PACKAGE__.qq[::traverse: argument 1 ("wanted"): unrecognized option "$opt"])
+		unless exists $traverse_opts{$opt};
+
+	    my $type = $traverse_opts{$opt} or next;
+	    croak(__PACKAGE__.qq[::traverse: argument 1 ("wanted"): option "$opt" must be a $type: $value])
+		unless UNIVERSAL::isa($value, $type);
 	}
+	croak(__PACKAGE__."::traverse: argument 1 (wanted hash ref): option `wanted' is mandatory")
+	    unless $wanted->{wanted};
     }
     else
     {
 	croak(__PACKAGE__."::traverse: argument 1 (wanted) must be a CODE or HASH ref: $wanted");
     }
-    $wanted->{attributes} ||= [];
 
     if (defined $dir)
     {
@@ -326,7 +330,7 @@ sub traverse
 		version		=> $dir->version,
 		is_member_of	=> [ $self ]
 	    },
-	    @{ $wanted->{attributes} });
+	    @{ $wanted->{attributes} || [] });
 	return $self->ccm->set_error("directory `$dir' doesn't exist or isn't a member of `$self'")
 	    unless @$result;
 	$dir = $result->[0];

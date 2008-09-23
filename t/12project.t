@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 16;
+use Test::More tests => 19;
 use t::util;
 use strict;
 
@@ -15,53 +15,159 @@ isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 
 my $top_project = $ccm->object('toolkit-1.0:project:1');
-my @trav_paths_expected = qw(
-  toolkit
-  toolkit/calculator
-  toolkit/calculator/calculator
-  toolkit/calculator/calculator.exe
-  toolkit/calculator/includes
-  toolkit/calculator/includes/clear.h
-  toolkit/calculator/includes/math.h
-  toolkit/calculator/makefile
-  toolkit/calculator/makefile.pc
-  toolkit/calculator/sources
-  toolkit/calculator/sources/clear.c
-  toolkit/calculator/sources/main.c
-  toolkit/calculator/sources/math.c
-  toolkit/editor
-  toolkit/editor/editor
-  toolkit/editor/editor.exe
-  toolkit/editor/includes
-  toolkit/editor/includes/delete.h
-  toolkit/editor/includes/save.h
-  toolkit/editor/makefile
-  toolkit/editor/makefile.pc
-  toolkit/editor/sources
-  toolkit/editor/sources/delete.c
-  toolkit/editor/sources/main.c
-  toolkit/editor/sources/save.c
-  toolkit/guilib
-  toolkit/guilib/guilib.a
-  toolkit/guilib/guilib.lib
-  toolkit/guilib/includes
-  toolkit/guilib/includes/controls.h
-  toolkit/guilib/includes/guilib.h
-  toolkit/guilib/makefile
-  toolkit/guilib/makefile.pc
-  toolkit/guilib/sources
-  toolkit/guilib/sources/controls.c
-  toolkit/guilib/sources/main.c
-  toolkit/makefile
-  toolkit/makefile.pc
-  toolkit/misc
-  toolkit/misc/readme
-  toolkit/misc/toolkit.ini
+
+my %project_tree_expected = (
+  tree_0_0 =>
+  {
+    subprojects => 0,
+    mark_projects => 0,
+    expected =>
+    {
+      'toolkit' => vco('toolkit-1:dir:1'),
+      'toolkit/makefile' => vco('makefile-1:makefile:1'),
+      'toolkit/makefile.pc' => vco('makefile.pc-1:makefile:1'),
+      'toolkit/misc' => vco('misc-1:dir:1'),
+      'toolkit/misc/readme' => vco('readme-1:ascii:1'),
+      'toolkit/misc/toolkit.ini' => vco('toolkit.ini-1:ascii:1'),
+    }
+  },
+  tree_1_0 =>
+  {
+    subprojects => 1,
+    mark_projects => 0,
+    expected =>
+    {
+      'toolkit' => vco('toolkit-1:dir:1'),
+      'toolkit/calculator' => vco('calculator-1:dir:1'),
+      'toolkit/calculator/calculator' => vco('calculator-1:executable:1'),
+      'toolkit/calculator/calculator.exe' => vco('calculator.exe-1:executable:1'),
+      'toolkit/calculator/includes' => vco('includes-1:dir:4'),
+      'toolkit/calculator/includes/clear.h' => vco('clear.h-1:incl:1'),
+      'toolkit/calculator/includes/math.h' => vco('math.h-1:incl:1'),
+      'toolkit/calculator/makefile' => vco('makefile-1:makefile:4'),
+      'toolkit/calculator/makefile.pc' => vco('makefile.pc-1:makefile:4'),
+      'toolkit/calculator/sources' => vco('sources-1:dir:3'),
+      'toolkit/calculator/sources/clear.c' => vco('clear.c-1:csrc:2'),
+      'toolkit/calculator/sources/main.c' => vco('main.c-1:csrc:4'),
+      'toolkit/calculator/sources/math.c' => vco('math.c-1:csrc:1'),
+      'toolkit/editor' => vco('editor-1:dir:1'),
+      'toolkit/editor/editor' => vco('editor-1:executable:1'),
+      'toolkit/editor/editor.exe' => vco('editor.exe-1:executable:1'),
+      'toolkit/editor/includes' => vco('includes-1:dir:2'),
+      'toolkit/editor/includes/delete.h' => vco('delete.h-1:incl:1'),
+      'toolkit/editor/includes/save.h' => vco('save.h-1:incl:1'),
+      'toolkit/editor/makefile' => vco('makefile-1:makefile:2'),
+      'toolkit/editor/makefile.pc' => vco('makefile.pc-1:makefile:2'),
+      'toolkit/editor/sources' => vco('sources-1:dir:1'),
+      'toolkit/editor/sources/delete.c' => vco('delete.c-1:csrc:1'),
+      'toolkit/editor/sources/main.c' => vco('main.c-1:csrc:2'),
+      'toolkit/editor/sources/save.c' => vco('save.c-1:csrc:1'),
+      'toolkit/guilib' => vco('guilib-1:dir:1'),
+      'toolkit/guilib/guilib.a' => vco('guilib.a-1:library:1'),
+      'toolkit/guilib/guilib.lib' => vco('guilib.lib-1:library:1'),
+      'toolkit/guilib/includes' => vco('includes-1:dir:3'),
+      'toolkit/guilib/includes/controls.h' => vco('controls.h-1:incl:1'),
+      'toolkit/guilib/includes/guilib.h' => vco('guilib.h-1:incl:1'),
+      'toolkit/guilib/makefile' => vco('makefile-1:makefile:3'),
+      'toolkit/guilib/makefile.pc' => vco('makefile.pc-1:makefile:3'),
+      'toolkit/guilib/sources' => vco('sources-1:dir:2'),
+      'toolkit/guilib/sources/controls.c' => vco('controls.c-1:csrc:1'),
+      'toolkit/guilib/sources/main.c' => vco('main.c-1:csrc:3'),
+      'toolkit/makefile' => vco('makefile-1:makefile:1'),
+      'toolkit/makefile.pc' => vco('makefile.pc-1:makefile:1'),
+      'toolkit/misc' => vco('misc-1:dir:1'),
+      'toolkit/misc/readme' => vco('readme-1:ascii:1'),
+      'toolkit/misc/toolkit.ini' => vco('toolkit.ini-1:ascii:1'),
+    }
+  },
+  tree_0_1 =>
+  {
+    subprojects => 0,
+    mark_projects => 1,
+    expected =>
+    {
+      'toolkit' => vco('toolkit-1.0:project:1'),
+      'toolkit/calculator' => vco('calculator-1.0:project:1'),
+      'toolkit/editor' => vco('editor-1.0:project:1'),
+      'toolkit/guilib' => vco('guilib-1.0:project:1'),
+      'toolkit/makefile' => vco('makefile-1:makefile:1'),
+      'toolkit/makefile.pc' => vco('makefile.pc-1:makefile:1'),
+      'toolkit/misc' => vco('misc-1:dir:1'),
+      'toolkit/misc/readme' => vco('readme-1:ascii:1'),
+      'toolkit/misc/toolkit.ini' => vco('toolkit.ini-1:ascii:1'),
+    }
+  },
+  tree_1_1 =>
+  {
+    subprojects => 1,
+    mark_projects => 1,
+    expected =>
+    {
+      'toolkit' => vco('toolkit-1.0:project:1'),
+      'toolkit/calculator' => vco('calculator-1.0:project:1'),
+      'toolkit/calculator/calculator' => vco('calculator-1:executable:1'),
+      'toolkit/calculator/calculator.exe' => vco('calculator.exe-1:executable:1'),
+      'toolkit/calculator/includes' => vco('includes-1:dir:4'),
+      'toolkit/calculator/includes/clear.h' => vco('clear.h-1:incl:1'),
+      'toolkit/calculator/includes/math.h' => vco('math.h-1:incl:1'),
+      'toolkit/calculator/makefile' => vco('makefile-1:makefile:4'),
+      'toolkit/calculator/makefile.pc' => vco('makefile.pc-1:makefile:4'),
+      'toolkit/calculator/sources' => vco('sources-1:dir:3'),
+      'toolkit/calculator/sources/clear.c' => vco('clear.c-1:csrc:2'),
+      'toolkit/calculator/sources/main.c' => vco('main.c-1:csrc:4'),
+      'toolkit/calculator/sources/math.c' => vco('math.c-1:csrc:1'),
+      'toolkit/editor' => vco('editor-1.0:project:1'),
+      'toolkit/editor/editor' => vco('editor-1:executable:1'),
+      'toolkit/editor/editor.exe' => vco('editor.exe-1:executable:1'),
+      'toolkit/editor/includes' => vco('includes-1:dir:2'),
+      'toolkit/editor/includes/delete.h' => vco('delete.h-1:incl:1'),
+      'toolkit/editor/includes/save.h' => vco('save.h-1:incl:1'),
+      'toolkit/editor/makefile' => vco('makefile-1:makefile:2'),
+      'toolkit/editor/makefile.pc' => vco('makefile.pc-1:makefile:2'),
+      'toolkit/editor/sources' => vco('sources-1:dir:1'),
+      'toolkit/editor/sources/delete.c' => vco('delete.c-1:csrc:1'),
+      'toolkit/editor/sources/main.c' => vco('main.c-1:csrc:2'),
+      'toolkit/editor/sources/save.c' => vco('save.c-1:csrc:1'),
+      'toolkit/guilib' => vco('guilib-1.0:project:1'),
+      'toolkit/guilib/guilib.a' => vco('guilib.a-1:library:1'),
+      'toolkit/guilib/guilib.lib' => vco('guilib.lib-1:library:1'),
+      'toolkit/guilib/includes' => vco('includes-1:dir:3'),
+      'toolkit/guilib/includes/controls.h' => vco('controls.h-1:incl:1'),
+      'toolkit/guilib/includes/guilib.h' => vco('guilib.h-1:incl:1'),
+      'toolkit/guilib/makefile' => vco('makefile-1:makefile:3'),
+      'toolkit/guilib/makefile.pc' => vco('makefile.pc-1:makefile:3'),
+      'toolkit/guilib/sources' => vco('sources-1:dir:2'),
+      'toolkit/guilib/sources/controls.c' => vco('controls.c-1:csrc:1'),
+      'toolkit/guilib/sources/main.c' => vco('main.c-1:csrc:3'),
+      'toolkit/makefile' => vco('makefile-1:makefile:1'),
+      'toolkit/makefile.pc' => vco('makefile.pc-1:makefile:1'),
+      'toolkit/misc' => vco('misc-1:dir:1'),
+      'toolkit/misc/readme' => vco('readme-1:ascii:1'),
+      'toolkit/misc/toolkit.ini' => vco('toolkit.ini-1:ascii:1'),
+    }
+  },
 );
+
+while (my ($what, $t) = each %project_tree_expected)
+{
+  my $trav_tree_got = $ccm->project_tree(
+    { 
+      subprojects	=> $t->{subprojects}, 
+      mark_projects	=> $t->{mark_projects}, 
+      pathsep		=> "/" ,
+    }, 
+    $top_project);
+  cmp_deeply($trav_tree_got, $t->{expected},
+    qq[project_tree: compare results for $what]);
+}
+
+
+my @trav_paths_expected = sort keys %{ $project_tree_expected{tree_1_0}->{expected} };
 my @trav_depths_expected = map { tr:/:/: } @trav_paths_expected;
 my @trav_objects_expected = (
     @{ $top_project->recursive_is_member_of },
     $top_project);		# because recursive_is_member_of() does NOT include the project itself
+
 
 my (@trav_path_got, @trav_depth_got, @trav_object_got, $trav_tree_expected);
 my ($npre, $npost);
@@ -92,11 +198,6 @@ ok($npre == $npost,
   q[traverse: compare number of preprocess and postprocess calls]);
 ok($npre == (grep { $_->cvtype =~ /^(dir|project)$/ } @trav_objects_expected),
   q[traverse: compare number of preprocess calls to projects/dirs traversed]);
-
-my $trav_tree_got = $ccm->project_tree(
-  { subprojects => 1, pathsep => "/" }, $top_project);
-cmp_deeply($trav_tree_got, $trav_tree_expected,
-  q[project_tree: compare results]);
 
 my $dir2 = $ccm->object('misc-1:dir:1');
 my @trav2_expected = (

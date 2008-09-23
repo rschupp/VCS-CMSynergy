@@ -1000,37 +1000,37 @@ sub project_tree
     _usage(@_, 1, undef, '\\%options, @projects');
 
     my ($options, @projects) = @_;
-    $options ||= {};
+    $options = {} unless defined $options;
     croak(__PACKAGE__.qq[::project_tree: argument 1 ("options") must be a HASH ref: $options])
 	unless ref $options eq "HASH";
-    $options->{attributes} ||= [];
-    my $mark_projects = delete $options->{mark_projects};
-    # NOTE: $options->{attributes} will be checked by traverse() below
 
-    my %tree;
-    my $tag = 0;
-    foreach my $proj (
-	map { ref $_ ?  $_ : $self->project_object($_) } @projects)
+    my %wanted = %$options;	# make a copy, because we're modifying it below
+    my $mark_projects = delete $wanted{mark_projects};
+    my $pathsep = delete $wanted{pathsep};
+    # NOTE: all other options are passed thru to traverse() 
+    # (and get checked there)
+
+    my (%tree, $tag);		# referenced in closure below
+    $wanted{wanted} = sub
     {
-	$proj->traverse(
-	    { 
-		subprojects	=> $options->{subprojects},
-		attributes	=> $options->{attributes},
-		wanted		=> sub
-		{
-		    # skip projects unless "mark_projects" is in effect
-		    return if $_->is_project && !$mark_projects;
+	# skip projects unless "mark_projects" is in effect
+	return if $_->is_project && !$mark_projects;
 
-		    # store into %tree with relative workarea pathname as the key
-		    # NOTE: VCS::CMSynergy::Traversal::path() has the same
-		    # value when invoked for a project and its top level
-		    # directory; the "||=" below makes sure we dont't overwrite
-		    # the project entry when "mark_projects" is in effect
-		    my $path = VCS::CMSynergy::Traversal::path($options->{pathsep});
-		    @projects == 1 ? $tree{$path} : $tree{$path}->[$tag] ||= $_;
-		},
-	    }) or return;
-	$tag++;
+	# store into %tree with relative workarea pathname as the key
+	# NOTE: VCS::CMSynergy::Traversal::path() has the same
+	# value when invoked for a project and its top level
+	# directory; the "||=" below makes sure we dont't overwrite
+	# the project entry when "mark_projects" is in effect
+	my $path = VCS::CMSynergy::Traversal::path($pathsep);
+	@projects == 1 ? $tree{$path} : $tree{$path}->[$tag] ||= $_;
+    };
+
+    for ($tag = 0; $tag < @projects; $tag++)
+    {
+	my $proj = $projects[$tag];
+	$proj = $self->project_object($proj) unless ref $proj;
+
+	$proj->traverse(\%wanted) or return;
     }
 
     return \%tree;

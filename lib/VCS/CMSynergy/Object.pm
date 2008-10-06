@@ -125,7 +125,7 @@ sub is_project	{ return shift->cvtype eq "project"; }
 
 # NOTE: All access to a VCS::CMSynergy::Objects data _must_ either use
 # methods, e.g. "$self->foo", or use _private(), e.g. "$self->_private->{foo}".
-# _Don't_ access its member directly, e.g. "$self->{data}", because this
+# _Don't_ access its member directly, e.g. "$self->{foo}", because this
 # doesn't work when :tied_objects are enabled.
 # The only exception to this rule are the primary getter methods (objectname,
 # version etc) which use direct access for speed. Hence they need to be
@@ -134,10 +134,10 @@ sub is_project	{ return shift->cvtype eq "project"; }
 # access to private parts
 sub _private 	{ return shift; }
 
-sub data
+sub mydata
 {
     my ($self) = @_;
-    return $self->_private->{data} ||= {};
+    return $self->_private->{mydata} ||= {};
 }
 
 
@@ -437,11 +437,11 @@ with the object.
 
 A convenience wrapper for L<VCS::CMSynergy/cat_object>.
 
-=head2 data
+=head2 mydata
 
 Sometimes it is handy to be able to store some arbitrary data 
 in a C<VCS::CMSynergy::Object>. This method returns a reference
-to a hash associated with the object. It is totally irrelevant
+to a hash associated with the object. It is totally opaque
 w.r.t. Synergy operations. 
 
 =head1 ATTRIBUTE METHODS

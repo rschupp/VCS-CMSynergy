@@ -47,10 +47,10 @@ like($cvid, qr/^\d+$/, q[check cvid]);
 my $object_from_cvid = $ccm->object_from_cvid($cvid);
 is("$object", "$object_from_cvid", q[object -> cvid -> same_object]);
 
-# test per object private data
-my %data = ( foo => 1, bar => 2, quux => 3 );
-$object->data->{$_} = $data{$_} foreach keys %data;
-cmp_deeply($object->data, \%data, qq[per object private data]);
+# test per object application data
+my %blurfl = ( foo => 1, bar => 2, quux => 3 );
+$object->mydata->{$_} = $blurfl{$_} foreach keys %blurfl;
+cmp_deeply($object->mydata, \%blurfl, qq[object mydata]);
 
 # test that the same objectname gives identical Perl objects
 # (when use_cached_attributes is in effect):

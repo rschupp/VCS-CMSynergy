@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 21;
+use Test::More tests => 23;
 use t::util;
 use strict;
 
@@ -220,6 +220,10 @@ cmp_deeply(\@dirs_got, \@dirs_expected,
   q[traverse: check @VCS::CMSynergy::Traversal::dirs]);
 cmp_deeply(\@projects_got, \@projects_expected, 
   q[traverse: check @VCS::CMSynergy::Traversal::projects]);
+is(scalar @VCS::CMSynergy::Traversal::dirs, 0,
+  q[@VCS::CMSynergy::Traversal::dirs is empty outside of traverse]);
+is(scalar @VCS::CMSynergy::Traversal::projects, 0,
+  q[@VCS::CMSynergy::Traversal::projects is empty outside of traverse]);
 
 my $dir2 = $ccm->object('misc-1:dir:1');
 my @trav2_expected = (

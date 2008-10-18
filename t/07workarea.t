@@ -22,6 +22,16 @@ BEGIN
     }
 }
 
+# convert project reference from Unix pathnames to native pathnames
+# NOTE: We can't use File::Spec here since Cygwin uses slash as the path
+# delimiter, but CM Synergy on Windows returns backslashes 
+# in project references.
+sub native_path
+{
+    local $_ = shift;
+    s{/}{\\}g if VCS::CMSynergy::Client::is_win32;
+    return $_;
+}
 
 my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
@@ -38,8 +48,8 @@ my %md5_expected;
 
 my %objects =
 (
-    "clear.c-1:csrc:2"			=> "calculator/sources/clear.c",
-    "calculator.exe-1:executable:1"	=> "calculator/calculator.exe",
+    "clear.c-1:csrc:2"			=> native_path("calculator/sources/clear.c"),
+    "calculator.exe-1:executable:1"	=> native_path("calculator/calculator.exe"),
 );
 
 

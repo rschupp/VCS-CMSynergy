@@ -14,6 +14,32 @@ Known problems:
 
 =head1 CHANGES
 
+=head2 Changes in Version 1.34
+
+  Implement VCS::CMSynergy::Object method mydata(): associate arbitrary data 
+  with object.
+
+  Implement (previously forgotten) VCS::CMSynergy::Object method cat_object().
+
+  Fix bug: @VCS::CMSynergy::Traversal::dirs and
+  @VCS::CMSynergy::Traversal::projects are empty during
+  VCS::CMsynergy::Project::traverse() (reported by Andy Hassall).
+
+  Fix a long standing problem: the record for process "router"
+  may be missing from the list returned by ps().
+
+  Accept objectnames with ":" as the first delimiter
+  (instead of the database delimiter), as seen in recent Synergy versions
+  (e.g. "releasedef" objects) - Synergy accepts them, too.
+
+  Move ccm_project_diff from examples/ to script/.
+
+  Documentation updates:
+  - clarify behaviour of finduse() when an argument refers to a 
+    non-existing object
+  - when describing boolean options, use true/false instead of "on"/"off"
+
+
 =head2 Changes in Version 1.33
 
   Follow the advice in "How can I stop getting FAIL reports

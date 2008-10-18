@@ -16,8 +16,6 @@ inc/Module/Install/Makefile.pm
 inc/Module/Install/Metadata.pm
 inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
-inc/Test/Builder.pm
-inc/Test/Builder/Module.pm
 inc/Test/Deep.pm
 inc/Test/Deep/All.pm
 inc/Test/Deep/Any.pm
@@ -58,7 +56,6 @@ inc/Test/Deep/Set.pm
 inc/Test/Deep/Shallow.pm
 inc/Test/Deep/Stack.pm
 inc/Test/Deep/String.pm
-inc/Test/More.pm
 lib/VCS/CMSynergy.pm
 lib/VCS/CMSynergy.pod
 lib/VCS/CMSynergy/Changes.pod
@@ -76,7 +73,7 @@ META.yml
 README
 README.datetime
 README.get_member_info
-sccript/ccm_project_diff
+script/ccm_project_diff
 t/01session.t
 t/02autoload.t
 t/03query.t

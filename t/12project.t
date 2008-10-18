@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 19;
+use Test::More tests => 21;
 use t::util;
 use strict;
 
@@ -168,6 +168,18 @@ my @trav_objects_expected = (
     @{ $top_project->recursive_is_member_of },
     $top_project);		# because recursive_is_member_of() does NOT include the project itself
 
+# dir and project stack expected for 'save.c-1:csrc:1' 
+# (toolkit/editor/sources/save.c) in $top_project 
+my @dirs_expected = (
+  vco('toolkit-1:dir:1'),		# toolkit
+  vco('editor-1:dir:1'),		# toolkit/editor
+  vco('sources-1:dir:1'),		# toolkit/editor/sources
+);
+my @projects_expected = (
+  vco('toolkit-1.0:project:1'),		# toolkit
+  vco('editor-1.0:project:1'),		# toolkit/editor
+);
+my (@dirs_got, @projects_got);
 
 my (@trav_path_got, @trav_depth_got, @trav_object_got, $trav_tree_expected);
 my ($npre, $npost);
@@ -181,6 +193,12 @@ ok($top_project->traverse(
       push @trav_path_got, $path;
       $trav_tree_expected->{$path} = $_;
       push @trav_depth_got, VCS::CMSynergy::Traversal::depth();
+
+      if ($_->objectname eq 'save.c-1:csrc:1')
+      {
+	  @dirs_got = @VCS::CMSynergy::Traversal::dirs;
+	  @projects_got = @VCS::CMSynergy::Traversal::projects;
+      }
     },
     subprojects	=> 1,
     preprocess	=> sub { $npre++; return sort { $a->name cmp $b->name } @_; },
@@ -198,6 +216,10 @@ ok($npre == $npost,
   q[traverse: compare number of preprocess and postprocess calls]);
 ok($npre == (grep { $_->cvtype =~ /^(dir|project)$/ } @trav_objects_expected),
   q[traverse: compare number of preprocess calls to projects/dirs traversed]);
+cmp_deeply(\@dirs_got, \@dirs_expected, 
+  q[traverse: check @VCS::CMSynergy::Traversal::dirs]);
+cmp_deeply(\@projects_got, \@projects_expected, 
+  q[traverse: check @VCS::CMSynergy::Traversal::projects]);
 
 my $dir2 = $ccm->object('misc-1:dir:1');
 my @trav2_expected = (

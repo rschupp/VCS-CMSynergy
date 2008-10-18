@@ -236,15 +236,20 @@ entries are sorted by name and are intended according to their depth:
 =cut
 
 # tied array class that acts as a readonly front to a real array
+# NOTE: TIEARRAY expects as first parameter a closure that 
+# returns a reference to the "back" array. Storing the array reference 
+# itself in the tied arraay doesn't work when the "back" array is local'ized.
 {
     package Tie::ReadonlyArray;	
 
     use Carp;
 
     sub TIEARRAY	{ bless $_[1], $_[0]; }
-    sub FETCH		{ $_[0]->[$_[1]]; }
-    sub FETCHSIZE	{ scalar @{$_[0]}; }
-    sub AUTOLOAD	{ croak "attempt to modify a readonly array"; }
+    sub FETCH		{ $_[0]->()->[$_[1]]; }
+    sub FETCHSIZE	{ scalar @{$_[0]->()}; }
+    *STORE = *STORESIZE = *EXTEND = *CLEAR = *UNTIE
+	= *PUSH = *POP = *UNSHIFT = *SHIFT = *SPLICE 
+	= sub { croak "attempt to modify a readonly array"; };
 }
 
 
@@ -255,8 +260,8 @@ entries are sorted by name and are intended according to their depth:
     our (@_dirs, @_projects);			# private
 
     our (@dirs, @projects, $prune);		# public
-    tie @dirs,		"Tie::ReadonlyArray" => \@_dirs;
-    tie @projects,	"Tie::ReadonlyArray" => \@_projects;
+    tie @dirs,	   "Tie::ReadonlyArray" => sub { \@_dirs };
+    tie @projects, "Tie::ReadonlyArray" => sub { \@_projects };
 
     sub path 
     { 

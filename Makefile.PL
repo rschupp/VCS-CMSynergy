@@ -75,9 +75,10 @@ requires	'Scalar::Util'		=> '1.09';
 requires	'Filesys::CygwinPaths'	=> 0 if $^O eq 'cygwin';
 
 test_requires	'Test::More'		=> 0;
-include		'Test::More';
-test_requires	'Test::Deep'		=> '0.093';
+test_requires	'Test::Deep'		=> '0.103';
 include		'Test::Deep';
+include		'Test::Deep::*';
+include		'Test::Deep::*::*';
 test_requires	'End'			=> 0;
 include		'End';
 

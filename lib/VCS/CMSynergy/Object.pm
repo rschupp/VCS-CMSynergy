@@ -448,8 +448,8 @@ w.r.t. Synergy operations.
 
 =head2 get_attribute, set_attribute
 
-  print $obj->get_attribute($attribute_name);
-  $obj->set_attribute($attribute_name) = "blurfl";
+  $value = $obj->get_attribute($attribute_name);
+  $obj->set_attribute($attribute_name, $value);
 
 These are convenience wrappers for L<VCS::CMSynergy/get_attribute>
 and L<VCS::CMSynergy/set_attribute>, resp., i.e.
@@ -458,7 +458,7 @@ and L<VCS::CMSynergy/set_attribute>, resp., i.e.
 
 is syntactic sugar for
 
-  print $ccm->get_attribute(comment => $obj);
+  print $ccm->get_attribute("comment", $obj);
 
 If you are C<use>ing L<VCS::CMSynergy/:cached_attributes>, 
 these methods maintain a cache
@@ -470,7 +470,7 @@ on the same object.
 
 =head2 create_attribute, delete_attribute
 
-  $obj->create_attribute($attribute_name, $attribute_type);
+  $obj->create_attribute($attribute_name, $attribute_type, $value);
   $obj->delete_attribute($attribute_name);
 
 Convenience wrappers for L<VCS::CMSynergy/create_attribute> and  

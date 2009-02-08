@@ -1585,7 +1585,8 @@ Returns the session's RFC address.
 
   $database = $ccm->database;
 
-Returns the database path in canonical form (i.e. with a trailing C<"/db">):
+Returns the database path (as reported by B<ccm ps>).
+The path is in canonical form (i.e. with a trailing C<"/db">).
 
 =head2 delimiter
 
@@ -1609,6 +1610,10 @@ Returns the DCM delimiter.
 
 Returns the DCM database id (B<ccm dcm -show -database_id>) or
 the empty string if the database isn't DCM enabled.
+
+=head2 user
+
+Returns the session user (as reported by B<ccm ps>).
 
 =head2 default_project_instance
 

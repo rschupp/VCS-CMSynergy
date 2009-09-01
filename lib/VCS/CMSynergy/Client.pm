@@ -432,7 +432,7 @@ __PACKAGE__->_memoize_method(_version => sub
     return $self->set_error($err || $out) unless $rc == 0;
 
     my %version;
-    my $cmsynergy_rx = qr{(?:Continuus|CM Synergy|SYNERGY/CM|Telelogic Synergy)};
+    my $cmsynergy_rx = qr{(?:CM Synergy|SYNERGY/CM|Telelogic Synergy|IBM Rational Synergy)};
     ($version{cmsynergy}) = $out =~ /^$cmsynergy_rx Version\s+(\S*)$/imo
 	or return $self->set_error("can't recognize version from `$out'");
     ($version{short}) = $version{cmsynergy} =~ /^(\d+\.\d+)/;

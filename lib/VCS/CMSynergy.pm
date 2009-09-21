@@ -2,7 +2,7 @@ package VCS::CMSynergy;
 
 # $Revision$
 
-our $VERSION = '1.34';
+our $VERSION = '1.35';
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
@@ -1046,6 +1046,69 @@ sub project_tree
     }
 
     return \%tree;
+}
+
+
+sub project_diff
+{
+    my $self = shift;
+    _usage(@_, 4, 4, '\\%options, $old_project, $new_project, $differ');
+
+    my ($options, $old_project, $new_project, $differ) = @_;
+    $options = {} unless defined $options;
+    croak(__PACKAGE__.qq[::project_diff: argument 1 ("options") must be a HASH ref: $options])
+	unless ref $options eq "HASH";
+
+    # FIXME lift this hardcoded restriction:
+    # we must also adjust the regex below (to extract dirname from $path)
+    $options->{pathsep} = "/"; 	
+
+    my $hide_sub_trees = delete $options->{hide_sub_trees};
+
+    my $tree = $self->project_tree($options, $old_project, $new_project);
+
+    $differ->start($old_project, $new_project) if $differ->can("start");
+
+    # NOTE: the hiding of subtrees depends on an ordering of keys %tree
+    # that sorts "foo/bar/quux" _after_ "foo/bar"
+    my %hidden;			# directory paths of deleted/added dirs
+    foreach my $path (sort keys %$tree)
+    {
+	my ($old, $new) = @{ $tree->{$path} };
+
+	if (!defined $new)
+	{ 
+	    # only report the root of a deleted sub tree?
+	    if ($hide_sub_trees)
+	    {
+		$hidden{$path}++ if $old->is_dir;
+		(my $dirname = $path) =~ s:/[^/]*$::;
+		next if $hidden{$dirname};
+	    }
+	    $differ->deleted($path, $old); 
+	}
+	elsif (!defined $old)
+	{ 
+	    # only report the root of an added sub tree?
+	    if ($hide_sub_trees)
+	    {
+		$hidden{$path}++ if $new->is_dir;
+		(my $dirname = $path) =~ s:/[^/]*$::;
+		next if $hidden{$dirname};
+	    }
+	    $differ->added($path, $new);
+	}
+	elsif ($old ne $new)	
+	{ 
+	    $differ->changed($path, $old, $new); 
+	}
+	else			
+	{
+	    $differ->identical($path, $old) if $differ->can("identical");
+	}
+    }
+
+    return $differ->can("finish") ? $differ->finish : undef;
 }
 
 

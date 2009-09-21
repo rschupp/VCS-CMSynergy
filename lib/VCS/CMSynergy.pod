@@ -1108,22 +1108,116 @@ whether a path corresponding to a sub project is present in the tree at all.
 
 The following example shows how to compute the "difference" between two
 projects expressed in the file system.
-Note that we suppress changes in "dir" objects because the effect of the
-change (added/deleted objects bound into the directory) will
-be reported anyway.
-See F<examples/project_diff> for a complete working program.
 
   my $tree = $ccm->project_tree(undef, $proj1, $proj2);
   foreach my $path (sort keys %$tree)
   {
     my ($obj1, $obj2) = @{ $tree->{$path} };
 
-    print("added $path ($obj2)\n"),   next unless defined $obj1;
-    print("deleted $path ($obj1)\n"), next unless defined $obj2;
-    print("changed $path ($obj1 -> $obj2)\n")
-	unless $obj1 eq $obj2 			
-	       || ($obj1->cvtype eq "dir" && $obj2->cvtype eq "dir");
+    print("added $path: $obj2\n"), next      unless defined $obj1;
+    print("deleted $path: $obj1\n"), next    unless defined $obj2;
+    print("changed $path: $obj1 -> $obj2\n") unless $obj1 eq $obj2;
   }
+
+=head2 project_diff
+
+  $ccm->project_diff(\%options, $old_project, $new_project, $differ);
+
+C<project_diff> first calls L</project_tree> on C<$old_project>, 
+C<$new_project> and then drives C<$differ> using the resulting map.
+This is a convenience method for computing the "difference" between
+two projects in various forms. See below for a simple example
+and L<ccm_project_diff> for a complete working program.
+
+C<$differ> must be an object supporting the following methods:
+
+=over 4
+
+=item C<added($path, $new)>
+
+This is called for every C<VCS::CMSynergy::Object> only in C<$new_project>;
+arguments are the path and the added object.
+
+=item C<deleted($path, $old)>
+
+This is called for every C<VCS::CMSynergy::Object> only in C<$old_project>;
+arguments are the path and the deleted object.
+
+=item C<changed($path, $old, $new)>
+
+This is called when the C<VCS::CMSynergy::Object>s in C<$old_project>
+and C<$new_project> at C<$path> are different;
+arguments are the path and both objects.
+
+=back
+
+The above methods are mandatory. The following methods are called
+when C<$differ> supports them:
+
+=over 4
+
+=item C<identical($path, $obj)>
+
+This is called when the C<VCS::CMSynergy::Object>s in C<$old_project>
+and C<$new_project> at C<$path> are identical;
+arguments are the path and the object.
+
+=item C<start($old_project, $new_project)>
+
+This is called before the traversal of the project tree starts; 
+arguments are the original C<VCS::CMSynergy::Project>s supplied
+to C<project_diff>.
+
+=item C<finish()>
+
+This is called after traversal of the project tree is completed;
+no arguments are supplied;
+C<project_diff> will return whatever this method returns
+(if C<$differ> doesn't support this method, C<project_diff> returns C<undef>).
+
+=back
+
+Methods with a C<$path> argument are called in ascending path sort order,
+esp. path children are processeed B<after> their parents.
+
+The first parameter, C<\%options>, is the same as the corresponding
+parameter for L</project_tree> and is passed through unchanged
+(except for option C<pathsep> which is currently hardwired to "/").
+Additionally the following option is recognized:
+
+=over 4
+
+=item C<hide_sub_trees> (boolean)
+
+This option controls the handling of whole added or deleted sub trees.
+If it is true, C<$differ>'s C<added> or C<deleted> methods
+will only be called for the root of an added or deleted sub tree,
+all other calls are suppressed. Otherwise, C<added> or C<deleted> will
+be called for any path in the sub tree.
+
+It defaults to false.
+
+=back
+
+The following example prints a simple list of changes between
+two projects. All objects are listed with their path in filesystem first;
+"deleted" objects are prefixed with "-", "added" objects are prefixed
+with "+", different objects at the same path are prefixed with "!",
+and ouput for identical objects is suppressed.
+
+  {
+    package SimpleDiffer;
+    sub new	{ my ($class) = @_; bless {}, $class; }
+    sub added	{ my ($self, $path, $new) = @_; 
+                  print "+ $path $new\n"; }
+    sub deleted	{ my ($self, $path, $old) = @_; 
+                  print "- $path $old\n"; }
+    sub changed	{ my ($self, $path, $old, $new) = @_; 
+	          print "! $path $old $new\n"; }
+  }
+  ...
+  $ccm->project_diff({ hide_sub_trees => 1 }, 
+                     $old_project, $new_project, SimpleDiffer->new);
 
 =head1 ATTRIBUTE METHODS
 

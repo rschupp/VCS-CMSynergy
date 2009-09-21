@@ -2,11 +2,11 @@
 
 =head1 NAME
 
-project_diff - show differences between two projects
+ccm_project_diff - show differences between two projects
 
 =head1 SYNOPSIS
 
-project_diff [options] old_project new_project
+ccm_project_diff [options] old_project new_project
 
   old_project, new_project
               project specs, either in the form "proj_vers"
@@ -30,13 +30,13 @@ project_diff [options] old_project new_project
 
 =head1 DESCRIPTION
 
-C<project_diff> shows the differences between two projects
+C<ccm_project_diff> shows the differences between two projects
 in terms of the workarea paths of the projects' members.
 It does I<not> need maintained workareas, though.
 
 =head2 C<--terse> listing (default)
 
-C<project_diff> traverses both projects and outputs the differences in the
+C<ccm_project_diff> traverses both projects and outputs the differences in the
 following form:
 
   a toolkit-1.0:project:1 2002-11-26 23:26:36     released
@@ -165,21 +165,30 @@ Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 
 use Getopt::Long qw(:config bundling);
 use Pod::Usage;
-use VCS::CMSynergy 1.29 qw(:cached_attributes :tied_objects);
+use VCS::CMSynergy 1.35 qw(:cached_attributes :tied_objects);
 use VCS::CMSynergy::Helper; 
 use strict;
 
 {
     package Terse;
 
-    use constant OLD => 0;
-    use constant NEW => 1;
+    sub new	{ my ($class) = @_; bless { ndiffs => 0 }, $class; }
+    sub start	{ }
+    sub finish	{ my ($self) = @_; return $self->{ndiffs}; }
 
-    sub new		
-    {
-	my ($class, $ccm) = @_;
-	return bless {}, $class;
+    sub deleted
+    { 
+	my ($self, $path, $old) = @_; 
+	print "- $path\t$old\n"; 
+	$self->{ndiffs}++; 
     }
+    sub added
+    { 
+	my ($self, $path, $new) = @_; 
+	print "+ $path\t$new\n";
+	$self->{ndiffs}++; 
+    }
+    sub identical { }
 
     sub changed
     {
@@ -187,33 +196,31 @@ use strict;
 	my $indicator = ($old->cvtype eq $new->cvtype 
 	                 && $old->instance eq $new->instance) ?  "!" : "~";
 	print "$indicator $path\t$old\t$new\n";
+	$self->{ndiffs}++; 
     }
-
-    sub only
-    {
-	my ($self, $in, $path, $obj) = @_;
-	my $indicator = ("-", "+")[$in];
-	print "$indicator $path\t$obj\n";
-    }
-
-    sub meta	{ }
 }
 
 {
     package Diff;
 
     use base qw/Terse/;
-    use File::Temp qw/tempfile/;
+    use File::Temp;
+
+    use constant OLD => 0;
+    use constant NEW => 1;
 
     # diff program including options
     my @diff_prog = qw/diff -u/;		
 
-    sub new
-    {
-	my ($class, $ccm) = @_;
+    # how to annotate items from old/new project
+    our ($a, $b) = qw(a b);
 
-	my $self = { ccm => $ccm };
-	(undef, $self->{temp}) = tempfile;
+    sub start
+    {
+	my ($self, $old_project, $new_project) = @_;
+
+	$self->{ccm} = $old_project->ccm;
+	(undef, $self->{diff_output}) = File::Temp::tempfile();
 
 	# NOTE: On Windows, CM Synergy executes cli_compare_cmd without
 	# using the command interpreter, hence redirections don't work.
@@ -223,23 +230,37 @@ use strict;
 	# "flashing" command windows, though).
 	$self->{saved_cli_compare_cmd} = $self->{ccm}->set(
 	    cli_compare_cmd => $^O eq "MSWin32" ? 
-		"cmd /c @diff_prog %file1 %file2 > $self->{temp}" :
+		"cmd /c @diff_prog %file1 %file2 > $self->{diff_output}" :
 		# FIXME maybe better - no flicker?
-		# qq[$^X -e "open STDOUT, '>', pop \@ARGV; system \@ARGV;" @diff_prog %file1 %file2 $self->{temp_diff}]
-		qq[@diff_prog %file1 %file2 > $self->{temp}]);
-	    
-	return bless $self, $class;
+		# qq[$^X -e "open STDOUT, '>', pop \@ARGV; system \@ARGV;" @diff_prog %file1 %file2 $self->{diff_output}]
+		qq[@diff_prog %file1 %file2 > $self->{diff_output}]);
+
+	$self->_meta(OLD, $old_project);
+	$self->_meta(NEW, $new_project);
     }
 
-    sub DESTROY
+    sub finish
     {
 	my ($self) = @_;
 
+	# restore setting of cli_compare_cmd, clean up temp file
 	$self->{ccm}->set(cli_compare_cmd => $self->{saved_cli_compare_cmd});
-	unlink($self->{temp}) if $self->{temp};
+	unlink($self->{diff_output}) if $self->{diff_output};
     }
 
-    my ($a, $b) = qw(a b);
+    sub deleted	
+    { 
+	my ($self, $path, $old) = @_;
+	print "Only in $a: $path\n";
+	$self->_meta($a, $old);
+    }
+
+    sub added	
+    { 
+	my ($self, $path, $new) = @_;
+	print "Only in $b: $path\n";
+	$self->_meta($b, $new);
+    }
 
     sub changed
     {
@@ -247,14 +268,15 @@ use strict;
 
 	unless ($old->is_dir || $new->is_dir)
 	{
+
 	    print "diff -u $a/$path $b/$path\n";
-	    $self->meta(Terse::OLD, $old);
-	    $self->meta(Terse::NEW, $new);
+	    $self->_meta(OLD, $old);
+	    $self->_meta(NEW, $new);
 
 	    # generate diff
 	    $self->{ccm}->diff($old, $new);
 
-	    open(my $fh, "<$self->{temp}");
+	    open my $fh, "<", $self->{diff_output};
 
 	    # eat and fake the two header lines (because they contain
 	    # pathnames that point either into the CM Synergy database's
@@ -265,7 +287,7 @@ use strict;
 	    # copy through the rest
 	    print while <$fh>;
 
-	    close($fh);
+	    close $fh;
 	    return;
 	}
 
@@ -279,19 +301,10 @@ use strict;
 	}
     }
 
-    sub only
+    sub _meta
     {
-	my ($self, $in, $path, $obj) = @_;
-	
-	print( ("Only in $a: ", "Only in $b: ")[$in], $path, "\n" );
-	$self->meta($in, $obj);
-
-    }
-
-    sub meta
-    {
-	my ($self, $in, $obj) = @_;
-	print( ("synergy $a: ", "synergy $b: ")[$in], "$obj\t$obj->{modify_time}\n" );
+	my ($self, $a_or_b, $obj) = @_;
+	print "synergy $a_or_b: $obj\t$obj->{modify_time}\n";
     }
 }
 
@@ -300,47 +313,59 @@ use strict;
 
     use base qw/Diff/;
 
-    my ($a, $b) = qw(a b);
+    sub deleted	
+    { 
+	my ($self, $path, $old) = @_;
 
-    sub only
+	print "diff -u $Diff::a/$path $Diff::b/$path\n";
+	$self->_meta($Diff::a, $old);
+	$self->_fake_diff(Diff::OLD, $path, $old);
+    }
+
+    sub added	
+    { 
+	my ($self, $path, $new) = @_;
+
+	print "diff -u $Diff::a/$path $Diff::b/$path\n";
+	$self->_meta($Diff::b, $new);
+	$self->_fake_diff(Diff::NEW, $path, $new);
+    }
+
+    # fake a diff of $obj with /dev/null (where $obj is $new_or_old version)
+    sub _fake_diff
     {
-	my ($self, $in, $path, $obj) = @_;
-
-	print "diff -u $a/$path $b/$path\n";
-	$self->meta($in, $obj);
+	my ($self, $new_or_old, $path, $obj) = @_;
 
 	my @lines;
 	$self->{ccm}->cat_object($obj, \@lines);
 
-	# fake a diff with /dev/null
-	my $sign = ("-", "+")[$in];
+	my $sign = ("-", "+")[$new_or_old];
 	my @range = ("0,0", "0,0");
 	my $nlines = @lines;
-	$range[$in] = $nlines == 1 ? "1" : "1,$nlines";
+	$range[$new_or_old] = $nlines == 1 ? "1" : "1,$nlines";
 
-	print "--- $a/$path\n",
-	      "+++ $b/$path\n",
+	print "--- $Diff::a/$path\n",
+	      "+++ $Diff::b/$path\n",
 	      "\@\@ -$range[0] +$range[1] \@\@\n";
 	print $sign, $_ foreach @lines;
     }
 }
 
-
-
 # extract CCM start options first...
 my $ccm_opts = VCS::CMSynergy::Helper::GetOptions or pod2usage(2) ;
 
 # ...then script-specific options
-my $Diff = "Terse";
+my $Differ = "Terse";
 my $recursive = 0;
 my $hide_sub_trees = 0;
 (GetOptions(
     'r|recursive'	=> \$recursive,		# include subprojects
-    'd|diff'		=> sub { $Diff = "Diff"; $hide_sub_trees = 1; },
-    'p|patch'		=> sub { $Diff = "Patch"; $hide_sub_trees = 0; },
-    't|terse'		=> sub { $Diff = "Terse"; $hide_sub_trees = 0; },
+    'd|diff'		=> sub { $Differ = "Diff"; $hide_sub_trees = 1; },
+    'p|patch'		=> sub { $Differ = "Patch"; $hide_sub_trees = 0; },
+    't|terse'		=> sub { $Differ = "Terse"; $hide_sub_trees = 0; },
     'h|hide'		=> \$hide_sub_trees,	# hide deleted/added sub trees
 ) && @ARGV == 2) or pod2usage(2);
+
 
 my $ccm = VCS::CMSynergy->new(
     %$ccm_opts,
@@ -349,69 +374,13 @@ my $ccm = VCS::CMSynergy->new(
 
 my ($old_project, $new_project) = map { $ccm->project_object($_) } @ARGV;
 
-my $diff_status;
-END { $? = defined $diff_status ? $diff_status : 2; }
-
-
-my $tree = $ccm->project_tree(
+my $ndiffs = $ccm->project_diff(
     { 
+	hide_sub_trees => $hide_sub_trees,
 	subprojects => $recursive,
 	attributes  => [ qw/modify_time/ ],
 	pathsep     => "/"
     }, 
-    $old_project, $new_project);
+    $old_project, $new_project, $Differ->new);
 
-my $diff = $Diff->new($ccm);
-
-# print project header lines
-$diff->meta(Terse::OLD, $old_project);
-$diff->meta(Terse::NEW, $new_project);
-
-# NOTE: the hiding of subtrees depends on an ordering of keys %tree
-# that sorts "foo/bar/quux" _after_ "foo/bar"
-my %hide;			# paths of deleted/added dirs
-my $ndiffs = 0;			# number of differences found
-
-foreach my $path (sort keys %$tree)
-{
-    my ($old, $new) = @{ $tree->{$path} };
-
-    unless (defined $new)		# deleted object
-    {
-	$ndiffs++;
-
-	# only show deleted directories once?
-	if ($hide_sub_trees)
-	{
-	    $hide{$path}++ if $old->is_dir;
-	    (my $dirname = $path) =~ s:/[^/]*$::;
-	    next if $hide{$dirname};
-	}
-
-	$diff->only(Terse::OLD, $path, $old);
-	next;
-    }
-    unless (defined $old)		# added object
-    {
-	$ndiffs++;
-
-	# only show added directories once?
-	if ($hide_sub_trees)
-	{
-	    $hide{$path}++ if $new->is_dir;
-	    (my $dirname = $path) =~ s:/[^/]*$::;
-	    next if $hide{$dirname};
-	}
-
-	$diff->only(Terse::NEW, $path, $new);
-	next;
-    }
-    next if $old eq $new; 		# same object
-
-    $ndiffs++;
-    $diff->changed($path, $old, $new);
-}
-
-
-$diff_status = $ndiffs ? 1 : 0;		# FIXME patch: always exit 0 
-
+exit($ndiffs ? 1 : 0);

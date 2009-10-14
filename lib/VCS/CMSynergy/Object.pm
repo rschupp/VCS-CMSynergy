@@ -440,7 +440,7 @@ A convenience wrapper for L<VCS::CMSynergy/cat_object>.
 =head2 mydata
 
 Sometimes it is handy to be able to store some arbitrary data 
-in a C<VCS::CMSynergy::Object>. This method returns a reference
+into a C<VCS::CMSynergy::Object>. This method returns a reference
 to a hash associated with the object. It is totally opaque
 w.r.t. Synergy operations. 
 

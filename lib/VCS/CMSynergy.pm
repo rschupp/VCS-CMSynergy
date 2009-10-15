@@ -976,7 +976,7 @@ sub _relations
 	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
 
 	# first $ncol_from columns are the "from" part;
-	# avoid to parse "from" part more than once # if "from => ..." was specified
+	# avoid to parse "from" part more than once if "from => ..." was specified
 	my @cols_from = splice @cols, 0, $ncol_from;
 	$from = $self->_parse_query_result($want_from, \@cols_from, $want_row_object)
 	    unless $args->{from} && $from;

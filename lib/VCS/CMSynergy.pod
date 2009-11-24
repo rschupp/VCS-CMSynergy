@@ -1104,6 +1104,15 @@ This option is false by default.
 Note that if C<subprojects> is false, this option also decides
 whether a path corresponding to a sub project is present in the tree at all.
 
+=item C<omit_top_dir> (boolean)
+
+If true, strip the first component (which is the name
+of C<$project> and also its top level diretory) from all paths.
+Also omit the path corresponding to C<$project>'s
+top level directory) altogether.
+
+This option is false by default.
+
 =back
 
 The following example shows how to compute the "difference" between two

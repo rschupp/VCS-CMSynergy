@@ -262,22 +262,21 @@ entries are sorted by name and are intended according to their depth:
 {
     package VCS::CMSynergy::Traversal;
 
-    our (@_dirs, @_projects, $_pathsep);	# private
+    # private
+    our (@_dirs, @_projects, $_pathsep, $_catdirs);
 
-    our (@dirs, @projects, $prune);		# public
+    # public
+    our (@dirs, @projects, $prune);		
     tie @dirs,	   "Tie::ReadonlyArray" => sub { \@_dirs };
     tie @projects, "Tie::ReadonlyArray" => sub { \@_projects };
 
-    sub path 
-    { 
-	# NOTE: references $_ (the currently traversed object)
-	return join($_pathsep, map { $_->name } @_dirs, $_); 
-    }
+    # NOTE:references $_ (the currently traversed object)
+    sub path		{ return @_dirs ? 
+			    $_catdirs.$_pathsep.$_->name : $_->name }
 
-    sub depth 
-    { 
-	return scalar @_dirs; 
-    }
+    sub depth		{ return scalar @_dirs }
+
+    sub _catdirs	{ $_catdirs = join($_pathsep, map { $_->name } @_dirs) }
 }
 
 
@@ -382,6 +381,7 @@ sub _traverse
     }
 
     push @VCS::CMSynergy::Traversal::_dirs, $parent unless $parent->is_project;
+    VCS::CMSynergy::Traversal::_catdirs();
 
     foreach (@$children)			# localizes $_
     {
@@ -402,6 +402,7 @@ sub _traverse
     }
 
     pop @VCS::CMSynergy::Traversal::_dirs unless $parent->is_project;
+    VCS::CMSynergy::Traversal::_catdirs();
     
     if ($wanted->{bydepth}) 
     {

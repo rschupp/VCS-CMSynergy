@@ -101,7 +101,7 @@ returns the filesystem path for C<$_>. It is short for
 
   join($pathsep, map { $_->name } @VCS::CMSynergy::Traversal::dirs, $_) 
 
-where C<$pathsep> is your platforms path separator.
+where C<$pathsep> is your platform's path separator.
 
 The convenience function C<VCS::CMSynergy::Traversal::depth()> returns the
 current depth, where the top level project has depth 0. It is short for
@@ -174,6 +174,11 @@ of C<cvtype> C<dir> or C<project>).
 
 If this option is set, C<traverse>
 will recurse into subprojects. It is "off" by default.
+
+=item C<pathsep> (string)
+
+The path separator to use for C<VCS::CMSynergy::Traversal::path()>.
+The default is your platform's path separator.
 
 =item C<attributes> (array ref)
 
@@ -257,7 +262,7 @@ entries are sorted by name and are intended according to their depth:
 {
     package VCS::CMSynergy::Traversal;
 
-    our (@_dirs, @_projects);			# private
+    our (@_dirs, @_projects, $_pathsep);	# private
 
     our (@dirs, @projects, $prune);		# public
     tie @dirs,	   "Tie::ReadonlyArray" => sub { \@_dirs };
@@ -265,16 +270,13 @@ entries are sorted by name and are intended according to their depth:
 
     sub path 
     { 
-	my ($pathsep) = @_;
-	$pathsep = VCS::CMSynergy::Client::_pathsep unless defined $pathsep;
-
 	# NOTE: references $_ (the currently traversed object)
-	return join($pathsep, map { $_->name } @VCS::CMSynergy::Traversal::_dirs, $_); 
+	return join($_pathsep, map { $_->name } @_dirs, $_); 
     }
 
     sub depth 
     { 
-	return scalar @VCS::CMSynergy::Traversal::_dirs; 
+	return scalar @_dirs; 
     }
 }
 
@@ -285,8 +287,9 @@ my %traverse_opts =
     preprocess	=> "CODE",
     postprocess	=> "CODE",
     attributes	=> "ARRAY",
-    bydepth	=> 0,
-    subprojects	=> 0,
+    bydepth	=> undef,
+    subprojects	=> undef,
+    pathsep	=> undef,
 );
 
 sub traverse
@@ -317,6 +320,7 @@ sub traverse
     {
 	croak(__PACKAGE__."::traverse: argument 1 (wanted) must be a CODE or HASH ref: $wanted");
     }
+    my $pathsep = (delete $wanted->{pathsep}) || VCS::CMSynergy::Client::_pathsep;
 
     if (defined $dir)
     {
@@ -347,6 +351,7 @@ sub traverse
 
     local @VCS::CMSynergy::Traversal::_projects = ($self);
     local @VCS::CMSynergy::Traversal::_dirs = (); 
+    local $VCS::CMSynergy::Traversal::_pathsep = $pathsep;
     $self->_traverse($wanted, $dir);
 }
 

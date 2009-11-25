@@ -189,7 +189,7 @@ ok($top_project->traverse(
       push @trav_object_got, $_;
       return if $_->is_project;
 
-      my $path = VCS::CMSynergy::Traversal::path("/");
+      my $path = VCS::CMSynergy::Traversal::path();
       push @trav_path_got, $path;
       $trav_tree_expected->{$path} = $_;
       push @trav_depth_got, VCS::CMSynergy::Traversal::depth();
@@ -201,6 +201,7 @@ ok($top_project->traverse(
       }
     },
     subprojects	=> 1,
+    pathsep 	=> "/",
     preprocess	=> sub { $npre++; return sort { $a->name cmp $b->name } @_; },
     postprocess => sub { $npost++; }
   }),

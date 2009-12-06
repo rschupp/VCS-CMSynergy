@@ -453,7 +453,7 @@ sub ps
     # "ps" is not a recognized "interactive" command
     local $this->{coprocess} = undef;
 
-    my ($rc, $out, $err) = $this->_ccm(ps => @filter);
+    my ($rc, $out, $err) = $this->_ccm(qw/ps/, @filter);
     return $this->set_error($err || $out) unless $rc == 0;
 
     # split at "rfc address..." header lines;

@@ -523,10 +523,10 @@ sub _get_member_info
     # NOTE: $RS is at the end (because get_member_info _prepends_ the path)
     my $format = $VCS::CMSynergy::FS . join($VCS::CMSynergy::FS, values %$want) . $VCS::CMSynergy::RS;	
 
-    my ($rc, $out, $err) = $self->ccm->_ccm(
-	$opts->{subprojects} ? 
-	    qw/get_member_info -recurse/ : qw/get_member_info/,
-	-format => $format, $self);
+    my @cmd =  qw/get_member_info/;
+    push @cmd, "-recurse" if $opts->{subprojects};
+
+    my ($rc, $out, $err) = $self->ccm->_ccm(@cmd, -format => $format, $self);
     return $self->ccm->set_error($err || $out) unless $rc == 0;
 
     my %result;
@@ -747,12 +747,12 @@ sub show_reconfigure_properties
     my $want = VCS::CMSynergy::_want(1, \@_);
     my $format = $VCS::CMSynergy::RS . join($VCS::CMSynergy::FS, values %$want) . $VCS::CMSynergy::FS;
 
-    my @rp = qw/reconfigure_properties -u -ns/;
-    push @rp, $opts->{automatic} ? "-auto" : "-no_auto" if $what =~ /tasks/;
-    push @rp, "-r" if $opts->{subprojects};
+    my @cmd = qw/reconfigure_properties -u -ns/;
+    push @cmd, $opts->{automatic} ? "-auto" : "-no_auto" if $what =~ /tasks/;
+    push @cmd, "-r" if $opts->{subprojects};
 
     my ($rc, $out, $err) = $self->ccm->_ccm(
-	@rp, -format => $format, -show => $what, $self);
+	@cmd, -format => $format, -show => $what, $self);
     return $self->set_error($err || $out) unless $rc == 0;
     # NOTE: if the reconf properties are empty, Synergy shows the string "None"
     return [ ] if $out eq "None";

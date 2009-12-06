@@ -736,7 +736,7 @@ sub history
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm(history => @_);
+    my ($rc, $out, $err) = $self->_ccm(qw/history/, @_);
     return $self->set_error($err || $out) unless $rc == 0;
 
     return [ split(/^\*+\n?/m, $out) ];
@@ -828,7 +828,7 @@ sub finduse
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm(finduse => @_);
+    my ($rc, $out, $err) = $self->_ccm(qw/finduse/, @_);
 
     # NOTE: `ccm finduse ...' without `-query' complains if some of 
     # the given objects do not exist (and exits with status 1 unless at least
@@ -1172,6 +1172,7 @@ sub _ccm_attribute
     croak(__PACKAGE__.qq[::_ccm_attribute: mssing argument "-value"])
 	unless defined $value;
 
+    my @cmd = ("attribute", @args);
     if ($value eq "")
     {
 	# Setting a text attribute to an empty string is a real PITA:
@@ -1190,8 +1191,7 @@ sub _ccm_attribute
 	    text_editor => $^O eq 'MSWin32' ?
 		qq[cmd /c echo off > %filename ] :  	#/
 		qq[$Config{cp} /dev/null %filename],
-	    attribute => @args, 
-	    { in =>  \"y\n" });
+	    @cmd, { in =>  \"y\n" });
     }
 
     if (($self->{coprocess} && (length($value) > 1600 || $value =~ /["\r\n]/))
@@ -1200,10 +1200,10 @@ sub _ccm_attribute
 	# Use ye olde text_editor trick if $value may cause problems
 	# (depending on execution mode and platform) because its
 	# too long or contains unquotable characters or...
-	return $self->ccm_with_text_editor($value, attribute => @args);
+	return $self->ccm_with_text_editor($value, @cmd);
     }
 
-    return $self->_ccm(attribute => @args, -value => $value);
+    return $self->_ccm(@cmd, -value => $value);
 }
 
 
@@ -1418,7 +1418,7 @@ sub ls
 {
     my $self = shift;
 
-    my ($rc, $out, $err) = $self->_ccm(ls => @_);
+    my ($rc, $out, $err) = $self->_ccm(qw/ls/, @_);
     return $self->set_error($err || $out) unless $rc == 0;
 
     # filter out messages that a file has been implicitly synced 

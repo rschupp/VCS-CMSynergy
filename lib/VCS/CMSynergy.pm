@@ -61,21 +61,6 @@ sub import
     require VCS::CMSynergy::ObjectTieHash if use_tied_objects();
 }
 
-my %start_opts =
-(
-    KeepSession		=> undef,
-    UseCoprocess	=> undef,
-    CCM_ADDR		=> undef,
-    ini_file		=> undef,
-    remote_client	=> undef,
-    database		=> "-d",
-    home		=> "-home",
-    host		=> "-h",
-    password		=> "-pw",
-    role		=> "-r",
-    ui_database_dir	=> "-u",
-    user		=> "-n",
-);
 
 sub new
 {
@@ -90,6 +75,27 @@ sub new
     return $class->_start(VCS::CMSynergy::Client->new(%client_args), %args);
 }
 
+
+# %start_opts: its keys are all valid options that can be
+# passed to VCS::CMSynergy::_start; moreover,
+# if $start_opts{foo} is defined then arg "foo" is automagically
+# passed to "ccm start" as "... $start_opts{foo} $args{foo} ..."
+my %start_opts =
+(
+    KeepSession		=> undef,
+    UseCoprocess	=> undef,
+    CCM_ADDR		=> undef,
+    ini_file		=> undef,
+    remote_client	=> undef,
+    database		=> "-d",
+    home		=> "-home",
+    host		=> "-h",
+    server		=> "-s",
+    password		=> "-pw",
+    role		=> "-r",
+    ui_database_dir	=> "-u",
+    user		=> "-n",
+);
 
 sub _start
 {
@@ -113,6 +119,10 @@ sub _start
     }
 
     my @start = qw/start -m -q -nogui/;
+
+    # FIXME 7.1 web mode:
+    # - in effect when "-s" i.e. $args{server} is specified
+    # - "-f" not allowed
     while (my ($arg, $value) = each %args)
     {
 	croak(__PACKAGE__.qq[::_start: unrecognized argument "$arg"]) 
@@ -142,6 +152,10 @@ sub _start
 	    $self->{user} = 
 		$self->ps(rfc_address => $self->ccm_addr)->[0]->{user};
 
+	    # FIXME not necessary in web mode - how can I determine
+	    # that current session is in webmode?
+	    # ccm ps: process (usr_cmd_interface)
+
 	    # create a minimal ini file (see below for an explanation)
 	    (my $inifh, $self->{ini_file}) = tempfile(SUFFIX => ".ini", UNLINK => 0);
 	    $self->{ini_file} = fullwin32path($self->{ini_file}) if $^O eq 'cygwin';
@@ -160,6 +174,8 @@ sub _start
 	return $self->set_error("don't know how to connect to CM Synergy: neither database nor CCM_ADDR specified")
 	    unless $args{database};
 
+	unless ($self->{server})        # NOTE: "-f" is illegal in web mode
+	{
 	unless (defined $self->{ini_file})
 	{
 	    if (is_win32)
@@ -181,6 +197,8 @@ sub _start
 	    }
 	}
 	push @start, "-f", $self->{ini_file};
+	}
+
 
 	my ($rc, $out, $err) = $self->_ccm(@start);
 	return $self->set_error($err || $out) unless $rc == 0;

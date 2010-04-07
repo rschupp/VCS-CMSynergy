@@ -23,6 +23,9 @@ BEGIN
 	# CCM_TEST_USER=user/password@host (Oracle style :)
 	@test_session{qw(user password host)} = 
 	    $ENV{CCM_TEST_USER} =~ m{^(.*?)/(.*?)\@(.*)};
+
+	$test_session{server} = delete $test_session{host}
+	    if $test_session{host} =~ /^https?:/i;
     }
     else
     {

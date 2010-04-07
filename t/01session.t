@@ -11,6 +11,10 @@ use Config;
 use File::Spec;
 use IPC::Run3;
 
+# when using web mode there's a lag between "ccm stop" exiting and
+# the session disappearing from "ccm ps"
+sub snooze { sleep(5) if $::test_session{server}; }
+
 # repeat sanity check from Makefile.PL
 my $ccm_exe = File::Spec->catfile($ENV{CCM_HOME}, "bin", "ccm$Config{_exe}");
 ok(-x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe), q[sanity check (executable $CCM_HOME/bin/ccm)]);
@@ -56,12 +60,14 @@ my $ccm_addr;
     $ccm2 = undef;
 
     # check that the CM Synergy session is still there
+    snooze();
     ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
        qq[original session $ccm_addr is still registered]);
 
     # $ccm goes out of scope and session should be stopped
 }
 # session should no longer show up in `ccm ps'
+snooze();
 ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
    qq[original session $ccm_addr is not registered any more]);
 
@@ -77,6 +83,8 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
 	{ binmode_stdout => 1, binmode_stderr => 1 });
     my $rc = $?;
     is($rc >> 8, 42, q[exit() value preserved]);
+
+    snooze();
     ok(@{ $client->ps(rfc_address => $out) } == 0,
        qq[session $out is not registered any more]);
 }
@@ -93,6 +101,7 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
     $ccm = undef;
 
     # check that the CM Synergy session is still there
+    snooze();
     ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
        qq[session $ccm_addr is still registered]);
 
@@ -106,6 +115,7 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
     $ccm2 = undef;
 
     # check that the CM Synergy session is still there
+    snooze();
     ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
        qq[original session $ccm_addr is still registered]);
     # destroy it and check that the CM Synergy session is still there
@@ -120,6 +130,7 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
     # $ccm3 goes out of scope and session should be stopped
 }
 # session should no longer show up in `ccm ps'
+snooze();
 ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
    qq[original session $ccm_addr is not registered any more]);
 

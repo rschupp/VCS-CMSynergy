@@ -1056,18 +1056,19 @@ sub project_diff
     my $self = shift;
     _usage(@_, 4, 4, '\\%options, $old_project, $new_project, $differ');
 
-    my ($options, $old_project, $new_project, $differ) = @_;
-    $options = {} unless defined $options;
-    croak(__PACKAGE__.qq[::project_diff: argument 1 ("options") must be a HASH ref: $options])
-	unless ref $options eq "HASH";
+    my ($arg_options, $old_project, $new_project, $differ) = @_;
+    $arg_options = {} unless defined $arg_options;
+    croak(__PACKAGE__.qq[::project_diff: argument 1 ("options") must be a HASH ref: $arg_options])
+	unless ref $arg_options eq "HASH";
+
+    my %options = %$arg_options;	# make a copy, so we can't inadvertently modify it
+    my $hide_sub_trees = delete $options{hide_sub_trees};
 
     # FIXME lift this hardcoded restriction:
     # we must also adjust the regex below (to extract dirname from $path)
-    $options->{pathsep} = "/"; 	
+    $options{pathsep} = "/"; 	
 
-    my $hide_sub_trees = delete $options->{hide_sub_trees};
-
-    my $tree = $self->project_tree($options, $old_project, $new_project);
+    my $tree = $self->project_tree(\%options, $old_project, $new_project);
 
     $differ->start($old_project, $new_project) if $differ->can("start");
 

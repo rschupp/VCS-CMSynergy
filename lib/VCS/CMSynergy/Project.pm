@@ -296,14 +296,17 @@ sub traverse
     my $self = shift;
     _usage(@_, 1, 2, '{ \\&wanted | \\%wanted } [, $dir_object]');
 
-    my ($wanted, $dir) = @_;
-    if (ref $wanted eq 'CODE')
+    my ($arg_wanted, $dir) = @_;
+
+    my %wanted;
+    if (ref $arg_wanted eq 'CODE')
     {
-	$wanted = { wanted => $wanted };
+	%wanted = ( wanted => $arg_wanted );
     }
-    elsif (ref $wanted eq 'HASH')
+    elsif (ref $arg_wanted eq 'HASH')
     {
-	while (my ($opt, $value) = each %$wanted)
+	%wanted = %$arg_wanted;		# make a copy, so we can't inadvertently modify it
+	while (my ($opt, $value) = each %wanted)
 	{
 	    croak(__PACKAGE__.qq[::traverse: argument 1 ("wanted"): unrecognized option "$opt"])
 		unless exists $traverse_opts{$opt};
@@ -313,13 +316,12 @@ sub traverse
 		unless UNIVERSAL::isa($value, $type);
 	}
 	croak(__PACKAGE__."::traverse: argument 1 (wanted hash ref): option `wanted' is mandatory")
-	    unless $wanted->{wanted};
+	    unless $wanted{wanted};
     }
     else
     {
-	croak(__PACKAGE__."::traverse: argument 1 (wanted) must be a CODE or HASH ref: $wanted");
+	croak(__PACKAGE__."::traverse: argument 1 (wanted) must be a CODE or HASH ref: $arg_wanted");
     }
-    my $pathsep = (delete $wanted->{pathsep}) || VCS::CMSynergy::Client::_pathsep;
 
     if (defined $dir)
     {
@@ -338,7 +340,7 @@ sub traverse
 		version		=> $dir->version,
 		is_member_of	=> [ $self ]
 	    },
-	    @{ $wanted->{attributes} || [] });
+	    @{ $wanted{attributes} });
 	return $self->ccm->set_error("directory `$dir' doesn't exist or isn't a member of `$self'")
 	    unless @$result;
 	$dir = $result->[0];
@@ -350,8 +352,10 @@ sub traverse
 
     local @VCS::CMSynergy::Traversal::_projects = ($self);
     local @VCS::CMSynergy::Traversal::_dirs = (); 
-    local $VCS::CMSynergy::Traversal::_pathsep = $pathsep;
-    $self->_traverse($wanted, $dir);
+    local $VCS::CMSynergy::Traversal::_pathsep =
+	(delete $wanted{pathsep}) || VCS::CMSynergy::Client::_pathsep;
+
+    $self->_traverse(\%wanted, $dir);
 }
 
 # helper method: grunt work of traverse

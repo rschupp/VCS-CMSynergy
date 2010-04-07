@@ -6,7 +6,7 @@ use inc::Module::Install;
 use Config;
 use strict;
 
-# --- Check that Telelogic Synergy CLI is installed
+# --- Check that Synergy CLI is installed
 
 sub nay { warn(@_); exit(0); }
 # NOTE: Don't die if the following checks fail,
@@ -17,7 +17,7 @@ sub nay { warn(@_); exit(0); }
 
 nay qq{
   The CCM_HOME environment variable must be set
-  to the path of the Telelogic Synergy installation directory.
+  to the path of the Synergy installation directory.
   See the README file for more information.
   ABORTED!
 } unless $ENV{CCM_HOME};
@@ -27,7 +27,7 @@ my $ccm_exe = MY->catfile(
 nay qq{  
   The value ($ENV{CCM_HOME})
   of the CCM_HOME environment variable is not valid.
-  It must be set to the path of the Telelogic Synergy installation directory.
+  It must be set to the path of the Synergy installation directory.
   See the README file for more information.
   ABORTED!
 } unless -x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe);
@@ -35,14 +35,19 @@ nay qq{
 
 my $ccm_version = qx("$ccm_exe" version);
 nay qq{  
-  The Telelogic Synergy CLI program ($ccm_exe)
+  The Synergy CLI program ($ccm_exe)
   doesn't appear to work on this machine. 
   See the README file for more information.
   ABORTED!
-} unless $? == 0 && $ccm_version =~ /synergy/i;
+} unless $? == 0;
 
-$ccm_version =~ m{(?:Continuus|CM Synergy|SYNERGY/CM|Telelogic Synergy)\s+Version\s+(\d+\.\d+)}i;
-print "Detected Telelogic Synergy version $1\n";
+nay qq{  
+  Failed to recognize the output of
+  "$ccm_exe version" -
+  perhaps this Synergy version is too old or too new.
+  ABORTED!
+} unless $ccm_version =~ m{(CM Synergy|SYNERGY/CM|Telelogic Synergy|IBM Rational Synergy)\s+Version\s+(\d+\.\d+)}i;
+print "Detected $1 version $2\n";
 
 warn qq{
   Please install module Scalar::Util and make sure it implements weaken().

@@ -1326,10 +1326,6 @@ sub cat_object
     croak(__PACKAGE__.qq[::cat_object: argument 1 (object) must be a VCS::CMSynergy::Object: $object])
 	unless UNIVERSAL::isa($object, "VCS::CMSynergy::Object");
 
-    # [DEPRECATE < 6.3]
-    return $self->_cat_binary(@_)
-	if $self->version < 6.3 && $self->_attype_is_binary($object->cvtype);
-
     my $out;
     $destination = \$out if $want_return;
 
@@ -1338,80 +1334,6 @@ sub cat_object
 
     return $self->set_error($err || "`ccm cat $object' failed") unless $rc == 0;
     return $want_return ? $out : 1;
-}
-
-# [DEPRECATE < 6.3]
-sub _cat_binary
-{
-    my ($self, $object, $destination) = @_;
-
-    my $want_return = @_ == 2;
-    my ($rc, $out, $err);
-    $destination = \$out if $want_return;
-
-    my $file;
-    if (ref $destination)	# scalar ref, code ref, ....
-    {
-	(undef, $file) = tempfile();
-    }
-    else			# $destination is a filename
-    {
-	# avoid a double copy by writing directly to $destination
-	# NOTE: CCM executes foo_cli_view_cmd chdir'ed somewhere,
-	# convert $destination to an absolute pathname
-	$file = File::Spec->rel2abs($destination);
-    }
-
-    # NOTE: cli_view_cmd must be specific to $object's cvtype,
-    # otherwise it won't override the view_cmd attached to the attype.
-    my $view_cmd = $object->cvtype . "_cli_view_cmd";
-
-    ($rc, $out, $err) = $self->_ccm_with_option(
-	$view_cmd => $^O eq 'MSWin32' ?
-	    qq[cmd /c copy /b /y %filename "$file"] :  	#/
-	    qq[$Config{cp} %filename '$file'],
-	view => $object);
-    unless ($rc == 0)
-    {
-	unlink $file if ref $destination;
-	return $self->set_error($err || $out);
-    }
-    return 1 unless ref $destination;
-
-    require IPC::Run3;
-    my $type = IPC::Run3::_type($destination);
-    if ($type eq "FH")
-    {
-	require File::Copy;
-	File::Copy::copy($file, $destination);
-    }
-    else
-    {
-	open my $fh, "<$file"
-	    or return $self->set_error("can't open temp file `$file': $!");
-	binmode $fh;
-	IPC::Run3::_read_child_output_fh("temp file", $type, $destination, $fh, {});
-	close $fh;
-    }
-    unlink $file;
-    return $want_return ? $out : 1;
-}
-
-# internal method
-sub _attype_is_binary
-{
-    my ($self, $name) = @_;
-
-    my $is_binary = $self->{attype_is_binary}->{$name};
-    unless (defined $is_binary)
-    {
-	my ($result) = @{ $self->query_arrayref(
-	    { cvtype => "attype", name => $name }, qw(binary)) };
-	return $self->set_error("attype `$name' doesn't exist") unless $result;
-	$self->{attype_is_binary}->{$name} = $is_binary = 
-	    defined $result->[0] && $result->[0] eq "TRUE" ? 1 : 0;
-    }
-    return $is_binary;
 }
 
 
@@ -1652,47 +1574,6 @@ sub ccm_with_text_editor
 	@args);
     return $self->set_error($err || $out) unless $rc == 0;
     return wantarray ? ($rc, $out, $err) : 1;
-}
-
-
-# [DEPRECATE < 6.3]
-sub get_releases
-{
-    my ($self) = @_;
-
-    my ($rc, $out, $err) = $self->_ccm(qw/releases -show/);
-    return $self->set_error($err || $out) unless $rc == 0;
-
-    my %releases;
-    foreach (split(/\n/, $out))
-    {
-	next if /^\s*$/;
-	my ($release, @names) = split(/\s*[:,]\s*/);
-	$releases{$release} = [ @names ];
-    }
-    return \%releases;
-}
-
-
-# [DEPRECATE < 6.3]
-sub set_releases
-{
-    my $self = shift;
-    _usage(@_, 1, 1, '\\%releases');
-
-    my $releases = shift;
-    my $text = "";
-    {
-	local $" = ", ";
-	while (my ($release, $names) = each %$releases) 
-	{
-	    $text .= "$release: @$names\n";
-	}
-    }
-
-    my ($rc, $out, $err) =
-	$self->ccm_with_text_editor($text, qw/releases -edit/);
-    return $rc == 0 || $self->set_error($err || $out);
 }
 
 

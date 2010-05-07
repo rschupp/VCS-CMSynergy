@@ -1276,7 +1276,8 @@ sub list_attributes
     my ($rc, $out, $err) = $self->_ccm(qw/attribute -la/, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
-    my %attrs = $out =~ /^(\S+) \s* \( (.*?) \)/gmx;
+    # NOTE: regex works for both classic mode and web mode
+    my %attrs = $out =~ /^(\S+) \s+ \(? (\S+?) [\s)]/gmx;
     return \%attrs;
 }
 

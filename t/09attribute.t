@@ -169,7 +169,8 @@ sub attribute_origin
     my ($rc, $out, $err) = $self->_ccm(qw/attribute -la/, $file_spec);
     return undef unless $rc == 0;
 
-    my %attrs = $out =~ /^(\S+) \s* \( .*? \) \s* \( (.*?) \)/gmx;
+    # NOTE: regex works for both classic mode and web mode
+    my %attrs = $out =~ /^(\S+?) [\s(]+ .*? [\s()]+ (.*?) [\s)]/gmx; 
     return $attrs{$attr_name};
 }
 

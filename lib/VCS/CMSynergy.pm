@@ -1,5 +1,8 @@
 package VCS::CMSynergy;
 
+# Copyright (c) 2001-2010 argumentum GmbH, 
+# See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
+
 # $Revision$
 
 our $VERSION = '1.35';

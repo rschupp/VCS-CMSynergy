@@ -1,5 +1,8 @@
 #!/usr/bin/perl -w
 
+# Copyright (c) 2001-2010 argumentum GmbH, 
+# See COPYRIGHT section in VCS/CMSynergy.pod usage and distribution rights.
+
 # $Revision$
 
 use inc::Module::Install;

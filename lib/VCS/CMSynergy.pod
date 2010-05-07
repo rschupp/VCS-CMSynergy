@@ -1904,7 +1904,7 @@ Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 
 =head1 COPYRIGHT AND LICENSE
 
-The VCS::CMSynergy module is Copyright (c) 2001-2009 argumentum GmbH, 
+The VCS::CMSynergy modules are Copyright (c) 2001-2010 argumentum GmbH, 
 L<http://www.argumentum.de>.  All rights reserved.
 
 You may distribute it under the terms of either the GNU General Public

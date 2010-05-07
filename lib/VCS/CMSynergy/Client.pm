@@ -1,5 +1,8 @@
 package VCS::CMSynergy::Client;
 
+# Copyright (c) 2001-2010 argumentum GmbH, 
+# See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
+
 our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; $v };
 
 =head1 NAME
@@ -1102,14 +1105,6 @@ L<VCS::CMSynergy::Object>
 =head1 AUTHORS
 
 Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
-
-=head1 COPYRIGHT AND LICENSE
-
-The VCS::CMSynergy::Client module is Copyright (c) 2001-2009 argumentum GmbH, 
-L<http://www.argumentum.de>.  All rights reserved.
-
-You may distribute it under the terms of either the GNU General Public
-License or the Artistic License, as specified in the Perl README file.
 
 =cut
 

@@ -155,8 +155,7 @@ sub _start
 	    $self->{user} = 
 		$self->ps(rfc_address => $self->ccm_addr)->[0]->{user};
 
-	    # FIXME not necessary in web mode - how can I determine
-	    # that current session is in webmode?
+	    # FIXME not necessary in web mode 
 	    # ccm ps: process (usr_cmd_interface)
 
 	    # create a minimal ini file (see below for an explanation)
@@ -179,27 +178,27 @@ sub _start
 
 	unless ($self->{server})        # NOTE: "-f" is illegal in web mode
 	{
-	unless (defined $self->{ini_file})
-	{
-	    if (is_win32)
-	    {
-		# NOTES: 
-		# (1) "ccm start -f nul ..." doesn't work on Windows
-		#     (leads to error from ccm_seng), 
-		#     so use an empty ini_file instead
-		# (2) we can't use UNLINK=>1 with tempfile, because 
-		#     the actual unlink may occur before the session is
-		#     stopped and Windows refuses removing the "busy" file
-		(undef, $self->{ini_file}) = tempfile(SUFFIX => ".ini", UNLINK => 0);
-		$self->{ini_file} = fullwin32path($self->{ini_file}) if $^O eq 'cygwin';
-		push @{ $self->{files_to_unlink} }, $self->{ini_file};
-	    }
-	    else
-	    {
-		$self->{ini_file} = File::Spec->devnull;
-	    }
-	}
-	push @start, "-f", $self->{ini_file};
+            unless (defined $self->{ini_file})
+            {
+                if (is_win32)
+                {
+                    # NOTES: 
+                    # (1) "ccm start -f nul ..." doesn't work on Windows
+                    #     (leads to error from ccm_seng), 
+                    #     so use an empty ini_file instead
+                    # (2) we can't use UNLINK=>1 with tempfile, because 
+                    #     the actual unlink may occur before the session is
+                    #     stopped and Windows refuses removing the "busy" file
+                    (undef, $self->{ini_file}) = tempfile(SUFFIX => ".ini", UNLINK => 0);
+                    $self->{ini_file} = fullwin32path($self->{ini_file}) if $^O eq 'cygwin';
+                    push @{ $self->{files_to_unlink} }, $self->{ini_file};
+                }
+                else
+                {
+                    $self->{ini_file} = File::Spec->devnull;
+                }
+            }
+            push @start, "-f", $self->{ini_file};
 	}
 
 
@@ -237,6 +236,13 @@ sub _start
 
     # remember the process that created $self (so we can check in DESTROY)
     $self->{pid} = $$;
+
+    # FIXME how can I determine that current session is 
+    # in web mode if it's an "inherited" session?
+    $self->{web_mode} = 1 if $self->{server};
+
+    # web mode renames the %filename placeholder (cf. "ccm set text_editor")
+    $self->{"%filename"} = $self->{web_mode} ? "%file" : "%filename";
 
     if ($self->{UseCoprocess})
     {
@@ -1211,8 +1217,8 @@ sub _ccm_attribute
 
 	return $self->_ccm_with_option(
 	    text_editor => $^O eq 'MSWin32' ?
-		qq[cmd /c echo off > %filename ] :  	#/
-		qq[$Config{cp} /dev/null %filename],
+		qq[cmd /c echo off > $self->{"%filename"}] :  	#/
+		qq[$Config{cp} /dev/null $self->{"%filename"}],
 	    @cmd, { in =>  \"y\n" });
     }
 
@@ -1573,8 +1579,8 @@ sub ccm_with_text_editor
     #     a cygwin program ("/usr/bin/cp") on cygwin.
     my ($rc, $out, $err) = $self->_ccm_with_option(
 	text_editor => $^O eq 'MSWin32' ?
-	    qq[cmd /c copy /b /y "$tempfile" %filename] :		#/
-	    qq[$Config{cp} '$tempfile' %filename],
+	    qq[cmd /c copy /b /y "$tempfile" $self->{"%filename"}] :		#/
+	    qq[$Config{cp} '$tempfile' $self->{"%filename"}],
 	@args);
     return $self->set_error($err || $out) unless $rc == 0;
     return wantarray ? ($rc, $out, $err) : 1;

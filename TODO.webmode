@@ -1,0 +1,56 @@
+Known problems when running in web mode (at least on Windows):
+
+- documentation is often wrong
+
+- "ccm relate -show" always wants "-name":
+  
+  >ccm relate -s -from calculator-1.0:project:1
+  This command requires that the following option is specified: /n|/name
+
+  TODO: skip (or rewrite) tests using relate w/o -name
+  
+- [DONE] output of "ccm attr -l[ai]?" is different: no parentheses
+
+  source_diff                  acc_method inherited
+  source_merge                 acc_method inherited
+  status                       string     local
+  status_log                   uptext     local
+  subsystem                    string     local
+  super_type                   string     inherited
+
+  sub list_attributes
+  {
+      ...
+      my %attrs = $out =~ /^(\S+?) \s+ \(? (.*?) [\s)]/gmx;
+      # regex works for traditional mode and web mode 
+      return \%attrs;
+  }
+
+  don't forget to patch attribute_origin method in t/09attributes.t
+
+- getting non-existent attributes cause failure
+
+  >ccm attr -s quux 18-1:folder:probtrac
+  Attribute quux does not exist on the object 18-1:folder:probtrac
+
+- [DONE] inherited attributes MAY be modified without having to "-force -create"
+  them first to make them local (BTW: does this already work in 6.5?)
+
+- [DONE] ye olde editor trick:  must use %file instead of %filename 
+  what use cases for ccm_with_text_editor are there besides 
+  setting attributes and "ccm users"? NONE (not counting deprecated stuff);
+
+  - "ccm users" is not implemented in web mode (makes no sense, since
+    web mode uses RDS)
+  - editor trick (using %file) DOES work for setting 
+    long or multi-line attributes
+    TODO: s/%filename/%file/ in web mode (problem: if session was 
+    inherited how do we detect it's in web mode?)
+
+- setting attribute value to the empty string DOES work with -v ""
+  BTW: this already works in Synergy 6.5
+  TODO: remove code that 
+  - uses editor trick when new value is the empty string
+  - works around that silly confirmation prompt when %filename's contents
+    is empty
+  - refuses to set empty string value on Windows

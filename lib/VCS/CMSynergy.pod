@@ -1,6 +1,6 @@
 =head1 NAME
 
-VCS::CMSynergy - Perl interface to Telelogic Synergy
+VCS::CMSynergy - Perl interface to IBM Rational Synergy
 
 =head1 SYNOPSIS
 

@@ -14,6 +14,73 @@ Known problems:
 
 =head1 CHANGES
 
+=head2 Changes in Version 1.35
+
+  Telelogic has been bought by IBM and "CM Synergy" is now called 
+  "IBM Rational Synergy"
+
+  - VCS::CMSynergy::Client: correctly parse output of "ccm version"
+  - use the same regex in Makefile.PL
+  - drop some text references to "Telelogic"
+  - small fixes to test suite for Synergy 7.1
+
+
+  First crack at supporting Synergy 7.x "web mode"
+
+  - VCS::CMSynergy::_start, VCS::CMSynergy::new
+    - accept option "server => URL" ("ccm start -s URL ..")
+    - document "server" option
+    - don't supply empty ini file when this option is used 
+      (fixes "ccm start": "-f" is illegal when "-s" is specified)
+
+  - t/util.pm: accept URL (instead of hostname) in CCM_TEST_USER string,
+    put it in $test_session{server}
+
+  - t/01session.t: when using web mode there's a lag between "ccm stop" exiting
+    and the session disappearing from "ccm ps"; delay after 
+    closing a session before checking "ccm ps"
+
+  - adapt parsing of "ccm attribute -ls ...": web mode omits the
+    parentheses around type and origin
+
+  - ye olde editor trick: web mode renames placeholder %filename to %file
+
+  Changes to project traversal and diff methods
+
+  - VCS::CMSynergy::Project::traverse
+    - add an option "pathsep" that will be "passed down" 
+      to VCS::CMSynergy::Traversal::path() 
+    - remove the (undocumented) optional $pathsep parameter from
+      VCS::CMSynergy::Traversal::path()
+    - speed up VCS::CMSynergy::Traversal::path() a bit by precomputing
+      the dirname part (as $_catdirs) and only recomputing this
+      when @_dirs actually changes
+    - fix inadvertent modification of passed-in "wanted" hash
+    - make robust against this by copying the hash as early as possible
+
+  - VCS::CMSynergy::project_tree
+    add option "omit_top_dir" 
+
+  - VCS::CMSynergy::project_diff
+    - new method
+    - driver for a "differ" class walking the tree returned 
+      by VCS::CMSynergy::project_tree()
+    - re-implement examples/ccm_project_diff using project_diff()
+
+  Spring cleaning - remove deprecated stuff
+
+  - get_releases, set_releases: manipulation of stone-age "release table"
+  - _cat_binary, _attype_is_binary: workaround for "ccm cat" on binary objects
+    is not necessary anymore
+  - delete corresponding note in pod for VCS::CMSynergy::cat_object
+
+  Don't use global filehandles.
+
+  Document VCS::CMSynergy::user().
+
+  Fix wrong documentation for some VCS::CMSynergy::Object methods
+  (spotted by Helge Sauer).
+
 =head2 Changes in Version 1.34
 
   Implement VCS::CMSynergy::Object method mydata(): associate arbitrary data 

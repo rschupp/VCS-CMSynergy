@@ -148,6 +148,13 @@ User's password.
 This attribute is required on Windows systems or when using
 ESD to connect to the CM Synergy engine.
 
+=item C<server> (string)
+
+Synergy server URL (for Synergy 7.0 and aboe). Specifying this instead
+of C<host> will start your Synergy session in web mode.
+
+Note that support for web mode is incomplete and only lightly tested.
+
 =item C<ini_file> (string)
 
 CM Synergy ini file to use. 
@@ -1457,18 +1464,9 @@ the contents will be written (C<print>ed) onto the file handle
 
 =back
 
-Note the following differences from B<ccm cat>:
+Note the following difference from B<ccm cat>:
 
 =over 4
-
-=item *
-
-C<cat_object> works for binary objects even in CM Synergy versions
-before 6.3. (In older versions, B<ccm cat> did I<not> return the actual
-contents when invoked on a binary object. Instead it returned the
-name of a cache file on the CM Synergy server with the contents.
-This was pretty useless unless your program was running directly
-on the CM Synergy server.)
 
 =item *
 

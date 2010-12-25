@@ -492,7 +492,7 @@ L<query_hashref|/"query_arrayref, query_hashref"> methods that
 return this information in 
 structured form. If you are only interested in the identity of
 objects in the result set, you should look at the 
-L<query_object|/"query_object, query_object_with_attributes"> method.
+L<query_object|/"query_object"> method.
 
 Note that L</query> will probably produce
 unpredictable results when the C<-format> option references attributes
@@ -643,10 +643,9 @@ it to B<ccm query>.
 
 =back
 
-=head2 query_object, query_object_with_attributes
+=head2 query_object
 
-  $ary_ref = $ccm->query_object($query);
-  $ary_ref = $ccm->query_object_with_attributes($query, @keywords);
+  $ary_ref = $ccm->query_object($query, @keywords);
 
 Executes B<ccm query> with the query expression C<$query> 
 and returns a reference to an array of C<VCS::CMSynergy::Object>s 
@@ -666,8 +665,8 @@ using C<query_arrayref>:
     [ map { $_->[0] } @$ary ];	# project onto first (and only) column
   }
 
-C<query_object_with_attributes> is only useful when
-L</:cached_attributes> is in effect. 
+Calling C<query_object> with an optional list of C<@keywords> 
+is only useful when L</:cached_attributes> is in effect. 
 It returns the same result as C<query_object>,
 but the returned C<VCS::CMSynergy::Object>s have their attribute caches
 primed for the attributes listed in C<@keywords>. You could also
@@ -675,7 +674,7 @@ view it as a fancy form of C<query_hashref> where we don't store
 the attributes values of C<@keywords> in some anonymous hash,
 but rather in the corresponding object. Thus the loop
 
-  for my $obj (@{ $ccm->query_object_with_attributes("...", qw(foo)) })
+  for my $obj (@{ $ccm->query_object("...", qw(foo)) })
   {
     print "$obj: foo=", $obj->get_attribute("foo"), "\n";
   }
@@ -683,6 +682,9 @@ but rather in the corresponding object. Thus the loop
 issues a I<total of one> B<ccm> calls. Note: this example assumes 
 
   use VCS::CMSynergy qw(:cached_attributes);
+
+Note: C<query_object_with_attributes> is a deprecated alias for
+C<query_object>.
 
 =head2 query_count
 
@@ -702,8 +704,8 @@ If there was an error, C<undef> is returned.
 
 L<query_arrayref|/"query_arrayref, query_hashref">, 
 L<query_hashref|/"query_arrayref, query_hashref">,
-L<query_object|/"query_object, query_object_with_attributes">,
-L<query_object_with_attributes|/"query_object, query_object_with_attributes"> 
+L<query_object|/"query_object">,
+L<query_object|/"query_object"> 
 and L</query_count>
 support a shortcut notation for their common C<$query> parameter. To use
 this shortcut, supply a hash reference for C<$query>
@@ -1037,8 +1039,8 @@ If there was an error, C<undef> is returned.
 If C<from_attributes> or C<to_attributes> are specified, these
 are used as hints to prime the attribute caches of the
 "from" or "to" C<VCS::CMSynergy::Object>s, resp., similar to
-L</query_object_with_attributes>. This is only useful when
-L</:cached_attributes> is in effect. 
+the optional C<@keywords> argument for L</query_object>. T
+his is only useful when L</:cached_attributes> is in effect. 
 
 =head2 project_tree
 

@@ -187,13 +187,12 @@ The default is your platform's path separator.
 
 This option is only useful if L</:cached_attributes> is in effect. 
 It should contain a reference to an
-array of attribute names. If present, C<traverse>
-uses C<query_object_with_attributes> rather than
-C<query_object> for the traversal. Hence all objects encountered
+array of attribute names. If present, C<traverse> passes it down to
+C<query_object> during traversal. Hence all objects encountered
 in the traversal (e.g. C<$_> when bound in C<wanted> or the elements
 of the directory stack C<@VCS::CMSynergy::Traversal::dirs>) have
 their attribute caches primed for the given attributes,
-cf. L<query_object_with_attributes|/"query_object, query_object_with_attributes">.
+cf. L<query_object|/"query_object">.
 
 =back
 

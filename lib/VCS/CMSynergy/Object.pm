@@ -91,8 +91,11 @@ sub new
     my $ccm = shift;
 
     my $objectname = $_[0] . $ccm->delimiter . "$_[1]:$_[2]:$_[3]";
+
+    # return "unique" object if using :cached_attributes 
     return $ccm->{objects}->{$objectname} 
-	if VCS::CMSynergy::use_cached_attributes() && $ccm->{objects}->{$objectname};
+	if VCS::CMSynergy::use_cached_attributes() 
+           && $ccm->{objects}->{$objectname};
 
     my %fields;
     @fields{qw(name version cvtype instance)} = @_;
@@ -117,7 +120,11 @@ sub new
     {
 	$self = bless \%fields, $class;
     }
-    $ccm->{objects}->{$objectname} = $self if VCS::CMSynergy::use_cached_attributes();
+
+    # remember new object if using :cached_attributes
+    $ccm->{objects}->{$objectname} = $self 
+        if VCS::CMSynergy::use_cached_attributes();
+
     return $self;
 }
 
@@ -258,7 +265,7 @@ sub _update_acache
     my $self = shift;
     if (@_ == 2)
     {
-	$self->_private->{acache}->{$_[0]} = $_[1];
+	$self->_private->{acache}{$_[0]} = $_[1];
     }
     else
     {
@@ -273,7 +280,7 @@ sub _forget_acache
     return unless VCS::CMSynergy::use_cached_attributes();
 
     my $self = shift;
-    delete $self->_private->{acache}->{$_} foreach @_;
+    delete $self->_private->{acache}{$_} foreach @_;
 }
 
 
@@ -298,14 +305,28 @@ sub displayname
 {
     my ($self) = @_;
     # cache this property (because it's immutable)
-    return $self->_private->{displayname} ||= $self->property('displayname');
+    # in the attribute cache (even if not using :cache_attributes);
+    # this will do the right thing wrt caching, e.g.
+    #
+    #    my $result = $ccm->query_object("...", qw( ... displayname ... ));
+    #    foreach (@$result) {
+    #      ... $_->displayname ...      # cached, no "ccm property ..." called
+    #    }
+    return $self->_private->{acache}{displayname} ||= $self->property('displayname');
 }
 
 sub cvid
 {
     my ($self) = @_;
     # cache this property (because it's immutable)
-    return $self->_private->{cvid} ||= $self->property('cvid');
+    # in the attribute cache (even if not using :cache_attributes);
+    # this will do the right thing wrt caching, e.g.
+    #
+    #    my $result = $ccm->query_object("...", qw( ... cvid ... ));
+    #    foreach (@$result) {
+    #      ... $_->cvid ...             # cached, no "ccm property ..." called
+    #    }
+    return $self->_private->{acache}{cvid} ||= $self->property('cvid');
 }
 
 sub cat_object
@@ -529,8 +550,12 @@ Convenience wrapper for L<VCS::CMSynergy/property>, equivalent to
 
 Short hand for C<< $obj->property("displayname") >> or
 C<< $obj->property("cvid") >>, resp. However, these two methods
-caches their return value in the C<VCS::CMSynergy::Object>
-(because it is immutable).
+cache their return value in the C<VCS::CMSynergy::Object>
+(because it is immutable). 
+If L<VCS::CMSynergy/:cached_attributes> is in effect, the cache
+may be primed using L<VCS::CMSynergy/query_object> or similar methods, e.g.
+
+  $result = $ccm->query_object("...", qw( ... displayname ... ));
 
 =head1 is_RELATION_of, has_RELATION
 

@@ -3,14 +3,12 @@ abstract: 'Perl interface to IBM Rational Synergy'
 author:
   - 'Roderich Schupp <schupp@argumentum.de>'
 build_requires:
-  End: 0
   ExtUtils::MakeMaker: 6.42
-  Test::Deep: 0.103
   Test::More: 0
 configure_requires:
   ExtUtils::MakeMaker: 6.42
 distribution_type: module
-generated_by: 'Module::Install version 0.94'
+generated_by: 'Module::Install version 1.00'
 license: perl
 meta-spec:
   url: http://module-build.sourceforge.net/META-spec-v1.4.html

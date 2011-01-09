@@ -305,7 +305,7 @@ sub displayname
 {
     my ($self) = @_;
     # cache this property (because it's immutable)
-    # in the attribute cache (even if not using :cache_attributes);
+    # in the attribute cache (even if not using :cached_attributes);
     # this will do the right thing wrt caching, e.g.
     #
     #    my $result = $ccm->query_object("...", qw( ... displayname ... ));
@@ -319,7 +319,7 @@ sub cvid
 {
     my ($self) = @_;
     # cache this property (because it's immutable)
-    # in the attribute cache (even if not using :cache_attributes);
+    # in the attribute cache (even if not using :cached_attributes);
     # this will do the right thing wrt caching, e.g.
     #
     #    my $result = $ccm->query_object("...", qw( ... cvid ... ));

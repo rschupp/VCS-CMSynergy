@@ -185,14 +185,15 @@ The default is your platform's path separator.
 
 =item C<attributes> (array ref)
 
-This option is only useful if L</:cached_attributes> is in effect. 
+This option is only useful if
+L<:cached_attributes|VCS::CMSynergy/":cached_attributes"> is in effect.
 It should contain a reference to an
 array of attribute names. If present, C<traverse> passes it down to
 C<query_object> during traversal. Hence all objects encountered
 in the traversal (e.g. C<$_> when bound in C<wanted> or the elements
 of the directory stack C<@VCS::CMSynergy::Traversal::dirs>) have
 their attribute caches primed for the given attributes,
-cf. L<query_object|/"query_object">.
+cf. L<query_object|VCS::CMSynergy/"query_object">.
 
 =back
 
@@ -669,6 +670,44 @@ sub object_from_proj_ref
 }
 
 
+=head2 project_tree
+
+  $hash = $proj->project_tree(\%options);
+
+is exactly the same as
+
+  $hash = $proj->ccm->project_tree(\%options, $proj);
+
+See L<VCS::CMSynergy/project_tree>.
+
+=cut
+
+sub project_tree
+{
+    my ($self, $options) = @_;
+    return $self->ccm->project_tree($options, $self);
+}
+
+=head2 top_dir
+
+  $dir = $proj->top_dir(@keywords);
+
+Returns the C<VCS::CMSynergy::Object> representing the top level directory
+of project C<$proj>.
+
+If you supply C<@keywords> these are passed down
+to L<VCS::CMSynergy/query_object> as additional keywords.
+
+=cut
+
+sub top_dir
+{
+    my ($self, @keywords) = @_;
+    return $self->ccm->query_object(
+        { is_child_of => [ $self, $self ] }, @keywords)->[0];
+}
+
+ 
 =head1 MISCELLANEOUS
 
 =head2 show_reconfigure_properties

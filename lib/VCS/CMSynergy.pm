@@ -516,7 +516,7 @@ sub _query
 	    }
 	}
 
-	my $row = $self->_parse_query_result($want, \@cols, $row_type == ROW_OBJECT);
+	my $row = $self->_query_result($want, \@cols, $row_type == ROW_OBJECT);
 	$row->{finduse} = \%finduse if $want_finduse;
 	push @result, $row;
     }
@@ -629,7 +629,7 @@ sub _want
     return \%want;
 }
 
-sub _parse_query_result
+sub _query_result
 {
     my ($self, $want, $cols, $want_row_object) = @_;
 
@@ -789,7 +789,16 @@ sub history_hashref
     return $self->_history($file_spec, \@_, ROW_HASH);
 }
 
+
 # helper: history with correct handling of multi-line attributes
+
+# NOTE: similar to _query() except if $row_type is ROW_OBJECT; 
+# in this case the result has the same general format as 
+# for $row_type ROW_HASH except that:
+# - only keys "object", "predecessors" and "successors" are present
+#   (the latter two only if present in @$keywords)
+# - all other keywords are used to prime the corresponding
+#   object's attribute cache (cf. query_object)
 sub _history
 {
     my ($self, $file_spec, $keywords, $row_type) = @_;
@@ -797,8 +806,6 @@ sub _history
     my $want = _want($row_type == ROW_OBJECT, $keywords);
     my $want_predecessors = delete $want->{predecessors};
     my $want_successors = delete $want->{successors};
-    croak(__PACKAGE__.qq[::_history: keyword "predecessors" or "successors" not allowed when ROW_OBJECT wanted]) 
-	if ($want_predecessors || $want_successors) && $row_type == ROW_OBJECT;
 
     my $format = $RS . join($FS, values %$want) . $FS;
 
@@ -814,10 +821,13 @@ sub _history
 
 	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
 	
-	# history information is the last "column"
+	# NOTE: the last "column" contains the actual history information
+        # (predecessors and successors), the rest is formatted like
+        # a "ccm query" result
 	my $history = pop @cols;
 
-	my $row = $self->_parse_query_result($want, \@cols, 0);
+	my $row = $self->_query_result($want, \@cols, $row_type == ROW_OBJECT);
+        $row = { object => $row } if $row_type == ROW_OBJECT;
 
 	if ($want_predecessors || $want_successors)
 	{
@@ -843,6 +853,7 @@ sub _history
 	push @result, $row;
     }
 
+    # if an array ref is requested, flatten the result rows
     if ($row_type == ROW_ARRAY)
     {
 	$_ = [ @$_{@$keywords} ] foreach @result;
@@ -1005,7 +1016,7 @@ sub _relations
 	# first $ncol_from columns are the "from" part;
 	# avoid to parse "from" part more than once if "from => ..." was specified
 	my @cols_from = splice @cols, 0, $ncol_from;
-	$from = $self->_parse_query_result($want_from, \@cols_from, $want_row_object)
+	$from = $self->_query_result($want_from, \@cols_from, $want_row_object)
 	    unless $args->{from} && $from;
 
 	# next column is the name of the relation; trim whitespace
@@ -1014,7 +1025,7 @@ sub _relations
 	# next $ncol_to columns are the "to" part;
 	# avoid to parse "to" part more than once if "to => ..." was specified
 	my @cols_to = splice @cols, 0, $ncol_to;
-	$to = $self->_parse_query_result($want_to, \@cols_to, $want_row_object)
+	$to = $self->_query_result($want_to, \@cols_to, $want_row_object)
 	    unless $args->{to} && $to;
 
 	# last column is the create_time of the relation; trim whitespace
@@ -1322,7 +1333,7 @@ sub _property
 
     my (undef, $props) = split(/\Q$RS\E/, $out, -1);
     my @cols = split(/\Q$FS\E/, $props, -1);	# don't strip empty trailing fields
-    return $self->_parse_query_result($want, \@cols, $want_row_object);
+    return $self->_query_result($want, \@cols, $want_row_object);
 }
 
 
@@ -1429,7 +1440,7 @@ sub _ls
 	next unless length($_);			# skip empty leading record
 
 	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
-	my $row = $self->_parse_query_result($want, \@cols, $row_type == ROW_OBJECT);
+	my $row = $self->_query_result($want, \@cols, $row_type == ROW_OBJECT);
 	push @result, $row;
     }
 

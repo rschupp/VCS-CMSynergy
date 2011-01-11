@@ -807,7 +807,7 @@ sub show_reconfigure_properties
     {
 	next unless length($_);				# skip empty leading record
 	my @cols = split(/\Q${VCS::CMSynergy::FS}\E/, $_, -1);	# don't strip empty trailing fields
-	push @result, $self->ccm->_parse_query_result($want, \@cols, 1);
+	push @result, $self->ccm->_query_result($want, \@cols, 1);
     }
     return \@result;
 }

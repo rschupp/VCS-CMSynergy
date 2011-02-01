@@ -448,7 +448,7 @@ sub _query
 
     $query = $self->_expand_query($query);
 
-    my $want = _want($row_type == ROW_OBJECT, $keywords);
+    my $want = _want($row_type, $keywords);
 
     my $want_finduse = delete $want->{finduse};
     croak(__PACKAGE__.qq[::_query: keyword "finduse" not allowed when ROW_OBJECT wanted])
@@ -516,7 +516,7 @@ sub _query
 	    }
 	}
 
-	my $row = $self->_query_result($want, \@cols, $row_type == ROW_OBJECT);
+	my $row = $self->_query_result($want, \@cols, $row_type);
 	$row->{finduse} = \%finduse if $want_finduse;
 	push @result, $row;
     }
@@ -611,9 +611,9 @@ my %_rewrite_rule =
 #   automatically added to the returned hash
 sub _want
 {
-    my ($want_row_object, $keywords) = @_;
+    my ($row_type, $keywords) = @_;
     my %want = map { $_ => "%$_" } @$keywords;
-    $want{object} = "%objectname" if $want_row_object;
+    $want{object} = "%objectname" if $row_type == ROW_OBJECT;
 
     # handle special keywords
     foreach (keys %want)
@@ -621,7 +621,7 @@ sub _want
 	if (my $rule = $_rewrite_rule{$_})
 	{
 	    croak(__PACKAGE__.qq[::_want: keyword "$_" not allowed when ROW_OBJECT wanted]) 
-		if $want_row_object && !$rule->{row_object_ok};
+		if $row_type == ROW_OBJECT && !$rule->{row_object_ok};
 	    $want{$_} = $rule->{format};
 	}
     }
@@ -631,7 +631,7 @@ sub _want
 
 sub _query_result
 {
-    my ($self, $want, $cols, $want_row_object) = @_;
+    my ($self, $want, $cols, $row_type) = @_;
 
     my %row;
     
@@ -650,7 +650,7 @@ sub _query_result
 	}
     }
 
-    if ($want_row_object)
+    if ($row_type == ROW_OBJECT)
     {
 	my $obj = delete $row{object};
 	$obj->_update_acache(\%row);
@@ -803,7 +803,7 @@ sub _history
 {
     my ($self, $file_spec, $keywords, $row_type) = @_;
 
-    my $want = _want($row_type == ROW_OBJECT, $keywords);
+    my $want = _want($row_type, $keywords);
     my $want_predecessors = delete $want->{predecessors};
     my $want_successors = delete $want->{successors};
 
@@ -826,7 +826,7 @@ sub _history
         # a "ccm query" result
 	my $history = pop @cols;
 
-	my $row = $self->_query_result($want, \@cols, $row_type == ROW_OBJECT);
+	my $row = $self->_query_result($want, \@cols, $row_type);
         $row = { object => $row } if $row_type == ROW_OBJECT;
 
 	if ($want_predecessors || $want_successors)
@@ -942,7 +942,7 @@ sub relations_hashref
 	}
     }
 
-    my $result = $self->_relations(\%args, 0);
+    my $result = $self->_relations(\%args, ROW_HASH);
     return unless $result;
 
     # if we defaulted "objectname" above, replace the corresponding
@@ -969,20 +969,23 @@ sub relations_object
 	$args{$arg} ||= [];		# _relations below likes 'em defined
     }
 
-    return $self->_relations(\%args, 1);
+    return $self->_relations(\%args, ROW_OBJECT);
 }
 
 
 # helper method: synthesize command and parse result of "ccm relate -show ..."
 sub _relations
 {
-    my ($self, $args, $want_row_object) = @_;
-    # NOTE: $args->{from_attributes}/$args->{to_attributes} must not be undef
+    my ($self, $args, $row_type) = @_;
+    # NOTES: 
+    # (1) $args->{from_attributes}/$args->{to_attributes} must not be undef
+    # (2) only ROW_HASH and ROW_OBJECT are allowed for $row_type
 
-    my $want_from = _want($want_row_object, $args->{from_attributes});
+
+    my $want_from = _want($row_type, $args->{from_attributes});
     my $ncol_from = keys %$want_from;
-    my $want_to = _want($want_row_object, $args->{to_attributes});
-    my $ncol_to = keys %$want_to;
+    my $want_to   = _want($row_type, $args->{to_attributes});
+    my $ncol_to   = keys %$want_to;
 
     # NOTE: If the "from" part (the part before "::") of the format
     # or the "to" part are empty, Synergy may default it from
@@ -1016,7 +1019,7 @@ sub _relations
 	# first $ncol_from columns are the "from" part;
 	# avoid to parse "from" part more than once if "from => ..." was specified
 	my @cols_from = splice @cols, 0, $ncol_from;
-	$from = $self->_query_result($want_from, \@cols_from, $want_row_object)
+	$from = $self->_query_result($want_from, \@cols_from, $row_type)
 	    unless $args->{from} && $from;
 
 	# next column is the name of the relation; trim whitespace
@@ -1025,7 +1028,7 @@ sub _relations
 	# next $ncol_to columns are the "to" part;
 	# avoid to parse "to" part more than once if "to => ..." was specified
 	my @cols_to = splice @cols, 0, $ncol_to;
-	$to = $self->_query_result($want_to, \@cols_to, $want_row_object)
+	$to = $self->_query_result($want_to, \@cols_to, $row_type)
 	    unless $args->{to} && $to;
 
 	# last column is the create_time of the relation; trim whitespace
@@ -1310,11 +1313,11 @@ sub property
     my ($keyword_s, $file_spec) = @_;
     if (UNIVERSAL::isa($keyword_s, 'ARRAY'))
     {
-	return $self->_property($file_spec, $keyword_s, 0);
+	return $self->_property($file_spec, $keyword_s, ROW_HASH);
     }
     else
     {
-	my $row = $self->_property($file_spec, [ $keyword_s ], 0) or return;
+	my $row = $self->_property($file_spec, [ $keyword_s ], ROW_HASH) or return;
 	return $row->{$keyword_s};
     }
 }
@@ -1322,9 +1325,10 @@ sub property
 
 sub _property
 {
-    my ($self, $file_spec, $keywords, $want_row_object) = @_;
+    my ($self, $file_spec, $keywords, $row_type) = @_;
+    # NOTE: only ROW_HASH and ROW_OBJECT are allowed for $row_type
 
-    my $want = _want($want_row_object, $keywords);
+    my $want = _want($row_type, $keywords);
     my $format = $RS . join($FS, values %$want) . $FS;
 
     my ($rc, $out, $err) = 
@@ -1333,7 +1337,7 @@ sub _property
 
     my (undef, $props) = split(/\Q$RS\E/, $out, -1);
     my @cols = split(/\Q$FS\E/, $props, -1);	# don't strip empty trailing fields
-    return $self->_query_result($want, \@cols, $want_row_object);
+    return $self->_query_result($want, \@cols, $row_type);
 }
 
 
@@ -1424,7 +1428,7 @@ sub _ls
 {
     my ($self, $file_spec, $keywords, $row_type) = @_;
 
-    my $want = _want($row_type == ROW_OBJECT, $keywords);
+    my $want = _want($row_type, $keywords);
     
     my $format = $RS . join($FS, values %$want) . $FS;
 
@@ -1440,7 +1444,7 @@ sub _ls
 	next unless length($_);			# skip empty leading record
 
 	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
-	my $row = $self->_query_result($want, \@cols, $row_type == ROW_OBJECT);
+	my $row = $self->_query_result($want, \@cols, $row_type);
 	push @result, $row;
     }
 
@@ -1779,7 +1783,7 @@ sub object_from_cvid
     _usage(@_, 1, undef, '$cvid, @keywords');
 
     my $cvid = shift;
-    return $self->_property("\@=$cvid", \@_, 1);
+    return $self->_property("\@=$cvid", \@_, ROW_OBJECT);
     # NOTE: if the cvid doesn't exist, "ccm property ..." has exit code 0, but 
     # "Warning: Object version representing type does not exist." on stderr
 }
@@ -1793,7 +1797,7 @@ sub object_from_proj_ref
 
     my ($path, $proj_spec) = splice @_, 0, 2;
     $path = join(VCS::CMSynergy::Client::_pathsep, @$path) if ref $path; 
-    return $self->_property("$path\@$proj_spec", \@_, 1);
+    return $self->_property("$path\@$proj_spec", \@_, ROW_OBJECT);
     # NOTE/FIXME: no error if path isn't bound? possible errors:
     #   Specified project not found in database: '$self'
     #   Object version could not be identified from reference form: '$path'

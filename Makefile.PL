@@ -94,7 +94,7 @@ include		'End';
 
 install_script	'script/ccm_project_diff';
 
-clean_files	't/zz_*.t';
+clean_files	'xt/zz_*.t';
 
 no_index	module			=> 'VCS::CMSynergy::ObjectTieHash';
 no_index	package			=> 'VCS::CMSynergy::Traversal';
@@ -109,21 +109,23 @@ sub postamble
 {
     my $self = shift;
 
+    return "" unless $Module::Install::AUTHOR;
+
     # arrange for all tests to be run a second time with UseCoprocess => 1
     # (but only if we can find Expect.pm)
     if (eval { require Expect; import Expect 1.15; 1; })
     {
 	print "Detected suitable version of Expect.pm, enabling tests with UseCoprocess => 1\n";
 
-	foreach my $test (glob("t/*.t"))
+	foreach my $test (glob("xt/*.t"))
 	{
-	    next if $test =~ m{^t/zz_};
+	    next if $test =~ m{^xt/zz_};
 
 	    open my $t, "<$test" or die "Can't read $test: $!";
 	    next unless grep { /using coprocess/ } <$t>;
 	    close $t;
 	    
-	    (my $zz_test = $test) =~ s{t/}{t/zz_};
+	    (my $zz_test = $test) =~ s{xt/}{xt/zz_};
 	    open my $zz, ">$zz_test" or warn "Can't create $zz_test: $!";
 	    print $zz <<"ZZ";
 #!perl -w

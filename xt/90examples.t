@@ -29,7 +29,7 @@ is(run_perl(-c => $project_diff), 0, qq[$project_diff: compiles]);
 
 SKIP: 
 {
-    my $file_exp = File::Spec->catfile("t", "project_diff-" . $ccm->version . ".txt");
+    my $file_exp = File::Spec->catfile("xt", "project_diff-" . $ccm->version . ".txt");
     skip "can't find expected output for project_diff test ($file_exp) for this version of CM Synergy", 2
 	unless -e $file_exp;
     

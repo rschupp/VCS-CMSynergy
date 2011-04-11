@@ -21,7 +21,6 @@ use Config;
 use File::Spec;
 use File::Temp qw(tempfile);		# in Perl core v5.6.1 and later
 
-use constant ROW_ARRAY	=> 0;
 use constant ROW_HASH	=> 1;
 use constant ROW_OBJECT	=> 2;
 
@@ -280,9 +279,9 @@ sub _start
 
     if ($Debug >= 9)
     {
-	require Data::Dumper;
-	local $Data::Dumper::Useqq = 1;
-	$self->trace_msg(Data::Dumper->Dump([$self], ["$self"]));
+        require Data::Dumper;
+        local $Data::Dumper::Useqq = 1;
+        $self->trace_msg(Data::Dumper->Dump([$self], ["$self"]));
     }
 
     return $self;
@@ -389,7 +388,7 @@ sub query_arrayref
     _usage(@_, 1, undef, '$query, @keywords');
 
     my $query = shift;
-    return $self->_query($query, \@_, ROW_ARRAY);
+    return _flatten_rows($self->_query($query, \@_, ROW_HASH), \@_);
 }
 
 
@@ -519,11 +518,6 @@ sub _query
 	my $row = $self->_query_result($want, \@cols, $row_type);
 	$row->{finduse} = \%finduse if $want_finduse;
 	push @result, $row;
-    }
-
-    if ($row_type == ROW_ARRAY)
-    {
-	$_ = [ @$_{@$keywords} ] foreach @result;
     }
     return \@result;
 }
@@ -758,6 +752,19 @@ sub _quote_value
 	   qq['$_'];		   # use single quotes otherwise
 }
 
+# helper (not a method): $rows is an array of hashes;
+# replace each hash by the values of the keys in $keys (in this order);
+# if $rows is undefined, return undefined
+# NOTE: This modifies the original array.
+sub _flatten_rows
+{
+    my ($rows, $keys) = @_;
+    return unless defined $rows;
+
+    $_ = [ @$_{@$keys} ] foreach @$rows;
+    return $rows;
+}
+
 
 sub history
 {
@@ -776,7 +783,7 @@ sub history_arrayref
     _usage(@_, 1, undef, '$file_spec, @keywords');
 
     my $file_spec = shift;
-    return $self->_history($file_spec, \@_, ROW_ARRAY);
+    return _flatten_rows($self->_history($file_spec, \@_, ROW_HASH), \@_);
 }
 
 
@@ -792,7 +799,7 @@ sub history_hashref
 
 # helper: history with correct handling of multi-line attributes
 
-# NOTE: similar to _query() except if $row_type is ROW_OBJECT; 
+# NOTE: similar to _query() except when $row_type == ROW_OBJECT; 
 # in this case the result has the same general format as 
 # for $row_type ROW_HASH except that:
 # - only keys "object", "predecessors" and "successors" are present
@@ -851,12 +858,6 @@ sub _history
 	}
 
 	push @result, $row;
-    }
-
-    # if an array ref is requested, flatten the result rows
-    if ($row_type == ROW_ARRAY)
-    {
-	$_ = [ @$_{@$keywords} ] foreach @result;
     }
     return \@result;
 }
@@ -1398,7 +1399,7 @@ sub ls_arrayref
     _usage(@_, 1, undef, '$file_spec, @keywords');
 
     my $file_spec = shift;
-    return $self->_ls($file_spec, \@_, ROW_ARRAY);
+    return _flatten_rows($self->_ls($file_spec, \@_, ROW_HASH), \@_);
 }
 
 
@@ -1446,11 +1447,6 @@ sub _ls
 	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
 	my $row = $self->_query_result($want, \@cols, $row_type);
 	push @result, $row;
-    }
-
-    if ($row_type == ROW_ARRAY)
-    {
-	$_ = [ @$_{@$keywords} ] foreach @result;
     }
     return \@result;
 }

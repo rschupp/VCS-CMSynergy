@@ -19,6 +19,7 @@ no_index:
     - examples
     - inc
     - t
+    - xt
   module:
     - VCS::CMSynergy::ObjectTieHash
   package:

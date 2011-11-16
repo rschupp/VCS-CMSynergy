@@ -373,11 +373,12 @@ sub query
 
     my ($rc, $out, $err) = $self->_ccm(qw/query -u/, @_);
 
-    # NOTE: if there are no hits, `ccm query' exits with status 1, 
+    # NOTE: if there are no hits, `ccm query' exits 
+    # with status 1 (classic mode) or 6 (web mode),
     # but produces no output on either stdout and stderr
 
     return [ split(/\n/, $out) ] if $rc == 0;
-    return [ ] if $rc == _exitstatus(1) and $out eq "" and $err eq "";
+    return [ ] if $rc != 0 and $out eq "" and $err eq "";
     return $self->set_error($err || $out);
 }
 
@@ -422,9 +423,10 @@ sub query_count
     my ($rc, $out, $err) = $self->_ccm(
 	qw/query -u -ns -nf -format X/, $self->_expand_query($query));
 
-    # NOTE: if there are no hits, `ccm query' exits with status 1, 
+    # NOTE: if there are no hits, `ccm query' exits 
+    # with status 1 (classic mode) or 6 (web mode),
     # but produces no output on either stdout and stderr
-    return 0 if $rc == _exitstatus(1) and $out eq "" and $err eq "";
+    return 0 if $rc != 0 and $out eq "" and $err eq "";
     return $out =~ tr/X/X/ if $rc == 0;			# count 'em X's
     return $self->set_error($err || $out);
 }
@@ -462,9 +464,10 @@ sub _query
 	$self->_ccm( 
 	    qw/query -u -ns -nf -format/ => $format, $query);
 
-    # NOTE: if there are no hits, `ccm query' exits with status 1, 
+    # NOTE: if there are no hits, `ccm query' exits 
+    # with status 1 (classic mode) or 6 (web mode),
     # but produces no output on either stdout and stderr
-    return [ ] if $rc == _exitstatus(1) && $out eq "" && $err eq "";
+    return [ ] if $rc != 0 && $out eq "" && $err eq "";
 
     # NOTE: if the query string contained a syntax error, Synergy
     # prints "Syntax error in query request", but won't tell you the
@@ -872,11 +875,11 @@ sub finduse
     # NOTE: `ccm finduse ...' without `-query' complains if some of 
     # the given objects do not exist (and exits with status 1 unless at least
     # one exists). But for `ccm finduse -query ...', if there are no hits, 
-    # the command exits with status 1 and produces no output on either 
+    # the command exits with an error status and produces no output on either 
     # stdout and stderr. (This is the same behaviour as for `ccm query ...'.) 
     # We will not produce an error in any case. However, the returned array
     # will contain undef in postions corresponding to non-existing objects.
-    return [ ] if $rc == _exitstatus(1) and $out eq "" and $err eq "";
+    return [ ] if $rc != 0 and $out eq "" and $err eq "";
     return $self->set_error($err || $out) unless $rc == 0;
 
     my (@result, $uses);
@@ -1005,9 +1008,10 @@ sub _relations
 	    map { defined $args->{$_} ? ( "-$_" => $args->{$_}) : () } 
 		qw/from to name/);
 
-    # NOTE: if there are no hits, `ccm relate -show' exits with status 1, 
+    # NOTE: If there are no hits, `ccm relate' exits 
+    # with status 1 (classic mode) or 6 (web mode),
     # but produces no output on either stdout and stderr
-    return [ ] if $rc == _exitstatus(1) and $out eq "" and $err eq "";
+    return [ ] if $rc != 0 and $out eq "" and $err eq "";
     return $self->set_error($err || $out) unless $rc == 0;
 
     my (@result, $from, $to);

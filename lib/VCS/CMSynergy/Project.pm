@@ -798,7 +798,7 @@ sub show_reconfigure_properties
 
     my ($rc, $out, $err) = $self->ccm->_ccm(
 	@cmd, -format => $format, -show => $what, $self);
-    return $self->set_error($err || $out) unless $rc == 0;
+    return $self->ccm->set_error($err || $out) unless $rc == 0;
     # NOTE: if the reconf properties are empty, Synergy shows the string "None"
     return [ ] if $out eq "None";
 

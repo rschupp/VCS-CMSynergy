@@ -7,7 +7,7 @@ use warnings;
 
 package Test::Deep::NoTest;
 
-use vars qw( $NoTest );
+our $NoTest;
 
 {
   local $NoTest = 1;

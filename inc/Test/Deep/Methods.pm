@@ -5,6 +5,7 @@ use warnings;
 package Test::Deep::Methods;
 
 use Test::Deep::Cmp;
+use Scalar::Util;
 
 sub init
 {
@@ -38,11 +39,13 @@ sub descend
 		$data->{method} = $method;
 
 		my ($call, $exp_res) = @$method;
-		my ($name) = @$call;
+		my ($name, @args) = @$call;
 
-		my $got_res = UNIVERSAL::can($got, $name) ?
-			$self->call_method($got, $call) :
-			$Test::Deep::DNE;
+    my $got_res;
+    if (! eval { $got_res = $self->call_method($got, $call); 1 }) {
+      die $@ unless $@ =~ /\ACan't locate object method "\Q$name"/;
+      $got_res = $Test::Deep::DNE;
+    }
 
 		next if Test::Deep::descend($got_res, $exp_res);
 

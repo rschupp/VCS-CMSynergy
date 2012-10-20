@@ -20,33 +20,19 @@ unless (defined $Test::Deep::NoTest::NoTest)
 	$Test = Test::Builder->new;
 }
 
-use Data::Dumper qw(Dumper);
+our ($Stack, %Compared, $CompareCache, %WrapCache, $Shallow);
 
-use vars qw(
-	$VERSION @EXPORT @EXPORT_OK @ISA
-	$Stack %Compared $CompareCache %WrapCache
-	$Snobby $Expects $DNE $DNE_ADDR $Shallow
-);
-
-$VERSION = '0.108';
+our $VERSION = '0.110';
 $VERSION = eval $VERSION;
 
 require Exporter;
-@ISA = qw( Exporter );
+our @ISA = qw( Exporter );
 
-@EXPORT = qw( eq_deeply cmp_deeply cmp_set cmp_bag cmp_methods
-        useclass noclass set bag subbagof superbagof subsetof
-        supersetof superhashof subhashof
-);
-	# plus all the ones generated from %constructors below
+our $Snobby = 1; # should we compare classes?
+our $Expects = 0; # are we comparing got vs expect or expect vs expect
 
-@EXPORT_OK = qw( descend render_stack class_base cmp_details deep_diag );
-
-$Snobby = 1; # should we compare classes?
-$Expects = 0; # are we comparing got vs expect or expect vs expect
-
-$DNE = \"";
-$DNE_ADDR = Scalar::Util::refaddr($DNE);
+our $DNE = \"";
+our $DNE_ADDR = Scalar::Util::refaddr($DNE);
 
 # if no sub name is supplied then we use the package name in lower case
 my %constructors = (
@@ -81,6 +67,8 @@ my %constructors = (
   String            => "str",
 );
 
+our @CONSTRUCTORS_FROM_CLASSES;
+
 while (my ($pkg, $name) = each %constructors)
 {
 	$name = lc($pkg) unless $name;
@@ -95,19 +83,37 @@ while (my ($pkg, $name) = each %constructors)
 		no strict 'refs';
 		*{$name} = $sub;
 	}
-	push(@EXPORT, $name);
+
+  push @CONSTRUCTORS_FROM_CLASSES, $name;
 }
-my %count;
-foreach my $e (@EXPORT)
+
 {
-	$count{$e}++;
+  our @EXPORT_OK = qw( descend render_stack class_base cmp_details deep_diag );
+
+  our %EXPORT_TAGS;
+  $EXPORT_TAGS{v0} = [
+    qw(
+      Isa
+
+      all any array array_each arrayelementsonly arraylength arraylengthonly
+      bag blessed bool cmp_bag cmp_deeply cmp_methods cmp_set code eq_deeply
+      hash hash_each hashkeys hashkeysonly ignore isa listmethods methods
+      noclass num re reftype regexpmatches regexponly regexpref regexprefonly
+      scalarrefonly scalref set shallow str subbagof subhashof subsetof
+      superbagof superhashof supersetof useclass
+    )
+  ];
+
+  our @EXPORT = @{ $EXPORT_TAGS{ v0 } };
+
+  $EXPORT_TAGS{all} = [ @EXPORT, @EXPORT_OK ];
 }
 
 # this is ugly, I should never have exported a sub called isa now I
 # have to try figure out if the recipient wanted my isa or if a class
 # imported us and UNIVERSAL::isa is being called on that class.
 # Luckily our isa always expects 1 argument and U::isa always expects
-# 2, so we can figure out (assuming the caller is no buggy).
+# 2, so we can figure out (assuming the caller is not buggy).
 sub isa
 {
 	if (@_ == 1)
@@ -119,8 +125,6 @@ sub isa
 		goto &UNIVERSAL::isa;
 	}
 }
-
-push(@EXPORT, "isa");
 
 sub cmp_deeply
 {
@@ -198,7 +202,7 @@ sub deep_diag
 	my $expected;
 
 	my $exp = $last->{exp};
-	if (ref $exp)
+	if (Scalar::Util::blessed($exp))
 	{
 		if ($exp->can("diagnostics"))
 		{
@@ -232,7 +236,6 @@ EOM
 
 sub render_val
 {
-	# add in Data::Dumper stuff
 	my $val = shift;
 
 	my $rendered;
@@ -270,7 +273,7 @@ sub descend
     }
 	}
 
-	if (! $Expects and ref($d1) and UNIVERSAL::isa($d1, "Test::Deep::Cmp"))
+	if (! $Expects and Scalar::Util::blessed($d1) and $d1->isa("Test::Deep::Cmp"))
 	{
 		my $where = $Stack->render('$data');
 		confess "Found a special comparison in $where\nYou can only the specials in the expects structure";
@@ -281,7 +284,7 @@ sub descend
 		# this check is only done when we're comparing 2 expecteds against each
 		# other
 
-		if ($Expects and UNIVERSAL::isa($d1, "Test::Deep::Cmp"))
+		if ($Expects and Scalar::Util::blessed($d1) and $d1->isa("Test::Deep::Cmp"))
 		{
 			# check they are the same class
 			return 0 unless Test::Deep::blessed(Scalar::Util::blessed($d2))->descend($d1);
@@ -341,7 +344,7 @@ sub wrap
 {
 	my $data = shift;
 
-	return $data if ref($data) and UNIVERSAL::isa($data, "Test::Deep::Cmp");
+	return $data if Scalar::Util::blessed($data) and $data->isa("Test::Deep::Cmp");
 
 	my ($class, $base) = class_base($data);
 
@@ -356,7 +359,7 @@ sub wrap
 		my $addr = Scalar::Util::refaddr($data);
 
 		return $WrapCache{$addr} if $WrapCache{$addr};
-		
+
 		if($base eq 'ARRAY')
 		{
 			$cmp = array($data);
@@ -529,3 +532,6 @@ sub builder
 
 1;
 
+__END__
+
+#line 1475

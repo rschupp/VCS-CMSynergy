@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 19;
+use Test::More tests => 15;
 use t::util;
 use strict;
 
@@ -10,34 +10,10 @@ BEGIN
     ok(VCS::CMSynergy::use_cached_attributes(), q[using :cached_attributes]);
 }
 
-use File::Temp qw(tempfile);
 
 my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
-
-# test tracing
-{
-    my ($fh, $trace) = tempfile;
-    close($fh);
-
-    $ccm->trace(1, $trace);
-    $ccm->trace_msg(q[the quick brown fox jumps over the lazy dog]);
-    $ccm->trace(0, undef);
-    ok(-r $trace, q[trace file exists]);
-
-    my $text;
-    {
-	local $/ = undef; 
-	ok(open($fh, "< $trace"), q[open trace file]);
-	$text = <$fh>;
-	close($fh);
-    }
-    ok($text =~ /quick brown fox/, q[trace file contains message]);
-    ok($text =~ /\Q$ccm\E/, q[trace file contains session ref]);
-
-    unlink($trace);
-}
 
 # test object<->cvid
 my $object = $ccm->object('main.c-1:csrc:1');

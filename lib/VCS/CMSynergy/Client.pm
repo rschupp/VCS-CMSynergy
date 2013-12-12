@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Client;
 
-# Copyright (c) 2001-2010 argumentum GmbH, 
+# Copyright (c) 2001-2013 argumentum GmbH, 
 # See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
 
 our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; $v };
@@ -19,9 +19,6 @@ VCS::CMSynergy::Client - base class for CM Synergy methods that don't require a 
   $short_version = $client->version;
   @ary = $client->status;
 
-  $client->trace(1, "trace.out");
-  $client->trace_msg("now tracing ccm calls...\n");
-
   @ary = $client->databases;
   @ary = $client->hostname;
 
@@ -37,46 +34,56 @@ use Config;
 use Cwd;
 use File::Spec;
 use IPC::Run3;
-
-# Unix only
-use IO::Handle;
-use IO::Select;
-use IO::File;
-use IO::Pipe;					# make ActiveState PerlApp happy
+use Log::Log4perl qw(:easy);
 
 use constant is_win32 => $^O eq 'MSWin32' || $^O eq 'cygwin';
 use constant _pathsep => is_win32 ? "\\" : "/" ;
 
-our ($Debug, $Debugfh, $Error, $Ccm_command, $Default);
+# FIXME edit CMSynergy.pod
+
+our ($Error, $Ccm_command, $Default);
 
 use Exporter();
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
-    is_win32 _pathsep $Debug $Error $Ccm_command
+    is_win32 _pathsep $Error $Ccm_command
     _exitstatus _error _usage);
 sub _usage(\@$$$);
 
+# not a method
+# emulates the old way to enable tracing by setting the environment
+# variable CMSYNERGY_TRACE
+sub _init_legacy_logging 
 {
-    $Debug = $ENV{CMSYNERGY_TRACE} || 0;
-    $Debugfh = IO::Handle->new_from_fd(\*STDERR, "w");
-    if ($Debug)
-    {
-	if ($Debug =~ /^\d+$/) 			# CMSYNERGY_TRACE="digits"
-	{ 
-	    # level=digits, tracefile=stderr
-	    __PACKAGE__->trace($Debug, undef); 	
-	}
-	elsif ($Debug =~ /^(\d+)=(.*)/) 	# CMSYNERGY_TRACE="digits=filename"
-	{
-	    # level=digits, tracefile=filename
-	    __PACKAGE__->trace($1, $2); 
-	}
-	else					# CMSYNERGY_TRACE="filename"
-	{
-	    # level=2, tracefile=filename
-	    __PACKAGE__->trace(2, $Debug); 	
-	}
+    # NOTE: Log::Log4perl can only be initialized once (i.e. the second
+    # call to Log::Log4perl::init() overwrites the setting from the first).
+    # Hence, don't mess up an existing setting.
+    return if Log::Log4perl->initialized;
+
+    my $trace = $ENV{CMSYNERGY_TRACE};
+    return unless defined $trace && length $trace;
+
+    my %init;                           # default layout => "%d %m%n"
+    if ($trace =~ /^\d+$/) 		# CMSYNERGY_TRACE="digits"
+    { 
+        $init{file} = "STDERR";
     }
+    elsif ($trace =~ /^(\d+)=(.*)/) 	# CMSYNERGY_TRACE="digits=filename"
+    {
+        $trace = $1;
+        $init{file} = ">>$2";
+    }
+    else				# CMSYNERGY_TRACE="filename"
+    {
+        $trace = 2;
+        $init{file} = ">>$trace";
+    }
+    $init{level} = $trace >= 8 ? $TRACE :
+                   $trace >= 5 ? $DEBUG :
+                   $trace >= 1 ? $INFO :
+                   $OFF;
+
+    Log::Log4perl->easy_init(\%init);
 }
 
 our %opts = 
@@ -124,6 +131,8 @@ sub new
 	unless -x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe);
 	# NOTE: -x $ccm_exe fails on cygwin
     $self->{ccm_exe} = $ccm_exe;
+
+    _init_legacy_logging();
 
     return $self;
 }
@@ -190,18 +199,12 @@ sub _ccm
     my $rerr = exists $ropts{err} ? delete $ropts{err} : do { my $s; \$s };
     my $rc;
 
-    my $t0;
-    if ($Debug)
-    {
-	$t0 = [ Time::HiRes::gettimeofday() ];
-	if ($Debug >= 8)
-	{
-	    # NOTE: log the command _before_ executing it to help
-	    # diagnose "hung" scripts (e.g. a ccm command waiting for 
-	    # user confirmation)
-	    $this->trace_msg("<- ccm($this->{ccm_command})\n", 8);
-	}
-    }
+    my $t0 = [ Time::HiRes::gettimeofday() ];
+
+    # NOTE: Trace the command _before_ executing it to help
+    # diagnose "hung" scripts (e.g. a ccm command waiting for 
+    # user confirmation)
+    TRACE "<- ccm($this->{ccm_command})";
 
     CCM:
     {
@@ -228,8 +231,8 @@ sub _ccm
 			     "-- ignoring UseCoprocess from now on");
 			last USE_COPROCESS;
 		    }
-		    $Debug && $this->trace_msg(
-			"spawned new coprocess because cwd changed (pid=".$this->{coprocess}->pid.")\n", 8);
+		    TRACE sprintf("spawned new coprocess because cwd changed (pid=%d)",
+                                  $this->{coprocess}->pid);
 		}
 
 		# NOTE: "interactive" command arguments that contain blanks must 
@@ -270,20 +273,17 @@ sub _ccm
 	$$rerr =~ s/\n\z//;				# chomp
     }
 
-    if ($Debug)
+    my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
+    if (get_logger()->is_trace)
     {
-	my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
-	if ($Debug >= 8)
-	{
-	    $this->trace_msg("-> rc = $rc [$elapsed sec]\n", 8);
-	    $this->trace_msg("-> out = \"$$rout\"\n", 8) unless exists $opts->{out};
-	    $this->trace_msg("-> err = \"$$rerr\"\n", 8) unless exists $opts->{err};
-	}
-	else
-	{
-	    my $success = $rc == 0 ? "ok" : "failed";
-	    $this->trace_msg("ccm($this->{ccm_command}) = $success [$elapsed sec]\n");
-	}
+        TRACE "-> rc = $rc [$elapsed sec]";
+        TRACE "-> out = \"$$rout\"\n" unless exists $opts->{out};
+        TRACE "-> err = \"$$rerr\"\n" unless exists $opts->{err};
+    }
+    else
+    {
+        my $success = $rc == 0 ? "ok" : "failed";
+        INFO "ccm($this->{ccm_command}) = $success [$elapsed sec]\n";
     }
 
     $this->{out} = $$rout unless exists $opts->{out};
@@ -598,41 +598,6 @@ sub hostname
     return $Hostname{$ccm_home};
 }
 
-
-sub trace
-{
-    my ($this, $trace_level, $trace_filename) = @_;
-    return $Debug unless defined $trace_level;
-
-    require Time::HiRes;
-    ($Debug, $trace_level) = ($trace_level, $Debug);
-
-    if (@_ == 3)				# $trace_filename present
-    {
-	# switch trace files
-	my $newfh = defined $trace_filename ?
-	    IO::File->new($trace_filename, "a") : 
-	    IO::Handle->new_from_fd(\*STDERR, "w");
-	unless ($newfh)
-	{
-	    carp(__PACKAGE__ . " trace: can't open trace file `$trace_filename'");
-	    return $trace_level;
-	}
-	$newfh->autoflush(1);
-	close($Debugfh);
-	$Debugfh = $newfh;
-	$Debug && $this->trace_msg(__PACKAGE__ . " version $VERSION [$^O]: trace started\n");
-    }
-    $Debug && $this->trace_msg("trace level set to $Debug\n");
-    return $trace_level;
-}
-
-sub trace_msg
-{
-    my ($this, $message, $min_level) = @_;
-    $min_level ||= 1;
-    print $Debugfh "[$this] $message" if $Debug >= $min_level;
-}
 
 sub set_error 
 {
@@ -983,76 +948,6 @@ a possible empty array of applied CM Synergy patches
 =head2 ccm_exe
 
 Returns the absolute pathname of the B<ccm> executable.
-
-=head2 trace
-
-  $client->trace($trace_level);
-  $client->trace($trace_level, $trace_filename);
-
-This method enables trace information to be written.
-
-Trace levels C<$trace_level> are as follows:
-
-=over 4
-
-=item 0
-
-trace disabled
-
-=item 1
-
-trace session start/stop; show arguments, exit code and elapsed time
-for all invocations of CMSynergy CLI
-
-=item 5
-
-trace method autoloading; show query shortcut processing
-
-=item 8
-
-show complete output for all invocations of CMSynergy CLI
-
-=back
-
-Initially trace output is written to C<STDERR>.  If C<$trace_filename> is
-specified and can be opened in append mode then all trace
-output is redirected to that file. 
-A warning is generated if the file can't be opened.
-Further calls to C<trace> without a C<$trace_filename> do not alter where
-the trace output is sent. If C<$trace_filename> is C<undef>, then
-trace output is sent to C<STDERR> and the previous trace file is closed.
-
-The C<trace> method returns the I<previous> tracelevel.
-
-See also L</trace_msg>.
-
-You can also enable the same trace information by setting the 
-C<CMSYNERGY_TRACE> environment variable before starting Perl.
-
-On Unix-like systems using a Bourne-like shell, you can do this easily
-on the command line:
-
-  CMSYNERGY_TRACE=2 perl your_test_script.pl
-
-If C<CMSYNERGY_TRACE> is set to a non-numeric value, then it is assumed to
-be a file name and the trace level will be set to 2 with all trace
-output appended to that file. If the name begins with a number
-followed by an equal sign (C<=>), then the number and the equal sign are
-stripped off from the name, and the number is used to set the trace
-level. For example:
-
-  CMSYNERGY_TRACE=1=trace.log perl your_test_script.pl
-
-=head2 trace_msg
-
-  $client->trace_msg($message_text);
-  $client->trace_msg($message_text, $min_level);
-
-Writes C<$message_text> to the trace file if trace is enabled.
-See L</trace>.
-
-If C<$min_level> is defined, then the message is output only if the trace
-level is equal to or greater than that level. C<$min_level> defaults to 1.
 
 =head2 set_error
 

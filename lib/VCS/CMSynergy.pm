@@ -1,6 +1,6 @@
 package VCS::CMSynergy;
 
-# Copyright (c) 2001-2010 argumentum GmbH, 
+# Copyright (c) 2001-2013 argumentum GmbH, 
 # See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
 
 # $Revision$
@@ -11,7 +11,7 @@ use 5.006_000;				# i.e. v5.6.0
 use strict;
 
 use VCS::CMSynergy::Client qw(
-    is_win32 $Debug $Error $Ccm_command
+    is_win32 $Error $Ccm_command
     _exitstatus _error _usage);
 our @ISA = qw(VCS::CMSynergy::Client);
 
@@ -20,6 +20,7 @@ use Carp;
 use Config;
 use File::Spec;
 use File::Temp qw(tempfile);		# in Perl core v5.6.1 and later
+use Log::Log4perl qw(:easy);
 
 use constant ROW_HASH	=> 1;
 use constant ROW_OBJECT	=> 2;
@@ -140,13 +141,9 @@ sub _start
     if (defined $self->ccm_addr)
     {
 	$self->{KeepSession} = 1 unless defined $self->{KeepSession};
-	if ($Debug)
-	{
-	    my $ccm_addr = $self->ccm_addr;
-	    $self->trace_msg($self->{KeepSession} ? 
-		qq[will keep session "$ccm_addr"\n] :
-		qq[will not keep session "$ccm_addr"\n]);
-	}
+        INFO sprintf(qq[will %s session "%s"],
+                     $self->{KeepSession} ? "keep" : "not keep",
+                     $self->ccm_addr);
 
 	if (is_win32)
 	{
@@ -205,7 +202,7 @@ sub _start
 	return $self->set_error($err || $out) unless $rc == 0;
 
 	$self->{env}->{CCM_ADDR} = $out;
-	$Debug && $self->trace_msg(qq[started session "$out"\n]);
+	INFO qq[started session "$out"];
     }
 
     # NOTE: Use of $CCM_INI_FILE fixes the annoying `Warning:
@@ -247,7 +244,7 @@ sub _start
     {
 	if ($self->_spawn_coprocess)
 	{
-	    $Debug && $self->trace_msg("spawned coprocess (pid=".$self->{coprocess}->pid.")\n", 8);
+	    TRACE sprintf("spawned coprocess (pid=%d)", $self->{coprocess}->pid);
 	}
 	else
 	{
@@ -276,13 +273,6 @@ sub _start
     delete $self->{database};
 
     $self->{objects} = {} if use_cached_attributes();
-
-    if ($Debug >= 9)
-    {
-        require Data::Dumper;
-        local $Data::Dumper::Useqq = 1;
-        $self->trace_msg(Data::Dumper->Dump([$self], ["$self"]));
-    }
 
     return $self;
 }
@@ -326,7 +316,7 @@ sub DESTROY
     unless ($self->{KeepSession})
     {
 	$self->_ccm(qw/stop/);
-	$Debug && $self->trace_msg("stopped session ".$self->ccm_addr."\n");
+	INFO sprintf(qq[stopped session "%s"], $self->ccm_addr);
     }
 
     # on Windows, certain files (e.g. the fake ccm.ini) might still be busy
@@ -683,8 +673,7 @@ sub _query_shortcut
 {
     my ($self, $hashref) = @_;
 
-    $Debug >= 5 && $self->trace_msg(
-	"shortcut query { ".join(", ", map { "$_ => $hashref->{$_}" } keys %$hashref)." }\n", 5);
+    DEBUG "shortcut query { ".join(", ", map { "$_ => $hashref->{$_}" } keys %$hashref)." }";
 
     my @clauses;
     while (my ($key, $value) = each %$hashref)
@@ -736,7 +725,8 @@ sub _query_shortcut
     }
 
     my $result = join(" and ", @clauses);
-    $Debug >= 5 && $self->trace_msg("shortcut query => $result\n", 5);
+    DEBUG qq[expanded shortcut query "$result"];
+
     return $result;
 }
 
@@ -1662,7 +1652,7 @@ sub AUTOLOAD
     # we don't allow autoload of class methods
     croak(qq[Can't locate class method "$method" via class "$class"]) #'
 	unless ref $this;
-    $Debug && $this->trace_msg(qq[autoloading method "$method"\n], 5);
+    DEBUG qq[autoloading method "$method"];
 
     # create the new method on the fly
     no strict 'refs';

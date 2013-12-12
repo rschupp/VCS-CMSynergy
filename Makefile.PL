@@ -80,6 +80,7 @@ requires	'Time::HiRes'		=> 0;
 requires	'Class::Accessor::Fast' => 0;
 requires	'List::Util'		=> '1.09';
 requires	'Scalar::Util'		=> '1.09';
+requires        'Log::Log4perl'         => 0;
 requires	'Filesys::CygwinPaths'	=> 0 if $^O eq 'cygwin';
 
 test_requires	'Test::More'		=> 0;

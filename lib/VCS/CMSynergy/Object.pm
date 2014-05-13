@@ -59,7 +59,9 @@ use base qw(Class::Accessor::Fast);
 __PACKAGE__->mk_ro_accessors(qw/objectname ccm name version cvtype instance/);
 
 use Carp;
-use VCS::CMSynergy::Client qw(_usage);
+
+use Type::Params qw( validate );
+use Types::Standard qw( slurpy Str ArrayRef );
 
 # NOTE: We can't just alias string conversion to objectname()
 # as it is called (as overloaded operator) with three arguments
@@ -146,42 +148,43 @@ sub _private 	{ return shift; }
 
 sub mydata
 {
-    my ($self) = @_;
+    my $self = shift;
     return $self->_private->{mydata} ||= {};
 }
 
 
 sub list_attributes
 {
-    my ($self) = @_;
-
+    my $self = shift;
     return $self->ccm->list_attributes($self);
 }
 
 sub get_attribute
 {
-    my ($self, $attr_name) = @_;
+    my $self = shift;
+    my ($name) = validate(\@_, Str);
 
     if (VCS::CMSynergy::use_cached_attributes())
     {
 	my $acache = $self->_private->{acache};
-	return $acache->{$attr_name} if exists $acache->{$attr_name};
+	return $acache->{$name} if exists $acache->{$name};
     }
 
-    my $value = $self->ccm->get_attribute($attr_name, $self);
+    my $value = $self->ccm->get_attribute($name, $self);
 
-    $self->_update_acache($attr_name => $value);
+    $self->_update_acache($name => $value);
     return $value;
 }
 
 sub set_attribute
 {
-    my ($self, $attr_name, $value) = @_;
+    my $self = shift;
+    my ($name, $value) = validate(\@_, Str, Str);
 
-    my $rc = $self->ccm->set_attribute($attr_name, $self, $value);
+    my $rc = $self->ccm->set_attribute($name, $self, $value);
 
-    if (defined $rc) { $self->_update_acache($attr_name => $value); }
-    else             { $self->_forget_acache($attr_name); }
+    if (defined $rc) { $self->_update_acache($name => $value); }
+    else             { $self->_forget_acache($name); }
 
     return $rc;
 }
@@ -189,13 +192,12 @@ sub set_attribute
 sub create_attribute
 {
     my $self = shift;
-    _usage(@_, 3, 3, '$name, $type, $value');
+    my ($name, $type, $value) = validate(\@_, Str, Str, Str);
 
-    my ($attr_name, $type, $value) = @_;
-    my $rc = $self->ccm->create_attribute($attr_name, $type, $value, $self);
+    my $rc = $self->ccm->create_attribute($name, $type, $value, $self);
 
     # update attribute cache if necessary
-    $self->_update_acache($attr_name => $value) if $rc;
+    $self->_update_acache($name => $value) if $rc;
 
     return $rc;
 }
@@ -203,14 +205,13 @@ sub create_attribute
 sub delete_attribute
 {
     my $self = shift;
-    _usage(@_, 1, 1, '$name');
+    my ($name) = validate(\@_, Str);
 
-    my ($attr_name) = @_;
-    my $rc = $self->ccm->delete_attribute($attr_name, $self);
+    my $rc = $self->ccm->delete_attribute($name, $self);
 
     # update attribute cache if necessary
     # NOTE: the attribute may have reverted from local back to inherited
-    $self->_forget_acache($attr_name) if $rc; 	
+    $self->_forget_acache($name) if $rc; 	
 
     return $rc;
 }
@@ -218,37 +219,35 @@ sub delete_attribute
 sub copy_attribute
 {
     my $self = shift;
-    _usage(@_, 2, undef, '{ $name | \\@names }, $to_file_spec...');
-
-    my ($names, @to_file_specs) = @_;
+    my ($names, $to_file_specs) = 
+        validate(\@_, Str | ArrayRef[Str], slurpy ArrayRef);
+    $names = [ $names ] unless ref $names;
 
     # NOTE: no $flags allowed, because honouring them would need
     # a project traversal to update or invalidate attribute caches
 
-    $names = [ $names ] unless UNIVERSAL::isa($names, 'ARRAY');
-
-    my $rc = $self->ccm->copy_attribute($names, [], $self, @to_file_specs);
+    my $rc = $self->ccm->copy_attribute($names, [], $self, @$to_file_specs);
 
     if (VCS::CMSynergy::use_cached_attributes())
     {
-	my @objects = grep { UNIVERSAL::isa($_, 'VCS::CMSynergy') } @to_file_specs;
+	my @objects = grep { UNIVERSAL::isa($_, 'VCS::CMSynergy') } @$to_file_specs;
 	my $acache = $self->_private->{acache};
 
-	foreach my $attr_name (@$names)
+	foreach my $name (@$names)
 	{
-	    if ($rc && exists $acache->{$attr_name})
+	    if ($rc && exists $acache->{$name})
 	    {
 		# if we already know the value of the copied attribute(s)
 		# and the copy was successful, update the targets' caches
-		my $value = $acache->{$attr_name};
-		$_->_update_acache($attr_name => $value) foreach @objects;
+		my $value = $acache->{$name};
+		$_->_update_acache($name => $value) foreach @objects;
 	    }
 	    else
 	    {
 		# in all other cases, invalidate the targets' caches
 		# (esp. in case of failure, since we can't know 
 		# which got actually updated)
-		$_->_forget_acache($attr_name) foreach @objects;
+		$_->_forget_acache($name) foreach @objects;
 	    }
 	}
     }
@@ -294,16 +293,17 @@ sub exists
 
 sub property
 {
-    my ($self, $keyword_s) = @_;
+    my $self = shift;
+    my ($keyword_s) = validate(\@_, Str | ArrayRef[Str]);
 
     my $props = $self->ccm->property($keyword_s, $self);
-    $self->_update_acache(UNIVERSAL::isa($keyword_s, 'ARRAY') ? $props : { $keyword_s => $props });
+    $self->_update_acache(ref $keyword_s ? $props : { $keyword_s => $props });
     return $props;
 }
 
 sub displayname
 {
-    my ($self) = @_;
+    my $self = shift;
     # cache this property (because it's immutable)
     # in the attribute cache (even if not using :cached_attributes);
     # this will do the right thing wrt caching, e.g.
@@ -317,7 +317,7 @@ sub displayname
 
 sub cvid
 {
-    my ($self) = @_;
+    my $self = shift;
     # cache this property (because it's immutable)
     # in the attribute cache (even if not using :cached_attributes);
     # this will do the right thing wrt caching, e.g.

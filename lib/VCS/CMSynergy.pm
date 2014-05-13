@@ -11,8 +11,9 @@ use 5.006_000;				# i.e. v5.6.0
 use strict;
 
 use VCS::CMSynergy::Client qw(
-    is_win32 $Error $Ccm_command
-    _exitstatus _error _usage);
+    is_win32 $Error $Ccm_command _exitstatus _error
+    _FILE_SPEC _KEYWORDS _FILE_SPEC_KEYWORDS _ITEM_KEYWORDS);
+
 our @ISA = qw(VCS::CMSynergy::Client);
 
 
@@ -21,6 +22,11 @@ use Config;
 use File::Spec;
 use File::Temp qw(tempfile);		# in Perl core v5.6.1 and later
 use Log::Log4perl qw(:easy);
+
+use Type::Params qw( validate );
+use Types::Standard qw( slurpy Optional Str InstanceOf HasMethods
+    ArrayRef CodeRef GlobRef HashRef ScalarRef FileHandle);
+use constant _PROJECT_SPEC =>  Str | InstanceOf["VCS::CMSynergy::Project"];
 
 use constant ROW_HASH	=> 1;
 use constant ROW_OBJECT	=> 2;
@@ -376,30 +382,27 @@ sub query
 sub query_arrayref
 {
     my $self = shift;
-    _usage(@_, 1, undef, '$query, @keywords');
+    my ($query, $keywords) = _ITEM_KEYWORDS->(@_);
 
-    my $query = shift;
-    return _flatten_rows($self->_query($query, \@_, ROW_HASH), \@_);
+    return _flatten_rows($self->_query($query, $keywords, ROW_HASH), $keywords);
 }
 
 
 sub query_hashref
 {
     my $self = shift;
-    _usage(@_, 1, undef, '$query, @keywords');
+    my ($query, $keywords) = _ITEM_KEYWORDS->(@_);
 
-    my $query = shift;
-    return $self->_query($query, \@_, ROW_HASH);
+    return $self->_query($query, $keywords, ROW_HASH);
 }
 
 
 sub query_object
 {
     my $self = shift;
-    _usage(@_, 1, undef, '$query, @attributes');
+    my ($query, $keywords) = _ITEM_KEYWORDS->(@_);
 
-    my $query = shift;
-    return $self->_query($query, \@_, ROW_OBJECT);
+    return $self->_query($query, $keywords, ROW_OBJECT);
 }
 
 *query_object_with_attributes = \&query_object;		# compatibility alias
@@ -407,9 +410,8 @@ sub query_object
 sub query_count
 {
     my $self = shift;
-    _usage(@_, 1, 1, '$query');
+    my $query = validate(\@_, Str);
 
-    my $query = shift;
     my ($rc, $out, $err) = $self->_ccm(
 	qw/query -u -ns -nf -format X/, $self->_expand_query($query));
 
@@ -773,20 +775,18 @@ sub history
 sub history_arrayref
 {
     my $self = shift;
-    _usage(@_, 1, undef, '$file_spec, @keywords');
+    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
 
-    my $file_spec = shift;
-    return _flatten_rows($self->_history($file_spec, \@_, ROW_HASH), \@_);
+    return _flatten_rows($self->_history($file_spec, $keywords, ROW_HASH), $keywords);
 }
 
 
 sub history_hashref
 {
     my $self = shift;
-    _usage(@_, 1, undef, '$file_spec, @keywords');
+    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
 
-    my $file_spec = shift;
-    return $self->_history($file_spec, \@_, ROW_HASH);
+    return $self->_history($file_spec, $keywords, ROW_HASH);
 }
 
 
@@ -859,8 +859,9 @@ sub _history
 sub finduse
 {
     my $self = shift;
+    my ($file_specs) = validate(\@_, slurpy ArrayRef[_FILE_SPEC]);
 
-    my ($rc, $out, $err) = $self->_ccm(qw/finduse/, @_);
+    my ($rc, $out, $err) = $self->_ccm(qw/finduse/, @$file_specs);
 
     # NOTE: `ccm finduse ...' without `-query' complains if some of 
     # the given objects do not exist (and exits with status 1 unless at least
@@ -909,7 +910,8 @@ sub finduse
 
 sub findpath
 {
-    my ($self, $file_spec, $proj_vers) = @_;
+    my $self = shift;
+    my ($file_spec, $proj_vers) = validate(\@_, _FILE_SPEC, Str);
     my $finduse = $self->finduse($file_spec);
     return unless defined $finduse;
     return $self->set_error("`$file_spec' matches more than one object") 
@@ -925,12 +927,13 @@ sub relations_hashref
     my %defaulted;
     foreach my $arg (qw/from_attributes to_attributes/)
     {
-	croak(__PACKAGE__.qq[::relations_hashref: optional argument "$arg" must be an array ref])
-	    if exists $args{$arg} && !UNIVERSAL::isa($args{$arg}, 'ARRAY');
-
-	# default keyword "objectname"
+        if (defined $args{$arg}) 
+        {
+            validate([$args{$arg}], ArrayRef[Str]);
+        }
 	unless ($args{$arg})
 	{
+            # default keyword "objectname"
 	    $args{$arg} = [ qw/objectname/ ];
 	    $defaulted{$arg}++;
 	}
@@ -958,9 +961,14 @@ sub relations_object
 
     foreach my $arg (qw/from_attributes to_attributes/)
     {
-	croak(__PACKAGE__.qq[::relations_object: optional argument "$arg" must be an array ref])
-	    if $args{$arg} && !UNIVERSAL::isa($args{$arg}, 'ARRAY');
-	$args{$arg} ||= [];		# _relations below likes 'em defined
+        if (defined $args{$arg}) 
+        {
+            validate([$args{$arg}], ArrayRef[Str]);
+        }
+        else
+        {
+            $args{$arg} ||= [];		# _relations below likes 'em defined
+        }
     }
 
     return $self->_relations(\%args, ROW_OBJECT);
@@ -1045,12 +1053,8 @@ sub _relations
 sub project_tree
 {
     my $self = shift;
-    _usage(@_, 1, undef, '\\%options, @projects');
-
-    my ($options, @projects) = @_;
-    $options = {} unless defined $options;
-    croak(__PACKAGE__.qq[::project_tree: argument 1 ("options") must be a HASH ref: $options])
-	unless ref $options eq "HASH";
+    my ($options, $projects) = 
+        validate(\@_, HashRef, slurpy ArrayRef[_PROJECT_SPEC]);
 
     my %wanted = %$options;	# make a copy, because we're modifying it below
     my $mark_projects = delete $wanted{mark_projects};
@@ -1059,7 +1063,7 @@ sub project_tree
     # NOTE: all other options are passed thru to traverse() 
     # (and get checked there)
 
-    my (%tree, $tag);		# referenced in closure below
+    my (%tree, $idx);		# referenced in closure below
     $wanted{wanted} = sub
     {
 	# skip projects unless "mark_projects" is in effect
@@ -1072,15 +1076,15 @@ sub project_tree
 	# the project entry when "mark_projects" is in effect
 	my $path = VCS::CMSynergy::Traversal::path();
 	$path =~ s/$omit_rx// or next if $omit_rx;
-	@projects == 1 ? $tree{$path} : $tree{$path}->[$tag] ||= $_;
+	@$projects == 1 ? $tree{$path} : $tree{$path}->[$idx] ||= $_;
     };
 
-    for ($tag = 0; $tag < @projects; $tag++)
+    foreach my $proj (@$projects)
     {
-	my $proj = $projects[$tag];
 	$proj = $self->project_object($proj) unless ref $proj;
 
 	$proj->traverse(\%wanted) or return;
+        $idx++;
     }
 
     return \%tree;
@@ -1090,13 +1094,10 @@ sub project_tree
 sub project_diff
 {
     my $self = shift;
-    _usage(@_, 4, 4, '\\%options, $old_project, $new_project, $differ');
+    my ($arg_options, $old_project, $new_project, $differ) = 
+        validate(\@_, HashRef, _PROJECT_SPEC, _PROJECT_SPEC, HasMethods[qw( added deleted changed )]);
 
-    my ($arg_options, $old_project, $new_project, $differ) = @_;
-    $arg_options = {} unless defined $arg_options;
-    croak(__PACKAGE__.qq[::project_diff: argument 1 ("options") must be a HASH ref: $arg_options])
-	unless ref $arg_options eq "HASH";
-
+    $arg_options = {} unless defined $arg_options; # still needed?
     my %options = %$arg_options;	# make a copy, so we can't inadvertently modify it
     my $hide_sub_trees = delete $options{hide_sub_trees};
 
@@ -1154,9 +1155,8 @@ sub project_diff
 sub get_attribute
 {
     my $self = shift;
-    _usage(@_, 2, 2, '$attribute_name, $file_spec');
+    my ($name, $file_spec) = validate(\@_, Str, _FILE_SPEC);
 
-    my ($name, $file_spec) = @_;
     my ($rc, $out, $err) = $self->_ccm(qw/attribute -show/, $name, $file_spec);
     return $out if $rc == 0;
     return if ($err || $out) =~ /Attribute .* does not exist on object/;
@@ -1167,9 +1167,8 @@ sub get_attribute
 sub set_attribute
 {
     my $self = shift;
-    _usage(@_, 3, 3, '$attribute_name, $file_spec, $value');
+    my ($name, $file_spec, $value) = validate(\@_, Str, _FILE_SPEC, Str);
 
-    my ($name, $file_spec, $value) = @_;
 
     # try "ccm attribute -modify ..." first
     my ($rc, $out, $err) = $self->_ccm_attribute(
@@ -1247,14 +1246,11 @@ sub _ccm_attribute
 sub create_attribute
 {
     my $self = shift;
-    _usage(@_, 3, undef, '$name, $type, $value, @file_specs');
-
-    my ($name, $type, $value, @file_specs) = @_;
-    croak(__PACKAGE__.'::create_attribute: argument 3 (value) must be defined')
-	unless defined $value;
+    my ($name, $type, $value, $file_specs) = 
+        validate(\@_, Str, Str, Str, slurpy ArrayRef[_FILE_SPEC]);
 
     my ($rc, $out, $err) = $self->_ccm_attribute(
-	    -create => $name, -value => $value, -type => $type, @file_specs);
+	    -create => $name, -value => $value, -type => $type, @$file_specs);
     return $self->set_error($err || $out) unless $rc == 0;
     return 1;
 }
@@ -1263,16 +1259,16 @@ sub create_attribute
 sub delete_attribute
 {
     my $self = shift;
-    _usage(@_, 1, undef, '$name, @file_specs');
+    my ($name, $file_specs) = validate(\@_, Str, slurpy ArrayRef[_FILE_SPEC]);
 
-    my ($name, @file_specs) = @_;
-    return scalar $self->ccm(qw/attribute -delete/, $name, @file_specs);
+    return scalar $self->ccm(qw/attribute -delete/, $name, @$file_specs);
 }
 
 
 sub copy_attribute
 {
     my $self = shift;
+    XXX
     _usage(@_, 3, undef, '{ $name | \\@names }, [ \\@flags, ] $from_file_spec, $to_file_spec...');
 
     my ($name, @file_specs) = @_;
@@ -1288,9 +1284,8 @@ sub copy_attribute
 sub list_attributes
 {
     my $self = shift;
-    _usage(@_, 1, 1, '$file_spec');
+    my ($file_spec) = validate(\@_, _FILE_SPEC);
 
-    my $file_spec = shift;
     my ($rc, $out, $err) = $self->_ccm(qw/attribute -la/, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
 
@@ -1303,15 +1298,17 @@ sub list_attributes
 sub property
 {
     my $self = shift;
-    _usage(@_, 2, 2, '{ $keyword | \@keywords }, $file_spec');
+    my ($keyword_s, $file_spec) = 
+        validate(\@_, ( Str | ArrayRef[Str] ), _FILE_SPEC);
 
-    my ($keyword_s, $file_spec) = @_;
-    if (UNIVERSAL::isa($keyword_s, 'ARRAY'))
+    if (ref $keyword_s)
     {
+        # return a hash ref of property names and values
 	return $self->_property($file_spec, $keyword_s, ROW_HASH);
     }
     else
     {
+        # return just the property value
 	my $row = $self->_property($file_spec, [ $keyword_s ], ROW_HASH) or return;
 	return $row->{$keyword_s};
     }
@@ -1335,24 +1332,21 @@ sub _property
     return $self->_query_result($want, \@cols, $row_type);
 }
 
-
 sub cat_object
 {
     my $self = shift;
-    _usage(@_, 1, 2, '$object [, $destination]');
 
     my $want_return = @_ == 1;
-    my ($object, $destination) = @_;
-    croak(__PACKAGE__.qq[::cat_object: argument 1 (object) must be a VCS::CMSynergy::Object: $object])
-	unless UNIVERSAL::isa($object, "VCS::CMSynergy::Object");
+    my ($file_spec, $destination) = 
+        validate(\@_, _FILE_SPEC, Optional[Str | GlobRef | FileHandle | ScalarRef | ArrayRef | CodeRef]);
 
     my $out;
     $destination = \$out if $want_return;
 
     my ($rc, undef, $err) = $self->_ccm(
-	cat => $object, { out => $destination, binmode_stdout => 1 });
+	cat => $file_spec, { out => $destination, binmode_stdout => 1 });
 
-    return $self->set_error($err || "`ccm cat $object' failed") unless $rc == 0;
+    return $self->set_error($err || "`ccm cat $file_spec' failed") unless $rc == 0;
     return $want_return ? $out : 1;
 }
 
@@ -1390,29 +1384,25 @@ sub ls
 sub ls_arrayref
 {
     my $self = shift;
-    _usage(@_, 1, undef, '$file_spec, @keywords');
+    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
 
-    my $file_spec = shift;
-    return _flatten_rows($self->_ls($file_spec, \@_, ROW_HASH), \@_);
+    return _flatten_rows($self->_ls($file_spec, $keywords, ROW_HASH), $keywords);
 }
 
 
 sub ls_hashref
 {
     my $self = shift;
-    _usage(@_, 1, undef, '$file_spec, @keywords');
+    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
 
-    my $file_spec = shift;
-    return $self->_ls($file_spec, \@_, ROW_HASH);
+    return $self->_ls($file_spec, $keywords, ROW_HASH);
 }
 
 
 sub ls_object
 {
     my $self = shift;
-    _usage(@_, 0, 1, '[ $file_spec ]');
-
-    my $file_spec = shift;
+    my ($file_spec) = validate(\@_, Optional[_FILE_SPEC]);
     $file_spec = '.' unless defined $file_spec;
 
     return $self->_ls($file_spec, [], ROW_OBJECT);
@@ -1449,9 +1439,8 @@ sub _ls
 sub set
 {
     my $self = shift;
-    _usage(@_, 0, 2, '[$option [, $value]]');
+    my ($option, $value) = validate(\@_, Optional[Str], Optional[Str]);
 
-    my ($option, $value) = @_;
     if (@_ == 0)
     {
 	my ($rc, $out, $err) = $self->_ccm(qw/set/);
@@ -1569,7 +1558,8 @@ sub _text_to_tempfile
 # calls $self->_ccm(@args).
 sub ccm_with_text_editor
 {
-    my ($self, $text, @args) = @_;
+    my $self = shift;
+    my ($text, $args) = valiedate(\@_, Str, slurpy ArrayRef);
 
     my $tempfile = $self->_text_to_tempfile($text) or return;
 
@@ -1586,7 +1576,7 @@ sub ccm_with_text_editor
 	text_editor => $^O eq 'MSWin32' ?
 	    qq[cmd /c copy /b /y "$tempfile" $self->{"%filename"}] :		#/
 	    qq[$Config{cp} '$tempfile' $self->{"%filename"}],
-	@args);
+	@$args);
     return $self->set_error($err || $out) unless $rc == 0;
     return wantarray ? ($rc, $out, $err) : 1;
 }
@@ -1759,9 +1749,9 @@ sub project_object
 sub object_other_version
 {
     my $self = shift;
-    _usage(@_, 2, 2, '$object, $other_version');
+    my ($object, $other_version) = 
+        validate(\@_, InstanceOf["VCS::CMSynergy::Object"], Str);
 
-    my ($object, $other_version) = @_;
     return $self->object($object->name, $other_version, $object->cvtype, $object->instance);
 }
 
@@ -1770,10 +1760,9 @@ sub object_other_version
 sub object_from_cvid
 {
     my $self = shift;
-    _usage(@_, 1, undef, '$cvid, @keywords');
+    my ($cvid, $keywords) = _ITEM_KEYWORDS->(@_);
 
-    my $cvid = shift;
-    return $self->_property("\@=$cvid", \@_, ROW_OBJECT);
+    return $self->_property("\@=$cvid", $keywords, ROW_OBJECT);
     # NOTE: if the cvid doesn't exist, "ccm property ..." has exit code 0, but 
     # "Warning: Object version representing type does not exist." on stderr
 }
@@ -1783,11 +1772,11 @@ sub object_from_cvid
 sub object_from_proj_ref
 {
     my $self = shift;
-    _usage(@_, 2, undef, '{ $path | \\@path_components }, $proj_spec, @keywords');
+    my ($path, $proj_spec, $keywords) =
+        validate(\@_, Str | ArrayRef[Str], Str, _KEYWORDS);
 
-    my ($path, $proj_spec) = splice @_, 0, 2;
     $path = join(VCS::CMSynergy::Client::_pathsep, @$path) if ref $path; 
-    return $self->_property("$path\@$proj_spec", \@_, ROW_OBJECT);
+    return $self->_property("$path\@$proj_spec", $keywords, ROW_OBJECT);
     # NOTE/FIXME: no error if path isn't bound? possible errors:
     #   Specified project not found in database: '$self'
     #   Object version could not be identified from reference form: '$path'

@@ -34,9 +34,14 @@ use strict;
 use base qw(VCS::CMSynergy::Object);
 
 use Carp;
-use VCS::CMSynergy::Client qw(_usage);
+use Type::Params qw( validate );
+use Types::Standard qw( Str Optional InstanceOf Maybe
+                        ArrayRef CodeRef HashRef );
 use File::Spec;
 use Cwd;
+
+use VCS::CMSynergy::Client qw(_KEYWORDS);
+
 
 =head1 WORKAREA METHODS
 
@@ -297,9 +302,8 @@ my %traverse_opts =
 sub traverse
 {
     my $self = shift;
-    _usage(@_, 1, 2, '{ \\&wanted | \\%wanted } [, $dir_object]');
-
-    my ($arg_wanted, $dir) = @_;
+    my ($arg_wanted, $dir) = 
+        validate(\@_, CodeRef | HashRef, Optional[InstanceOf["VCS::CMSynergy::Object"]]);
 
     my %wanted;
     if (ref $arg_wanted eq 'CODE')
@@ -321,15 +325,9 @@ sub traverse
 	croak(__PACKAGE__."::traverse: argument 1 (wanted hash ref): option `wanted' is mandatory")
 	    unless $wanted{wanted};
     }
-    else
-    {
-	croak(__PACKAGE__."::traverse: argument 1 (wanted) must be a CODE or HASH ref: $arg_wanted");
-    }
 
     if (defined $dir)
     {
-	croak(__PACKAGE__."::traverse: argument 2 (dir) must be a VCS::CMSynergy::Object: $dir")
-	    unless UNIVERSAL::isa($dir, "VCS::CMSynergy::Object");
 	croak(__PACKAGE__."::traverse: argument 2 (dir) must have cvtype `dir': $dir")
 	    unless $dir->is_dir;
 
@@ -588,20 +586,20 @@ to L<VCS::CMSynergy/query_object> as additional keywords.
 sub recursive_is_member_of
 {
     my $self = shift;
-    _usage(@_, 0, undef, '[{ $order_spec | undef }, @keywords]');
+    my ($order_spec, $keywords) = validate(\@_, Maybe[Str], _KEYWORDS);
+    $order_spec ||= "none";
 
-    my $order_spec = shift || "none";
-    return $self->ccm->query_object("recursive_is_member_of('$self',$order_spec)", @_);
+    return $self->ccm->query_object("recursive_is_member_of('$self',$order_spec)", @$keywords);
 }
 
 
 sub hierarchy_project_members
 {
     my $self = shift;
-    _usage(@_, 0, undef, '[{ $order_spec | undef }, @keywords]');
+    my ($order_spec, $keywords) = validate(\@_, Maybe[Str], _KEYWORDS);
+    $order_spec ||= "none";
 
-    my $order_spec = shift || "none";
-    return $self->ccm->query_object("hierarchy_project_members('$self',$order_spec)", @_);
+    return $self->ccm->query_object("hierarchy_project_members('$self',$order_spec)", @$keywords);
 }
 
 
@@ -630,13 +628,10 @@ to L<VCS::CMSynergy/query_object> as additional keywords.
 sub is_child_of
 {
     my $self = shift;
-    _usage(@_, 0, undef, '[{ $dir_object | undef }, @keywords]');
-
-    my $dir = shift;
+    my ($dir, $keywords) = 
+        validate(\@_, Maybe[InstanceOf["VCS::CMSynergy::Object"]], _KEYWORDS);
     if (defined $dir)
     {
-	croak(__PACKAGE__."::is_child_of: argument 1 ($dir) must be a VCS::CMSynergy::Object")
-	    unless UNIVERSAL::isa($dir, "VCS::CMSynergy::Object");
 	croak(__PACKAGE__."::is_child_of: argument 1 ($dir) must have cvtype `dir'")
 	    unless $dir->is_dir;
     }
@@ -644,7 +639,8 @@ sub is_child_of
     {
 	$dir = $self;
     }
-    return $self->ccm->query_object("is_child_of('$dir','$self')", @_);
+
+    return $self->ccm->query_object("is_child_of('$dir','$self')", @$keywords);
 }
 
 
@@ -663,10 +659,9 @@ is exactly the same as
 sub object_from_proj_ref
 {
     my $self = shift;
-    _usage(@_, 1, undef, '{ $path | \\@path_components }, @keywords');
+    my ($path, $keywords) = validate(\@_, Str | ArrayRef[Str], _KEYWORDS);
 
-    my $path = shift;
-    return $self->ccm->object_from_proj_ref($path, $self, @_);
+    return $self->ccm->object_from_proj_ref($path, $self, @$keywords);
 }
 
 
@@ -782,14 +777,13 @@ sub show_reconfigure_properties
 {
     my $self = shift;
     my $opts = @_ && ref $_[-1] eq "HASH" ? pop : {};
-    _usage(@_, 1, undef, '$what [, @keywords] [, \%options]');
+    my ($what, $keywords) = validate(\@_, Str, _KEYWORDS);
 
-    my $what = shift;
     croak(__PACKAGE__."::show_reconfigure_properties:".
 	  " argument 1 (what) must be one of tasks|folders|tasks_and_folders|all_tasks|objects")
 	unless $what =~ /^(tasks|folders|tasks_and_folders|all_tasks|objects)$/;
 
-    my $want = VCS::CMSynergy::_want(1, \@_);
+    my $want = VCS::CMSynergy::_want(1, $keywords);
     my $format = $VCS::CMSynergy::RS . join($VCS::CMSynergy::FS, values %$want) . $VCS::CMSynergy::FS;
 
     my @cmd = qw/reconfigure_properties -u -ns/;

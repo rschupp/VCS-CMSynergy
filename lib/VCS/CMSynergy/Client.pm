@@ -36,19 +36,26 @@ use File::Spec;
 use IPC::Run3;
 use Log::Log4perl qw(:easy);
 
+use Exporter();
+our @ISA = qw(Exporter);
+our @EXPORT_OK = qw(
+    is_win32 _pathsep $Error $Ccm_command _exitstatus _error 
+    _KEYWORDS _FILE_SPEC _FILE_SPEC_KEYWORDS _ITEM_KEYWORDS);
+
 use constant is_win32 => $^O eq 'MSWin32' || $^O eq 'cygwin';
 use constant _pathsep => is_win32 ? "\\" : "/" ;
+
+use Type::Params qw( compile );
+use Types::Standard qw( slurpy Str ArrayRef InstanceOf);
+use constant _KEYWORDS           => slurpy ArrayRef[Str];
+use constant _FILE_SPEC          => Str | InstanceOf["VCS::CMSynergy::Object"];
+use constant _FILE_SPEC_KEYWORDS => compile(_FILE_SPEC, _KEYWORDS);
+use constant _ITEM_KEYWORDS      => compile(Str, _KEYWORDS);
+
 
 # FIXME edit CMSynergy.pod
 
 our ($Error, $Ccm_command, $Default);
-
-use Exporter();
-our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(
-    is_win32 _pathsep $Error $Ccm_command
-    _exitstatus _error _usage);
-sub _usage(\@$$$);
 
 # not a method
 # emulates the old way to enable tracing by setting the environment
@@ -140,8 +147,6 @@ sub new
 
 sub _memoize_method 
 {
-    _usage(@_, 3, 3, '$class, $method, $code');
-
     my ($class, $method, $code) = @_; 
     croak(__PACKAGE__.qq[::_memoize_method: "$code" must be a CODE ref]) 
 	unless ref $code eq "CODE";
@@ -356,21 +361,6 @@ sub _exitstatus	{ return $_[0] << 8; }
 
 # helper: return a triple ($rc, $out, $err)
 sub _error	{ return (_exitstatus(255), "", $_[0]) }
-
-# helper: check usage
-# check min ($minargs) and max ($maxargs) number of arguments;
-# use $maxargs=undef for unlimited arguments;
-# for methods, you should shift $self off @_ before calling _usage();
-# croak with message constructed from $usage
-sub _usage(\@$$$)
-{
-    my ($args, $minargs, $maxargs, $usage) = @_;
-    return 1 if $minargs <= @$args && (!defined $maxargs || @$args <= $maxargs);
-    my $fullname = (caller(1))[3];
-    (my $method = $fullname) =~ s/^.*:://;
-    croak("$fullname: called with invalid number of arguments" .
-          "\n  should be $usage");
-}
 
 sub error
 {

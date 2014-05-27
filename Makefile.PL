@@ -73,18 +73,23 @@ version_from	'lib/VCS/CMSynergy.pm';
 # --- Dependencies
 
 requires	'perl'			=> '5.006';
+requires	'Class::Accessor::Fast' => 0;
+requires	'Digest::MD5'		=> 0;
 requires	'File::Spec'		=> 0;
+requires	'Filesys::CygwinPaths'	=> 0 if $^O eq 'cygwin';
 requires	'File::Temp'		=> 0;
 requires	'IPC::Run3'		=> '0.030';
-requires	'Time::HiRes'		=> 0;
-requires	'Class::Accessor::Fast' => 0;
 requires	'List::Util'		=> '1.09';
-requires	'Scalar::Util'		=> '1.09';
 requires        'Log::Log4perl'         => 0;
-requires	'Filesys::CygwinPaths'	=> 0 if $^O eq 'cygwin';
+requires	'Pod::Usage'		=> 0;
+requires	'Scalar::Util'		=> '1.09';
+requires	'Time::HiRes'		=> 0;
+requires	'Type::Params'		=> 0;
+requires	'Types::Standard'	=> 0;
 
 test_requires	'Test::More'		=> 0;
 test_requires	'Test::Deep'		=> '0.103';
+
 include		'Test::Deep';
 include		'Test::Deep::*';
 include		'Test::Deep::*::*';

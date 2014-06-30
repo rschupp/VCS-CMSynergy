@@ -777,7 +777,7 @@ sub history_arrayref
     my $self = shift;
     my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
 
-    return _flatten_rows($self->_history($file_spec, $keywords, ROW_HASH), $keywords);
+    return _flatten_rows($self->_history($file_spec, $keywords), $keywords);
 }
 
 
@@ -786,24 +786,17 @@ sub history_hashref
     my $self = shift;
     my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
 
-    return $self->_history($file_spec, $keywords, ROW_HASH);
+    return $self->_history($file_spec, $keywords);
 }
 
 
 # helper: history with correct handling of multi-line attributes
-
-# NOTE: similar to _query() except when $row_type == ROW_OBJECT; 
-# in this case the result has the same general format as 
-# for $row_type ROW_HASH except that:
-# - only keys "object", "predecessors" and "successors" are present
-#   (the latter two only if present in @$keywords)
-# - all other keywords are used to prime the corresponding
-#   object's attribute cache (cf. query_object)
+# NOTE: similar to _query(..., ROW_HASH) 
 sub _history
 {
-    my ($self, $file_spec, $keywords, $row_type) = @_;
+    my ($self, $file_spec, $keywords) = @_;
 
-    my $want = _want($row_type, $keywords);
+    my $want = _want(ROW_HASH, $keywords);
     my $want_predecessors = delete $want->{predecessors};
     my $want_successors = delete $want->{successors};
 
@@ -826,8 +819,14 @@ sub _history
         # a "ccm query" result
 	my $history = pop @cols;
 
-	my $row = $self->_query_result($want, \@cols, $row_type);
-        $row = { object => $row } if $row_type == ROW_OBJECT;
+	my $row = $self->_query_result($want, \@cols, ROW_HASH);
+
+        if ($want->{object})
+        {
+            my $obj = delete $row->{object};    # temporarily strip "object" slot...
+            $obj->_update_acache($row);         # ... update $obj's cached attributes
+            $row->{object} = $obj;              # ... and put "object" slot back
+        }
 
 	if ($want_predecessors || $want_successors)
 	{
@@ -853,6 +852,143 @@ sub _history
 	push @result, $row;
     }
     return \@result;
+}
+
+
+=for comment
+
+Consider the following history
+
+  ...  ->  foo,3  ->  foo,4  ->  foo,5  ->  bar,6  ->  bar,7  ->  ...
+
+The "history" command reports only a partial view of that.
+E.g. invoked as "ccm history foo,N:ascii:1" for some N it shows only the chain
+of versions of "foo" plus "bar,6". predecessor/successor lists are 
+artificially cut off at the "rename points",
+so neither "ccm history foo,1:ascii:1" nor "ccm history bar,6:ascii:1" has the
+complete predecessor/successor information. 
+
+In order to produce a complete history it is _not_ enough to simply
+"glue" together the graphs for foo,N and bar,N. We must form the
+"union" of predecessor/successor lists for the overlapping elements.
+
+  ccm history foo,5:ascii:1
+
+  foo,5:ascii:1
+  Predecessors:
+          foo,4:ascii:1
+  Successors:
+          bar,6:ascii:1
+  ***************************************************************
+  bar,6:ascii:1
+  Predecessors:
+          foo,5:ascii:1
+  Successors:
+  ***************************************************************
+
+  ccm history bar,6:ascii:1
+
+  foo,5:ascii:1
+  Predecessors:
+  Successors:
+          bar,6:ascii:1
+  ***************************************************************
+  bar,6:ascii:1
+  Predecessors:
+          foo,5:ascii:1
+  Successors:
+          bar,7:ascii:1
+  ***************************************************************
+
+=cut
+
+# FIXME pod
+sub full_history_arrayref
+{
+    my $self = shift;
+    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
+
+    return _flatten_rows($self->_full_history($file_spec, $keywords), $keywords);
+}
+
+# FIXME pod
+sub full_history_hashref
+{
+    my $self = shift;
+    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
+
+    return $self->_full_history($file_spec, $keywords);
+}
+
+sub _full_history
+{
+    my ($self, $file_spec, $keywords, $row_type) = @_;
+
+    # convert $file_spec into a VCS::CMSynergy::Object if it's not already one
+    $file_spec = $self->property(object => $file_spec) or return
+        unless ref $file_spec;
+
+    # augment $keywords with ones needed by the algorithm below
+    my @kw = (@$keywords, qw( object predecessors successors ));
+
+    # keep track of all objects encountered in a hash indexed by objectname;
+    # value is a hash with keys @kw and a count (_seen) how many times 
+    # we've encountered this particular object
+    my %history;
+
+    # keep track of "direct" lineage encountered so far
+    my %nit_seen;      
+
+    my @todo = ($file_spec);
+    while (@todo)
+    {
+        my $obj = pop @todo;
+        $nit_seen{$obj->_nit} = 1;
+
+        foreach my $row (@{ $self->_history($obj, \@kw) })
+        {
+            $obj = $row->{object};
+            push @todo, $obj unless $nit_seen{$obj->_nit};
+
+            if (my $h = $history{$obj})
+            {
+                # we've encountered $row->{object} before: append predecessor
+                # and successor lists of $row to $h ($row and $h should
+                # be identical in all other fields); don't worry about
+                # duplicates in these list, we'll deal with them later
+                push @{ $h->{$_} }, @{ $row->{$_} }
+                    foreach qw( predecessors successors );
+            }
+            else
+            {
+                $history{$obj} = $row;
+            }
+            $history{$obj}->{_seen}++;
+        }
+    }
+
+    my @rows = values %history;
+    foreach my $h (@rows)
+    {
+        if (delete $h->{_seen} > 1)
+        {
+            # make predecessor and successor lists unique
+            $h->{$_} = _uniq_objects($h->{$_})
+                foreach qw( predecessors successors );
+        }
+    }
+    return \@rows;
+}
+
+# not a method
+# returns a new list of objects with duplicates removed 
+# (takes and return an array ref)
+sub _uniq_objects
+{
+    my ($list) = @_;
+    my %uniq;
+    $uniq{$_} = $_ foreach @$list;       # ye olde trick: stringified ref => ref
+    return [ values %uniq ];
 }
 
 

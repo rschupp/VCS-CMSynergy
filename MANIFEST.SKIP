@@ -57,3 +57,4 @@
 ^inc/Scalar/Util.pm$
 ^t/zz
 ^TODO\.
+^packfiles/

@@ -86,17 +86,16 @@ my %objects =
     ok(chdir($wa_path), q[chdir to workarea]);
     my $cleanup_chdir = end { chdir($pwd); };
 
-    # set Object_format so that we may predict the first element
-    # of an element of @$finduse
-    my $old_format = $ccm->set(Object_format => "%objectname");
     my $finduse = $ccm->finduse(keys %objects);
-    $ccm->set(Object_format => $old_format);
     isa_ok($result, "ARRAY", qq[finduse return value]);
 
     foreach my $name (keys %objects)
     {
 	my ($info, $uses) = @{ shift @$finduse };
-	is($info, $name, qq[finduse elem[0] for $name]);
+        # $info format is
+	# "%displayname %status %owner %type %project %instance %task"
+        my @i = split(' ', $info);
+	is("$i[0]:$i[3]:$i[5]", $name, qq[finduse elem[0] for $name]);
 	isa_ok($uses, "HASH", qq[finduse elem[1] for $name]);
 
 	my $path = $uses->{$test_proj};

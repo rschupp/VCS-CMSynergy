@@ -11,10 +11,6 @@ use Config;
 use File::Spec;
 use IPC::Run3;
 
-# when using web mode there's a lag between "ccm stop" exiting and
-# the session disappearing from "ccm ps"
-sub snooze { sleep(5) if $::test_session{server}; }
-
 # repeat sanity check from Makefile.PL
 my $ccm_exe = File::Spec->catfile($ENV{CCM_HOME}, "bin", "ccm$Config{_exe}");
 ok(-x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe), q[sanity check (executable $CCM_HOME/bin/ccm)]);
@@ -25,6 +21,10 @@ my $client = VCS::CMSynergy::Client->new(
     PrintError	=> $::test_session{PrintError},
     RaiseError	=> $::test_session{RaiseError},
 );
+
+# when using web mode there's a lag between "ccm stop" exiting and
+# the session disappearing from "ccm ps"
+sub snooze { sleep(5) if $client->version >= 7.2 || $::test_session{server}; }
 
 isa_ok($client, "VCS::CMSynergy::Client");
 is($client->ccm_home, $ENV{CCM_HOME}, q[CCM_HOMEs match]);

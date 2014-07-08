@@ -155,7 +155,7 @@ of C<host> will start your Synergy session in web mode.
 
 Note that support for web mode is incomplete and only lightly tested.
 
-=item C<ini_file> (string)
+=item C<ini_file> (string) I<classic mode only>
 
 CM Synergy ini file to use. 
 
@@ -169,6 +169,8 @@ Or it might fail when invoked by the same user at a later time because of
 changes to her ini file (e.g. because of another session between
 invocations of the script). So if you really want to rely on an ini file,
 you have to supply it explicitly.
+
+This option is only valid when using the classic mode to connect to Synergy.
 
 =item C<CCM_ADDR> (string)
 

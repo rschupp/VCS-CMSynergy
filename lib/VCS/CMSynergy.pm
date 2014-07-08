@@ -117,6 +117,14 @@ sub _start
     $self->{env} = { %{ $client->{env} } } if $client->{env};
     bless $self, $class;
 
+    # FIXME (Synergy < 7.2) how can I determine that current session is 
+    # in web mode if it's an "inherited" session?
+    $self->{web_mode} = $self->version >= 7.2 || defined $args{server};
+
+    # ini_file is only valid for classic mode
+    return $self->set_error("ini_file is invalid when using web mode")
+        if $self->{web_mode} && defined $args{ini_file};
+
     # Cygwin: some start options denote path names that are 
     # passed down to Synergy; convert them to native Windows form
     if ($^O eq 'cygwin')
@@ -129,9 +137,6 @@ sub _start
 
     my @start = qw/start -m -q -nogui/;
 
-    # FIXME 7.1 web mode:
-    # - in effect when "-s" i.e. $args{server} is specified
-    # - "-f" not allowed
     while (my ($arg, $value) = each %args)
     {
 	croak(__PACKAGE__.qq[::_start: unrecognized argument "$arg"]) 
@@ -151,7 +156,7 @@ sub _start
                      $self->{KeepSession} ? "keep" : "not keep",
                      $self->ccm_addr);
 
-	if (is_win32)
+	if (is_win32 && !$self->{web_mode})
 	{
 	    # figure out user of session specified by CCM_ADDR
 	    $self->{user} = 
@@ -178,7 +183,7 @@ sub _start
 	return $self->set_error("don't know how to connect to CM Synergy: neither database nor CCM_ADDR specified")
 	    unless $args{database};
 
-	unless ($self->{server})        # NOTE: "-f" is illegal in web mode
+	unless ($self->{web_mode})
 	{
             unless (defined $self->{ini_file})
             {
@@ -234,14 +239,12 @@ sub _start
     # or the user's personal ccm.ini its "User" setting will be used
     # and may trigger the "security violation".
 
-    $self->{env}->{CCM_INI_FILE} = $self->{ini_file} if is_win32;
+    $self->{env}->{CCM_INI_FILE} = $self->{ini_file}
+	if is_win32 && !$self->{web_mode};
 
     # remember the process that created $self (so we can check in DESTROY)
     $self->{pid} = $$;
 
-    # FIXME how can I determine that current session is 
-    # in web mode if it's an "inherited" session?
-    $self->{web_mode} = 1 if $self->{server};
 
     # web mode renames the %filename placeholder (cf. "ccm set text_editor")
     $self->{"%filename"} = $self->{web_mode} ? "%file" : "%filename";

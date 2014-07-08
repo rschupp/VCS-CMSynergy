@@ -26,6 +26,8 @@ diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
 # (full version 6.4.nnnn with nnnn >= 3410)
 my $micro_version = (split(/\./, ($ccm->version)[0]))[2];
 
+my $web_mode = $ccm->version >= 7.2 || $::test_session{server};
+
 my $from_exp = [
     {
 	to => {
@@ -181,217 +183,222 @@ verbose('to_name_got', $to_name_got);
 cmp_bag($to_name_got, [ grep { $_->{name} eq "successor" } @$to_exp ],
     "SUCCESSOR relations TO project");
 
+SKIP:
+{
+    skip q[web mode: "ccm relate -show" needs at least one of "-from" or "-to"], 1
+        if $web_mode;
 
-my $name_exp = [
-    {
-      to => vco('task35-1:task:probtrac'),
-      from => vco('toolkit-1.0:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task36-1:task:probtrac'),
-      from => vco('toolkit-1.0:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task37-1:task:probtrac'),
-      from => vco('toolkit-int:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task38-1:task:probtrac'),
-      from => vco('toolkit-int:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task37-1:task:probtrac'),
-      from => vco('editor-int:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task38-1:task:probtrac'),
-      from => vco('editor-int:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task35-1:task:probtrac'),
-      from => vco('editor-1.0:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task36-1:task:probtrac'),
-      from => vco('editor-1.0:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task35-1:task:probtrac'),
-      from => vco('guilib-1.0:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task36-1:task:probtrac'),
-      from => vco('guilib-1.0:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task35-1:task:probtrac'),
-      from => vco('calculator-1.0:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task36-1:task:probtrac'),
-      from => vco('calculator-1.0:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task37-1:task:probtrac'),
-      from => vco('guilib-int:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task38-1:task:probtrac'),
-      from => vco('guilib-int:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task37-1:task:probtrac'),
-      from => vco('calculator-int:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task38-1:task:probtrac'),
-      from => vco('calculator-int:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task39-1:task:probtrac'),
-      from => vco('toolkit-darcy:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task40-1:task:probtrac'),
-      from => vco('toolkit-darcy:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task39-1:task:probtrac'),
-      from => vco('editor-darcy:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task33-1:task:probtrac'),
-      from => vco('sandbox-1.0:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task34-1:task:probtrac'),
-      from => vco('sandbox-1.0:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task40-1:task:probtrac'),
-      from => vco('editor-darcy:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task39-1:task:probtrac'),
-      from => vco('guilib-darcy:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task40-1:task:probtrac'),
-      from => vco('guilib-darcy:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task39-1:task:probtrac'),
-      from => vco('calculator-darcy:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task40-1:task:probtrac'),
-      from => vco('calculator-darcy:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task37-1:task:probtrac'),
-      from => vco('calculator-int_20021125:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task38-1:task:probtrac'),
-      from => vco('calculator-int_20021125:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task37-1:task:probtrac'),
-      from => vco('editor-int_20021125:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task38-1:task:probtrac'),
-      from => vco('editor-int_20021125:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task37-1:task:probtrac'),
-      from => vco('guilib-int_20021125:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task38-1:task:probtrac'),
-      from => vco('guilib-int_20021125:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task37-1:task:probtrac'),
-      from => vco('toolkit-int_20021125:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    },
-    {
-      to => vco('task38-1:task:probtrac'),
-      from => vco('toolkit-int_20021125:project:1'),
-      create_time => ignore(),
-      name => 'task_in_rp',
-    }
-];
+    my $name_exp = [
+        {
+          to => vco('task35-1:task:probtrac'),
+          from => vco('toolkit-1.0:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task36-1:task:probtrac'),
+          from => vco('toolkit-1.0:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task37-1:task:probtrac'),
+          from => vco('toolkit-int:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task38-1:task:probtrac'),
+          from => vco('toolkit-int:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task37-1:task:probtrac'),
+          from => vco('editor-int:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task38-1:task:probtrac'),
+          from => vco('editor-int:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task35-1:task:probtrac'),
+          from => vco('editor-1.0:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task36-1:task:probtrac'),
+          from => vco('editor-1.0:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task35-1:task:probtrac'),
+          from => vco('guilib-1.0:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task36-1:task:probtrac'),
+          from => vco('guilib-1.0:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task35-1:task:probtrac'),
+          from => vco('calculator-1.0:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task36-1:task:probtrac'),
+          from => vco('calculator-1.0:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task37-1:task:probtrac'),
+          from => vco('guilib-int:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task38-1:task:probtrac'),
+          from => vco('guilib-int:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task37-1:task:probtrac'),
+          from => vco('calculator-int:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task38-1:task:probtrac'),
+          from => vco('calculator-int:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task39-1:task:probtrac'),
+          from => vco('toolkit-darcy:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task40-1:task:probtrac'),
+          from => vco('toolkit-darcy:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task39-1:task:probtrac'),
+          from => vco('editor-darcy:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task33-1:task:probtrac'),
+          from => vco('sandbox-1.0:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task34-1:task:probtrac'),
+          from => vco('sandbox-1.0:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task40-1:task:probtrac'),
+          from => vco('editor-darcy:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task39-1:task:probtrac'),
+          from => vco('guilib-darcy:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task40-1:task:probtrac'),
+          from => vco('guilib-darcy:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task39-1:task:probtrac'),
+          from => vco('calculator-darcy:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task40-1:task:probtrac'),
+          from => vco('calculator-darcy:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task37-1:task:probtrac'),
+          from => vco('calculator-int_20021125:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task38-1:task:probtrac'),
+          from => vco('calculator-int_20021125:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task37-1:task:probtrac'),
+          from => vco('editor-int_20021125:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task38-1:task:probtrac'),
+          from => vco('editor-int_20021125:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task37-1:task:probtrac'),
+          from => vco('guilib-int_20021125:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task38-1:task:probtrac'),
+          from => vco('guilib-int_20021125:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task37-1:task:probtrac'),
+          from => vco('toolkit-int_20021125:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        },
+        {
+          to => vco('task38-1:task:probtrac'),
+          from => vco('toolkit-int_20021125:project:1'),
+          create_time => ignore(),
+          name => 'task_in_rp',
+        }
+    ];
 
-my $name_got = $ccm->relations_object(name => "task_in_rp");
-verbose('name_got', $name_got);
-cmp_bag($name_got, $name_exp, "all TASK_IN_RP relations");
+    my $name_got = $ccm->relations_object(name => "task_in_rp");
+    verbose('name_got', $name_got);
+    cmp_bag($name_got, $name_exp, "all TASK_IN_RP relations");
+}
 
 my $frobozz = eval { $ccm->relations_hashref(to => "frobozz-42:csrc:1"); };
 ok($@, "non-existing TO object throws exception");

@@ -273,7 +273,7 @@ sub _start
 	    qr/^(.*?)(?:\Q$self->{delimiter}\E|:)(.*?):(.*?):(.*?)$/;
 					# -> (name, version, cvtype, instance)
 	$self->{finduse_rx} = 
-	    qr/^\t(.*?)\Q$self->{delimiter}\E.*?\@(.*?)$/;
+	    qr/^(.*?)\Q$self->{delimiter}\E.*?\@(.*?)$/;
     					# -> (path, project)
     }
 
@@ -510,7 +510,8 @@ sub _query
 	    {
 		foreach (split(/\n/, $fu_lines))
 		{
-		    next if /^\s*$/;
+                    s/^\s*//;
+		    next if /^$/;
 		    my ($path, $project) = /$self->{finduse_rx}/
 			or return $self->set_error(
 			    qq[unrecognizable line returned from "finduse -query": "$_"]);
@@ -1038,9 +1039,8 @@ sub finduse
 	}
 
 	# a usage line is matched by finduse_rx
-	if (/$self->{finduse_rx}/)
+	if (my ($path, $project) = /$self->{finduse_rx}/)
 	{
-	    my ($path, $project) = ($1, $2);
 	    $uses->{$self->_projspec2objectname($project)} = $path;
 	    next;
 	}

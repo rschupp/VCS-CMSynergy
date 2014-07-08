@@ -1219,6 +1219,7 @@ sub project_tree
 	@$projects == 1 ? $tree{$path} : $tree{$path}->[$idx] ||= $_;
     };
 
+    $idx = 0;
     foreach my $proj (@$projects)
     {
 	$proj = $self->project_object($proj) unless ref $proj;

@@ -26,8 +26,6 @@ diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
 # (full version 6.4.nnnn with nnnn >= 3410)
 my $micro_version = (split(/\./, ($ccm->version)[0]))[2];
 
-my $web_mode = $ccm->version >= 7.2 || $::test_session{server};
-
 my $from_exp = [
     {
 	to => {
@@ -186,7 +184,7 @@ cmp_bag($to_name_got, [ grep { $_->{name} eq "successor" } @$to_exp ],
 SKIP:
 {
     skip q[web mode: "ccm relate -show" needs at least one of "-from" or "-to"], 1
-        if $web_mode;
+        if $ccm->{web_mode};
 
     my $name_exp = [
         {

@@ -49,8 +49,9 @@ nay qq{
   "$ccm_exe version" -
   perhaps this Synergy version is too old or too new.
   ABORTED!
-} unless $ccm_version =~ m{(CM Synergy|SYNERGY/CM|Telelogic Synergy|IBM Rational Synergy)\s+Version\s+(\d+\.\d+)}i;
-print "Detected $1 version $2\n";
+} unless $ccm_version =~ m{(?:CM Synergy|SYNERGY/CM|Telelogic Synergy|IBM Rational Synergy)\s+Version\s+(\d+\.\d+)}i;
+$ccm_version = $1;
+print "Detected Synergy version $ccm_version\n";
 
 warn qq{
   Please install module Scalar::Util and make sure it implements weaken().
@@ -115,7 +116,11 @@ sub postamble
 {
     my $self = shift;
 
+    # maintainer test only
     return "" unless $Module::Install::AUTHOR;
+
+    # UseCoprocess only works in classic mode
+    return "" if $ccm_version < 7.2;
 
     # arrange for all tests to be run a second time with UseCoprocess => 1
     # (but only if we can find Expect.pm)

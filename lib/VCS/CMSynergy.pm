@@ -414,7 +414,7 @@ sub query_object
 sub query_count
 {
     my $self = shift;
-    my $query = validate(\@_, Str);
+    my ($query) = validate(\@_, Str | HashRef);
 
     my ($rc, $out, $err) = $self->_ccm(
 	qw/query -u -ns -nf -format X/, $self->_expand_query($query));

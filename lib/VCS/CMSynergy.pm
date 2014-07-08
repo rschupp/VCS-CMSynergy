@@ -448,14 +448,19 @@ sub _query
     my $want = _want($row_type, $keywords);
 
     my $want_finduse = delete $want->{finduse};
-    croak(__PACKAGE__.qq[::_query: keyword "finduse" not allowed when ROW_OBJECT wanted])
-	if $want_finduse && $row_type == ROW_OBJECT;
+    if ($want_finduse)
+    {
+        croak(__PACKAGE__.qq[::_query: keyword "finduse" not allowed when ROW_OBJECT wanted])
+            if $row_type == ROW_OBJECT;
+        croak(__PACKAGE__.qq[::_query: keyword "finduse" does not work in web mode])
+            if $self->{web_mode};
+    }
 
     my $format = $RS . join($FS, values %$want) . $FS;
 
     my ($rc, $out, $err) = $want_finduse ?
-	$self->_ccm_with_option(
-	    Object_format => $format, 
+        $self->_ccm_with_option(
+     	    Object_format => $format, 
 	    qw/finduse -query/ => $query) :
 	$self->_ccm( 
 	    qw/query -u -ns -nf -format/ => $format, $query);
@@ -1016,6 +1021,8 @@ sub finduse
     my (@result, $uses);
     foreach (split(/\n/, $out))
     {
+        s/^\s*//;
+
 	# push undef for any non-existing objects 
 	if (/Object version could not be identified/)
 	{
@@ -1023,8 +1030,9 @@ sub finduse
 	    next;
 	}
 
-	# ignore the dummy "use" line printed if object is not used anywhere
-	if (/Object is not used in scope/)
+	# ignore the dummy "use" line printed if object is not used anywhere,
+        # also the dummy "Projects:" line (web mode)
+	if (/Object is not used in scope|Projects:/)
 	{
 	    next;
 	}

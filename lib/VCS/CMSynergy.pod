@@ -150,12 +150,12 @@ ESD to connect to the CM Synergy engine.
 
 =item C<server> (string)
 
-Synergy server URL (for Synergy 7.0 and aboe). Specifying this instead
+Synergy server URL (for Synergy 7.0 and above). Specifying this instead
 of C<host> will start your Synergy session in web mode.
 
 Note that support for web mode is incomplete and only lightly tested.
 
-=item C<ini_file> (string) I<classic mode only>
+=item C<ini_file> (string) (B<classic mode only>)
 
 CM Synergy ini file to use. 
 
@@ -543,7 +543,7 @@ are neither built-in nor attributes:
 The value is a C<VCS::CMSynergy::Object> representing 
 the object in the result set.
 
-=item C<finduse>
+=item C<finduse> (B<classic mode only>)
 
 The value is a reference to a hash identifying in what parts of what
 projects the object is used.  A key in the hash is the project's objectname.

@@ -586,7 +586,7 @@ to L<VCS::CMSynergy/query_object> as additional keywords.
 sub recursive_is_member_of
 {
     my $self = shift;
-    my ($order_spec, $keywords) = validate(\@_, Maybe[Str], _KEYWORDS);
+    my ($order_spec, $keywords) = @_ ? validate(\@_, Maybe[Str], _KEYWORDS) : ();
     $order_spec ||= "none";
 
     return $self->ccm->query_object("recursive_is_member_of('$self',$order_spec)", @$keywords);
@@ -596,7 +596,7 @@ sub recursive_is_member_of
 sub hierarchy_project_members
 {
     my $self = shift;
-    my ($order_spec, $keywords) = validate(\@_, Maybe[Str], _KEYWORDS);
+    my ($order_spec, $keywords) = @_ ? validate(\@_, Maybe[Str], _KEYWORDS) : ();
     $order_spec ||= "none";
 
     return $self->ccm->query_object("hierarchy_project_members('$self',$order_spec)", @$keywords);

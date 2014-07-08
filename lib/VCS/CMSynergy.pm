@@ -122,9 +122,12 @@ sub _start
     # in web mode if it's an "inherited" session?
     $self->{web_mode} = $self->version >= 7.2 || defined $args{server};
 
-    # ini_file is only valid for classic mode
-    return $self->set_error("ini_file is invalid when using web mode")
-        if $self->{web_mode} && defined $args{ini_file};
+    # ini_file and UseCoprocess are only valid for classic mode
+    foreach (qw( ini_file UseCoprocess ))
+    {
+        return $self->set_error(qq["$_" is not valid for web mode])
+            if $self->{web_mode} && $args{$_};
+    }
 
     # Cygwin: some start options denote path names that are 
     # passed down to Synergy; convert them to native Windows form

@@ -12,7 +12,7 @@ use strict;
 
 use VCS::CMSynergy::Client qw(
     is_win32 $Error $Ccm_command _exitstatus _error
-    _FILE_SPEC _KEYWORDS _FILE_SPEC_KEYWORDS _ITEM_KEYWORDS);
+    _FILE_SPEC _KEYWORDS _FILE_SPEC_KEYWORDS );
 
 our @ISA = qw(VCS::CMSynergy::Client);
 
@@ -23,10 +23,11 @@ use File::Spec;
 use File::Temp qw(tempfile);		# in Perl core v5.6.1 and later
 use Log::Log4perl qw(:easy);
 
-use Type::Params qw( validate );
+use Type::Params qw( compile validate );
 use Types::Standard qw( slurpy Optional Str InstanceOf HasMethods
     ArrayRef CodeRef GlobRef HashRef ScalarRef FileHandle);
-use constant _PROJECT_SPEC =>  Str | InstanceOf["VCS::CMSynergy::Project"];
+use constant _PROJECT_SPEC   => Str | InstanceOf["VCS::CMSynergy::Project"];
+use constant _QUERY_KEYWORDS => compile(Str | HashRef, _KEYWORDS);
 
 use constant ROW_HASH	=> 1;
 use constant ROW_OBJECT	=> 2;
@@ -385,7 +386,7 @@ sub query
 sub query_arrayref
 {
     my $self = shift;
-    my ($query, $keywords) = _ITEM_KEYWORDS->(@_);
+    my ($query, $keywords) = _QUERY_KEYWORDS->(@_);
 
     return _flatten_rows($self->_query($query, $keywords, ROW_HASH), $keywords);
 }
@@ -394,7 +395,7 @@ sub query_arrayref
 sub query_hashref
 {
     my $self = shift;
-    my ($query, $keywords) = _ITEM_KEYWORDS->(@_);
+    my ($query, $keywords) = _QUERY_KEYWORDS->(@_);
 
     return $self->_query($query, $keywords, ROW_HASH);
 }
@@ -403,7 +404,7 @@ sub query_hashref
 sub query_object
 {
     my $self = shift;
-    my ($query, $keywords) = _ITEM_KEYWORDS->(@_);
+    my ($query, $keywords) = _QUERY_KEYWORDS->(@_);
 
     return $self->_query($query, $keywords, ROW_OBJECT);
 }
@@ -1899,7 +1900,7 @@ sub object_other_version
 sub object_from_cvid
 {
     my $self = shift;
-    my ($cvid, $keywords) = _ITEM_KEYWORDS->(@_);
+    my ($cvid, $keywords) = validate(\@_, Str, _KEYWORDS);
 
     return $self->_property("\@=$cvid", $keywords, ROW_OBJECT);
     # NOTE: if the cvid doesn't exist, "ccm property ..." has exit code 0, but 

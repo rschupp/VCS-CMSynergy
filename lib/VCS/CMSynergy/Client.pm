@@ -40,7 +40,7 @@ use Exporter();
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
     is_win32 _pathsep $Error $Ccm_command _exitstatus _error 
-    _KEYWORDS _FILE_SPEC _FILE_SPEC_KEYWORDS _ITEM_KEYWORDS);
+    _KEYWORDS _FILE_SPEC _FILE_SPEC_KEYWORDS );
 
 use constant is_win32 => $^O eq 'MSWin32' || $^O eq 'cygwin';
 use constant _pathsep => is_win32 ? "\\" : "/" ;
@@ -50,7 +50,6 @@ use Types::Standard qw( slurpy Str ArrayRef InstanceOf);
 use constant _KEYWORDS           => slurpy ArrayRef[Str];
 use constant _FILE_SPEC          => Str | InstanceOf["VCS::CMSynergy::Object"];
 use constant _FILE_SPEC_KEYWORDS => compile(_FILE_SPEC, _KEYWORDS);
-use constant _ITEM_KEYWORDS      => compile(Str, _KEYWORDS);
 
 
 # FIXME edit CMSynergy.pod

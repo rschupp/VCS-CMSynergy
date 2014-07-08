@@ -1420,7 +1420,7 @@ sub delete_attribute
 sub copy_attribute
 {
     my $self = shift;
-    XXX
+     # FIXME convert to use validate()
     _usage(@_, 3, undef, '{ $name | \\@names }, [ \\@flags, ] $from_file_spec, $to_file_spec...');
 
     my ($name, @file_specs) = @_;
@@ -1925,9 +1925,10 @@ sub object_from_proj_ref
 {
     my $self = shift;
     my ($path, $proj_spec, $keywords) =
-        validate(\@_, Str | ArrayRef[Str], Str, _KEYWORDS);
+        validate(\@_, Str | ArrayRef[Str], _PROJECT_SPEC, _KEYWORDS);
 
     $path = join(VCS::CMSynergy::Client::_pathsep, @$path) if ref $path; 
+    $proj_spec = $proj_spec->displayname if ref $proj_spec;
     return $self->_property("$path\@$proj_spec", $keywords, ROW_OBJECT);
     # NOTE/FIXME: no error if path isn't bound? possible errors:
     #   Specified project not found in database: '$self'

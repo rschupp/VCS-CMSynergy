@@ -787,7 +787,7 @@ you should look at the L<history_arrayref|/"history_arrayref, history_hashref">
 and L<history_hashref|/"history_arrayref, history_hashref">
 methods that return this information in structured form. 
 
-=head2 history_arrayref, history_hashref
+=head2 history_arrayref, history_hashref B<(classic mode only)>
 
   $ary_ref = $ccm->history_arrayref($file_spec, @keywords);
   $ary_ref = $ccm->history_hashref($file_spec, @keywords);

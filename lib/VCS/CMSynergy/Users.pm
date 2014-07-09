@@ -38,6 +38,10 @@ NOTE: This interface is subject to change.
 
 package VCS::CMSynergy;
 
+use strict;
+use warnings;
+use File::Temp qw(tempfile);
+
 =head2 users
 
   $hash_ref = $ccm->users;
@@ -100,6 +104,8 @@ sub users
     # NOTE: For getting the list of users we use 
     # "ccm attr -show users base-1:model:base" because every role can do that -
     # whereas "ccm users" requires the ccm_admin role.
+    # Apparently this is not necessary for Synergy >= 7.2 (web mode): 
+    # anybody can run "ccm users -export FILE".
     if (@_ == 0)
     {
 	my $text = $self->get_attribute(users => $self->base_model);
@@ -110,6 +116,7 @@ sub users
 
 	foreach (split(/\n/, $text))
 	{
+            next if /^#/;
 	    my ($user, $roles) = /^ \s* user \s+ (\S+) \s* = \s* (.*) ;/x;
 	    next unless defined $user;
 	    $users->{$user} = [ split(" ", $roles) ];
@@ -131,11 +138,23 @@ sub users
 	    unless @$roles;
 
 	# remove duplicates
-	my %dup;
-	$text .= "user $user = " . join(" ", grep { !$dup{$_}++ } @$roles) . ";\n";
+	my %seen;
+	$text .= "user $user = " . join(" ", grep { !$seen{$_}++ } @$roles) . ";\n";
     }
 
-    my ($rc, $out, $err) = $self->ccm_with_text_editor($text, qw(users));
+    my ($rc, $out, $err);
+    if ($self->version >= 7.2)          # web mode
+    {
+        my ($fh, $file) = tempfile();
+        print $fh $text;
+        close $fh;
+
+        ($rc, $out, $err) = $self->ccm(qw/users -import/, $file);
+    }
+    else
+    {
+        ($rc, $out, $err) = $self->ccm_with_text_editor($text, qw(users));
+    }
     return $self->set_error($err || $out) unless $rc == 0;
     return $users;
 }

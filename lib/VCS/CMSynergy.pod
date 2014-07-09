@@ -1004,7 +1004,7 @@ The value is the time the relation was created.
 
 =back
 
-If there a no hits, a reference to an empty array is returned.  
+If there are no hits, a reference to an empty array is returned.  
 
 If there was an error, C<undef> is returned.
 

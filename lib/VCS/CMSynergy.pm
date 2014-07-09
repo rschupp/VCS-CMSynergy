@@ -809,6 +809,9 @@ sub _history
 {
     my ($self, $file_spec, $keywords) = @_;
 
+    croak(__PACKAGE__."::history_{arrayref,hashref} are not available in web mode")
+        if $self->{web_mode};
+
     my $want = _want(ROW_HASH, $keywords);
     my $want_predecessors = delete $want->{predecessors};
     my $want_successors = delete $want->{successors};
@@ -936,6 +939,9 @@ sub full_history_hashref
 sub _full_history
 {
     my ($self, $file_spec, $keywords, $row_type) = @_;
+
+    croak(__PACKAGE__."::full_history_{arrayref,hashref} are not available in web mode")
+        if $self->{web_mode};
 
     # convert $file_spec into a VCS::CMSynergy::Object if it's not already one
     $file_spec = $self->property(object => $file_spec) or return

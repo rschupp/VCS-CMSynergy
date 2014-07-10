@@ -183,7 +183,7 @@ sub ccm						# class/instance method
 
     return wantarray ? ($rc, $out, $err) : 1 if $rc == 0;
     return $this->set_error($err || $out, undef, 0, $rc, $out, $err);
-    # NOTE: most failing ccm commands issue there error messages on stdout!
+    # NOTE: most failing ccm commands issue their error messages on stdout!
 }
 
 

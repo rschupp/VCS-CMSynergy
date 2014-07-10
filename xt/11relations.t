@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 11;
+use Test::More tests => 13;
 use t::util;
 use strict;
 
@@ -115,15 +115,32 @@ if ($ccm->version > 6.4)				# 6.5 and higher
     },
 }
 
-my $from_got = $ccm->relations_hashref(
-    from		=> "calculator-int:project:1",
-    to_attributes	=> [ qw/ objectname status_log task_number / ]);
-verbose('from_got', $from_got);
+my $from_rel_exp =
+    [ map { [ vco($_->{from}), 
+              $_->{name}, 
+              vco($_->{to}{objectname}), 
+              ignore() ] }
+          @$from_exp ];
 
-cmp_bag($from_got, $from_exp, "any relations FROM project");
-cmp_deeply($from_got, array_each(
-    superhashof({ from => shallow($from_got->[0]->{from}) })), 
-    "FROM values are the same hash");
+my $from_rel_got = $ccm->relations_arrayref(from => "calculator-int:project:1");
+verbose('from_rel_got', $from_rel_got);
+cmp_bag($from_rel_got, $from_rel_exp, "any relations FROM project");
+
+SKIP:
+{
+    skip "relations_hashref is not available in web mode", 2
+        if $ccm->{web_mode};
+
+    my $from_got = $ccm->relations_hashref(
+        from		=> "calculator-int:project:1",
+        to_attributes	=> [ qw/ objectname status_log task_number / ]);
+    verbose('from_got', $from_got);
+
+    cmp_bag($from_got, $from_exp, "any relations_hashref FROM project");
+    cmp_deeply($from_got, array_each(
+        superhashof({ from => shallow($from_got->[0]->{from}) })), 
+        "FROM values are the same hash");
+}
 
 
 my $to_exp = [
@@ -161,30 +178,42 @@ push @$to_exp,
     } 
     if $ccm->version == 6.4 && $micro_version < 3410;	# 6.4 before SP1
 
-my $to_got = $ccm->relations_hashref(
-    to			=> "calculator-int:project:1",
-    to_attributes	=> [ qw/ objectname / ],
-    from_attributes	=> [ qw/ objectname status_log task_number / ]);
-verbose('to_got', $to_got);
-cmp_bag($to_got, $to_exp, "any relations TO project");
-cmp_deeply($to_got, array_each(
-    superhashof({ to => shallow($to_got->[0]->{to}) })), 
-    "TO values are the same hash");
+my $to_rel_exp =
+    [ map { [ vco($_->{from}{objectname}), 
+              $_->{name}, 
+              vco($_->{to}{objectname}), 
+              ignore() ] }
+          @$to_exp ];
 
-
-my $to_name_got = $ccm->relations_hashref(
-    to			=> "calculator-int:project:1",
-    name		=> "successor",
-    to_attributes	=> [ qw/ objectname / ],
-    from_attributes	=> [ qw/ objectname status_log task_number / ]);
-verbose('to_name_got', $to_name_got);
-cmp_bag($to_name_got, [ grep { $_->{name} eq "successor" } @$to_exp ],
-    "SUCCESSOR relations TO project");
+my $to_rel_got = $ccm->relations_arrayref(to => "calculator-int:project:1");
+verbose('to_rel_got', $to_rel_got);
+cmp_bag($to_rel_got, $to_rel_exp, "any relations FROM project");
 
 SKIP:
 {
-    skip q[web mode: "ccm relate -show" needs at least one of "-from" or "-to"], 1
+    skip "relations_{hashref,object} is not available in web mode", 4
         if $ccm->{web_mode};
+
+    my $to_got = $ccm->relations_hashref(
+        to		=> "calculator-int:project:1",
+        to_attributes	=> [ qw/ objectname / ],
+        from_attributes	=> [ qw/ objectname status_log task_number / ]);
+    verbose('to_got', $to_got);
+    cmp_bag($to_got, $to_exp, "any relations_hashref TO project");
+    cmp_deeply($to_got, array_each(
+        superhashof({ to => shallow($to_got->[0]->{to}) })), 
+        "TO values are the same hash");
+
+
+    my $to_name_got = $ccm->relations_hashref(
+        to			=> "calculator-int:project:1",
+        name		=> "successor",
+        to_attributes	=> [ qw/ objectname / ],
+        from_attributes	=> [ qw/ objectname status_log task_number / ]);
+    verbose('to_name_got', $to_name_got);
+    cmp_bag($to_name_got, [ grep { $_->{name} eq "successor" } @$to_exp ],
+        "SUCCESSOR relations_hashref TO project");
+
 
     my $name_exp = [
         {
@@ -398,12 +427,10 @@ SKIP:
     cmp_bag($name_got, $name_exp, "all TASK_IN_RP relations");
 }
 
-my $frobozz = eval { $ccm->relations_hashref(to => "frobozz-42:csrc:1"); };
+my $frobozz = eval { $ccm->relations_arrayref(to => "frobozz-42:csrc:1"); };
 ok($@, "non-existing TO object throws exception");
 
-my $empty_got = $ccm->relations_hashref(
-    to			=> "bufcolor.c-1:csrc:1",
-    from_attributes	=> [ qw/ objectname status_log task_number / ]);
+my $empty_got = $ccm->relations_arrayref(to => "bufcolor.c-1:csrc:1");
 verbose('empty_got', $empty_got);
 cmp_bag($empty_got, [], "empty set of TO relations");
 

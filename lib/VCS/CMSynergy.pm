@@ -25,7 +25,7 @@ use Log::Log4perl qw(:easy);
 
 use Type::Params qw( compile validate );
 use Types::Standard qw( slurpy Optional Str InstanceOf HasMethods
-    ArrayRef CodeRef GlobRef HashRef ScalarRef FileHandle);
+    ArrayRef CodeRef GlobRef HashRef ScalarRef FileHandle Dict );
 use constant _PROJECT_SPEC   => Str | InstanceOf["VCS::CMSynergy::Project"];
 use constant _QUERY_KEYWORDS => compile(Str | HashRef, _KEYWORDS);
 
@@ -1077,23 +1077,65 @@ sub findpath
 }
 
 
+use constant _FROM_TO_NAME =>
+    from => Optional[_FILE_SPEC], 
+    to   => Optional[_FILE_SPEC], 
+    name => Optional[Str];
+
+sub relations_arrayref
+{
+    my ($self, %args) = @_;
+    validate([\%args], Dict[ _FROM_TO_NAME ]);
+
+    my ($rc, $out, $err) = $self->_ccm(qw/ relate -show -nf -l /,
+	    map { defined $args{$_} ? ( "-$_" => $args{$_}) : () } qw/from to name/);
+
+    # NOTE: If there are no hits, `ccm relate' exits 
+    # with status 1 (classic mode) or 6 (web mode),
+    # but produces no output on either stdout and stderr
+    return [ ] if $rc != 0 and $out eq "" and $err eq "";
+    return $self->set_error($err || $out) unless $rc == 0;
+
+    my (@result, $from, $to);
+    foreach (split(/\n/, $out))	        	# split into lines 
+    {
+        # FIXME 
+        # Using "-format" in web mode is totally broken (as of Synergy 7.2) -
+        # any keyword only produces only "<void>". 
+        # Using no formatting option at all prints
+        #   from-objectname relation-name to-objectname timestamp
+        # but this can't be parsed reliably (e.g. what about blanks in
+        # an object's name?).
+        # In web mode, the "default long format" (option "-l") prints
+        #   (from-info) relation-name (to-info) timestamp
+        # where info is
+        #    objectname status owner
+        # which can be reasonably parsed assuming that status and owner
+        # don't contain blanks.
+        my ($from, $name, $to, $timestamp) = /^\((.*?)\) (\S+) \((.*?)\) (.*)$/;
+        ($from, $to) = map { s/ \S+ \S+$//; $self->object($_) } $from, $to;
+        push @result, [$from, $name, $to, $timestamp];
+    }
+
+    return \@result;
+}
+
+
 sub relations_hashref
 {
     my ($self, %args) = @_;
+    validate([\%args], Dict[ _FROM_TO_NAME,
+                             from_attribute => Optional[ArrayRef[Str]],
+                             to_attribute   => Optional[ArrayRef[Str]] ]);
 
     my %defaulted;
-    foreach my $arg (qw/from_attributes to_attributes/)
+    foreach (qw/from_attributes to_attributes/)
     {
-        if (defined $args{$arg}) 
-        {
-            validate([$args{$arg}], ArrayRef[Str]);
-        }
-	unless ($args{$arg})
-	{
-            # default keyword "objectname"
-	    $args{$arg} = [ qw/objectname/ ];
-	    $defaulted{$arg}++;
-	}
+	next if $args{$_};
+
+        # default to keyword "objectname"
+        $args{$_} = [ qw/objectname/ ];
+        $defaulted{$_}++;
     }
 
     my $result = $self->_relations(\%args, ROW_HASH);
@@ -1115,18 +1157,12 @@ sub relations_hashref
 sub relations_object
 {
     my ($self, %args) = @_;
+    validate([\%args], Dict[ _FROM_TO_NAME,
+                             from_attribute => Optional[ArrayRef[Str]],
+                             to_attribute   => Optional[ArrayRef[Str]] ]);
 
-    foreach my $arg (qw/from_attributes to_attributes/)
-    {
-        if (defined $args{$arg}) 
-        {
-            validate([$args{$arg}], ArrayRef[Str]);
-        }
-        else
-        {
-            $args{$arg} ||= [];		# _relations below likes 'em defined
-        }
-    }
+    $args{$_} ||= [] foreach qw/from_attributes to_attributes/;
+                                # coz _relations below likes 'em defined
 
     return $self->_relations(\%args, ROW_OBJECT);
 }
@@ -1139,6 +1175,8 @@ sub _relations
     # NOTES: 
     # (1) $args->{from_attributes}/$args->{to_attributes} must not be undef
     # (2) only ROW_HASH and ROW_OBJECT are allowed for $row_type
+    croak(__PACKAGE__.qq[::relations_{hashref,object} are not available in web mode])
+            if $self->{web_mode};
 
 
     my $want_from = _want($row_type, $args->{from_attributes});

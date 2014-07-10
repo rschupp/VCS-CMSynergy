@@ -937,11 +937,60 @@ returns
 
   "guilib/sources/main.c"
 
-=head2 relations_hashref
+=head2 relations_arrayref
+
+  $ccm->relations_arrayref(%options);
+
+  my $related = $ccm->relations_arrayref(to => "bufcolor.c-2:csrc:1");
+
+Executes B<ccm relate -show ...> where 
+C<%options> may contain any of the following keys:
+
+=over 4
+
+=item from => $file_spec, to => $file_spec
+
+Restricts one or both ends of the relation. The option value may
+be any C<$file_spec> accepted by CM Synergy including 
+a C<VCS::CMSynergy::Object>.
+
+=item name => $string
+
+Restricts the return value to relations of type C<$string>, 
+e.g. C<associated_cv> or C<successor>.
+
+=back
+
+The result is a reference to an array of 4-tuples
+
+  ($from, $name, $to, $create_time)
+
+=over 4
+
+=item $from, $to
+
+The value is a C<VCS::CMSynergy::Object> for the "from" or "to", resp., 
+element of the relation.
+
+=item $name
+
+The value is name of the relation.
+
+=item $create_time
+
+The value is the time the relation was created.
+
+=back
+
+If there are no hits, a reference to an empty array is returned.  
+
+If there was an error, C<undef> is returned.
+
+=head2 relations_hashref B<(classic mode only)>
 
   $ccm->relations_hashref(%options);
 
-  $ccm->relations_hashref(
+  my $related = $ccm->relations_hashref(
     to              => "bufcolor.c-2:csrc:1",
     from_attributes => [ qw/objecctname status owner/ ]);
 
@@ -1008,9 +1057,9 @@ If there are no hits, a reference to an empty array is returned.
 
 If there was an error, C<undef> is returned.
 
-=head2 relations_object
+=head2 relations_object B<(classic mode only)>
 
-  my $relations = $ccm->relations_object(%options);
+  my $related = $ccm->relations_object(%options);
 
 Executes B<ccm relate -show ...> where 
 C<%options> are the same as described for L</relations_hashref>. 

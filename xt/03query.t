@@ -168,12 +168,6 @@ cmp_deeply($fd_got,
 my $complex_expected = 
 [
   [ 'task-1:cvtype:base',	'base/cvtype/task/1' ],
-  [ 'task1-1:task:probtrac',	'1' ],
-  [ 'task25-1:task:probtrac',	'25' ],
-  [ 'task26-1:task:probtrac',	'26' ],
-  [ 'task27-1:task:probtrac',	'27' ],
-  [ 'task28-1:task:probtrac',	'28' ],
-  [ 'task6-1:task:probtrac',	'6' ],
   [ 'text-1:attype:AC',		'AC/attype/text/1' ],
   [ 'time-1:attype:AC',		'AC/attype/time/1' ],
   [ 'toolkit-1:dir:1',		'toolkit-1' ],
@@ -187,10 +181,11 @@ push @$complex_expected,
   [ 'toolkit-int_20021125:project:1', 'toolkit-int_20021125' ]
   if $ccm->version >= 6.3;
 
-# NOTE: Exclude automatic tasks as they are unpredictable;
-# exlude baselines, releasedefs, and recon_temps (CM Synergy >= 6.3 only).
+# NOTE: Exclude tasks as they are unpredictable (automatic tasks in
+# general, also other test may create tasks that tyhe can't clean up).
+# Also exlude baselines, releasedefs, and recon_temps (CM Synergy >= 6.3 only).
 my $complex_got = $ccm->query_arrayref(
-    "name match 't*' and not ( (cvtype = 'task' and status = 'task_automatic') or cvtype = 'baseline' or cvtype = 'recon_temp' or cvtype = 'releasedef' )", 
+    "name match 't*' and not ( cvtype = 'task' or cvtype = 'baseline' or cvtype = 'recon_temp' or cvtype = 'releasedef' )", 
     qw(objectname displayname));
 verbose('complex_got', $complex_got);
 cmp_bag($complex_got, $complex_expected,

@@ -89,6 +89,13 @@ my %objects =
     my $finduse = $ccm->finduse(keys %objects);
     isa_ok($result, "ARRAY", qq[finduse return value]);
 
+    # in newer versions of Synergy a task is mandatory for checkout,
+    # hence create one (unfortunately we can't clean it up afterwards -
+    # only the ccm_admin role may delete tasks)
+    my (undef, $tasknum, undef) = $ccm->ccm( qw/ task -create -q /,
+        -synopsis => "blurfl-".localtime(), -resolver => $ccm->user);
+    chomp $tasknum;
+
     foreach my $name (keys %objects)
     {
 	my ($info, $uses) = @{ shift @$finduse };
@@ -111,7 +118,7 @@ my %objects =
 
 	# check out an object
 	ok(! -w $path, qq[file $path is read-only]);
-	ok($ccm->checkout($path), q[check out $path]);
+	ok($ccm->checkout(-task => $tasknum, $path), q[check out $path]);
 	my $cleanup_checkout = end 
 	{
 	    ok($ccm->delete(-replace => $path), 

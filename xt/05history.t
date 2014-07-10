@@ -50,9 +50,10 @@ Successors:
 my $h0_got = $ccm->history("bufcolor.c-1:csrc:2");
 verbose('h0_got', $h0_got);
 isa_ok($h0_got, "ARRAY", "history()");
-# sigh, datetimes can't be handled reliably (cf. README.datetime)
-s/^Created:.*$/Created:/m foreach (@$h0_exp);
-s/^Created:.*$/Created:/m foreach (@$h0_got);
+# - datetimes can't be handled reliably (cf. README.datetime)
+# - web mode omits "State:"
+# - blank lines vary
+s/^(Created:.*|State:.*|\s*)\n//gm foreach @$h0_exp, @$h0_got;
 ok(eq_set($h0_got, $h0_exp),
    q[$ccm->history("bufcolor.c-1:csrc:2")]);
 

@@ -118,15 +118,11 @@ sub _start
     $self->{env} = { %{ $client->{env} } } if $client->{env};
     bless $self, $class;
 
-    # FIXME (Synergy < 7.2) how can I determine that current session is 
-    # in web mode if it's an "inherited" session?
-    $self->{web_mode} = $self->version >= 7.2 || defined $args{server};
-
     # ini_file and UseCoprocess are only valid for classic mode
     foreach (qw( ini_file UseCoprocess ))
     {
         return $self->set_error(qq["$_" is not valid for web mode])
-            if $self->{web_mode} && $args{$_};
+            if $self->web_mode && $args{$_};
     }
 
     # Cygwin: some start options denote path names that are 
@@ -160,21 +156,14 @@ sub _start
                      $self->{KeepSession} ? "keep" : "not keep",
                      $self->ccm_addr);
 
-	if (is_win32 && !$self->{web_mode})
+	if (is_win32 && !$self->web_mode)
 	{
-	    # figure out user of session specified by CCM_ADDR
-	    $self->{user} = 
-		$self->ps(rfc_address => $self->ccm_addr)->[0]->{user};
-
-	    # FIXME not necessary in web mode 
-	    # ccm ps: process (usr_cmd_interface)
-
 	    # create a minimal ini file (see below for an explanation)
 	    (my $inifh, $self->{ini_file}) = tempfile(SUFFIX => ".ini", UNLINK => 0);
 	    $self->{ini_file} = fullwin32path($self->{ini_file}) if $^O eq 'cygwin';
 	    			# because this name is passed down to ccm.exe
 		
-	    print $inifh "[UNIX information]\nUser = $self->{user}\n";
+	    printf $inifh "[UNIX information]\nUser = %s\n", $self->user;
 	    close($inifh);
 	    push @{ $self->{files_to_unlink} }, $self->{ini_file};
 	}
@@ -187,7 +176,7 @@ sub _start
 	return $self->set_error("don't know how to connect to CM Synergy: neither database nor CCM_ADDR specified")
 	    unless $args{database};
 
-	unless ($self->{web_mode})
+	unless ($self->web_mode)
 	{
             unless (defined $self->{ini_file})
             {
@@ -244,14 +233,14 @@ sub _start
     # and may trigger the "security violation".
 
     $self->{env}->{CCM_INI_FILE} = $self->{ini_file}
-	if is_win32 && !$self->{web_mode};
+	if is_win32 && !$self->web_mode;
 
     # remember the process that created $self (so we can check in DESTROY)
     $self->{pid} = $$;
 
 
     # web mode renames the %filename placeholder (cf. "ccm set text_editor")
-    $self->{"%filename"} = $self->{web_mode} ? "%file" : "%filename";
+    $self->{"%filename"} = $self->web_mode ? "%file" : "%filename";
 
     if ($self->{UseCoprocess})
     {
@@ -367,7 +356,14 @@ sub _my_ps
 
 # determine database path (in canonical format) etc from `ccm ps'
 __PACKAGE__->_memoize_method(database => sub { shift->_my_ps('database'); });
-__PACKAGE__->_memoize_method(user => sub { shift->_my_ps('user'); });
+__PACKAGE__->_memoize_method(user     => sub { shift->_my_ps('user'); });
+__PACKAGE__->_memoize_method(web_mode => sub 
+{
+    my $self = shift;
+    
+    return $self->version >= 7.2 
+           || $self->_my_ps('process') eq "usr_cmd_interface";
+});
 
 
 sub query
@@ -456,7 +452,7 @@ sub _query
         croak(__PACKAGE__.qq[::_query: keyword "finduse" not allowed when ROW_OBJECT wanted])
             if $row_type == ROW_OBJECT;
         croak(__PACKAGE__.qq[::_query: keyword "finduse" does not work in web mode])
-            if $self->{web_mode};
+            if $self->web_mode;
     }
 
     my $format = $RS . join($FS, values %$want) . $FS;
@@ -810,7 +806,7 @@ sub _history
     my ($self, $file_spec, $keywords) = @_;
 
     croak(__PACKAGE__."::history_{arrayref,hashref} are not available in web mode")
-        if $self->{web_mode};
+        if $self->web_mode;
 
     my $want = _want(ROW_HASH, $keywords);
     my $want_predecessors = delete $want->{predecessors};
@@ -941,7 +937,7 @@ sub _full_history
     my ($self, $file_spec, $keywords, $row_type) = @_;
 
     croak(__PACKAGE__."::full_history_{arrayref,hashref} are not available in web mode")
-        if $self->{web_mode};
+        if $self->web_mode;
 
     # convert $file_spec into a VCS::CMSynergy::Object if it's not already one
     $file_spec = $self->property(object => $file_spec) or return
@@ -1176,7 +1172,7 @@ sub _relations
     # (1) $args->{from_attributes}/$args->{to_attributes} must not be undef
     # (2) only ROW_HASH and ROW_OBJECT are allowed for $row_type
     croak(__PACKAGE__.qq[::relations_{hashref,object} are not available in web mode])
-            if $self->{web_mode};
+            if $self->web_mode;
 
 
     my $want_from = _want($row_type, $args->{from_attributes});

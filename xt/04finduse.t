@@ -24,7 +24,7 @@ diag("using coprocess") if defined $ccm->{coprocess};
 SKIP:
 {
     skip q[web mode: query keyword "finduse" does not work in web mode], 2
-        if $ccm->{web_mode};
+        if $ccm->web_mode;
 
     my $q_expected63 = 
     [

@@ -24,8 +24,7 @@ my $client = VCS::CMSynergy::Client->new(
 
 # when using web mode there's a lag between "ccm stop" exiting and
 # the session disappearing from "ccm ps"
-my $web_mode = $ccm->version >= 7.2 || $::test_session{server};
-sub snooze { sleep(5) if $web_mode; }
+sub snooze { sleep(5) if $ccm->web_mode; }
 
 isa_ok($client, "VCS::CMSynergy::Client");
 is($client->ccm_home, $ENV{CCM_HOME}, q[CCM_HOMEs match]);

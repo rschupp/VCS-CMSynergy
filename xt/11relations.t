@@ -129,7 +129,7 @@ cmp_bag($from_rel_got, $from_rel_exp, "any relations FROM project");
 SKIP:
 {
     skip "relations_hashref is not available in web mode", 2
-        if $ccm->{web_mode};
+        if $ccm->web_mode;
 
     my $from_got = $ccm->relations_hashref(
         from		=> "calculator-int:project:1",
@@ -192,7 +192,7 @@ cmp_bag($to_rel_got, $to_rel_exp, "any relations FROM project");
 SKIP:
 {
     skip "relations_{hashref,object} is not available in web mode", 4
-        if $ccm->{web_mode};
+        if $ccm->web_mode;
 
     my $to_got = $ccm->relations_hashref(
         to		=> "calculator-int:project:1",

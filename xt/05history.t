@@ -60,7 +60,7 @@ ok(eq_set($h0_got, $h0_exp),
 SKIP: 
 {
     skip "history_{arrayref,hashref} are not available in web mode", 2
-        if $ccm->{web_mode};
+        if $ccm->web_mode;
 
     my $h1_exp = [
        {

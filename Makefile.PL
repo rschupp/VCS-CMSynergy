@@ -77,7 +77,6 @@ requires	'perl'			=> '5.006';
 requires	'Class::Accessor::Fast' => 0;
 requires	'Digest::MD5'		=> 0;
 requires	'File::Spec'		=> 0;
-requires	'Filesys::CygwinPaths'	=> 0 if $^O eq 'cygwin';
 requires	'File::Temp'		=> 0;
 requires	'IPC::Run3'		=> '0.030';
 requires	'List::Util'		=> '1.09';

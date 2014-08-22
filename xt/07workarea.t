@@ -13,15 +13,6 @@ use File::Temp qw(tempdir tempfile);
 use Digest::MD5;
 use End;
 
-BEGIN
-{
-    if ($^O eq 'cygwin')
-    { 
-	require Filesys::CygwinPaths; 
-	import Filesys::CygwinPaths qw(:all);
-    }
-}
-
 # convert project reference from Unix pathnames to native pathnames
 # NOTE: We can't use File::Spec here since Cygwin uses slash as the path
 # delimiter, but CM Synergy on Windows returns backslashes 
@@ -55,7 +46,7 @@ my %objects =
 
 {
     my $tempdir = tempdir(CLEANUP => 1);
-    $tempdir = fullwin32path($tempdir) if $^O eq 'cygwin';
+    $tempdir = VCS::CMSynergy::_fullwin32path($tempdir) if $^O eq 'cygwin';
 
     ok($ccm->checkout(-project => "${pname}-1.0", 
 		      -to => $pversion, -path => $tempdir, "-copy_based"), 

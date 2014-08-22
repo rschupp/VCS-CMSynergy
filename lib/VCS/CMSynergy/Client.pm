@@ -358,6 +358,19 @@ sub _kill_coprocess
 # helper: create a fake triple ($rc, $out, $err) as returned from _cmd()
 sub _error	{ return (255 << 8, "", $_[0]) }
 
+# helper (only meaningful on Cygwin):
+# convert a potentially unixish path into its Windows equivalent (typically
+# because we want to pass it to a native Windows program like ccm.exe)
+sub _fullwin32path
+{
+    my ($path) = @_;
+    my $out;
+    run3 [ qw( cygpath --windows --absolute ), $path ], \undef, \$out, \undef;
+    $out =~ s/\015?\012\z//g;                   # OS agnostic chomp
+    return $out;
+}
+
+
 sub error
 {
     my $this = shift;

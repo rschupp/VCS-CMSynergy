@@ -32,15 +32,6 @@ use constant _QUERY_KEYWORDS => compile(Str | HashRef, _KEYWORDS);
 use constant ROW_HASH	=> 1;
 use constant ROW_OBJECT	=> 2;
 
-BEGIN
-{
-    if ($^O eq 'cygwin')
-    { 
-	eval "use Filesys::CygwinPaths qw(:all); 1" or die $@;
-    }
-}
-
-
 sub import
 {
     my $class = shift;
@@ -131,7 +122,7 @@ sub _start
     {
 	foreach (qw/home ini_file ui_database_dir/)
 	{
-	    $args{$_} = fullwin32path($args{$_}) if defined $args{$_};
+	    $args{$_} = _fullwin32path($args{$_}) if defined $args{$_};
 	}
     }
 
@@ -160,7 +151,7 @@ sub _start
 	{
 	    # create a minimal ini file (see below for an explanation)
 	    (my $inifh, $self->{ini_file}) = tempfile(SUFFIX => ".ini", UNLINK => 0);
-	    $self->{ini_file} = fullwin32path($self->{ini_file}) if $^O eq 'cygwin';
+	    $self->{ini_file} = _fullwin32path($self->{ini_file}) if $^O eq 'cygwin';
 	    			# because this name is passed down to ccm.exe
 		
 	    printf $inifh "[UNIX information]\nUser = %s\n", $self->user;
@@ -190,7 +181,7 @@ sub _start
                     #     the actual unlink may occur before the session is
                     #     stopped and Windows refuses removing the "busy" file
                     (undef, $self->{ini_file}) = tempfile(SUFFIX => ".ini", UNLINK => 0);
-                    $self->{ini_file} = fullwin32path($self->{ini_file}) if $^O eq 'cygwin';
+                    $self->{ini_file} = _fullwin32path($self->{ini_file}) if $^O eq 'cygwin';
                     push @{ $self->{files_to_unlink} }, $self->{ini_file};
                 }
                 else

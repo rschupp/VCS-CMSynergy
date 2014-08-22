@@ -11,7 +11,7 @@ use 5.006_000;				# i.e. v5.6.0
 use strict;
 
 use VCS::CMSynergy::Client qw(
-    is_win32 $Error $Ccm_command _exitstatus _error
+    is_win32 $Error $Ccm_command _error
     _FILE_SPEC _KEYWORDS _FILE_SPEC_KEYWORDS );
 
 our @ISA = qw(VCS::CMSynergy::Client);
@@ -372,9 +372,9 @@ sub query
 
     my ($rc, $out, $err) = $self->_ccm(qw/query -u/, @_);
 
-    # NOTE: if there are no hits, `ccm query' exits 
+    # NOTE: If there are no hits, `ccm query' exits 
     # with status 1 (classic mode) or 6 (web mode),
-    # but produces no output on either stdout and stderr
+    # but produces no output on either stdout and stderr.
 
     return [ split(/\n/, $out) ] if $rc == 0;
     return [ ] if $rc != 0 and $out eq "" and $err eq "";
@@ -418,9 +418,9 @@ sub query_count
     my ($rc, $out, $err) = $self->_ccm(
 	qw/query -u -ns -nf -format X/, $self->_expand_query($query));
 
-    # NOTE: if there are no hits, `ccm query' exits 
+    # NOTE: If there are no hits, `ccm query' exits 
     # with status 1 (classic mode) or 6 (web mode),
-    # but produces no output on either stdout and stderr
+    # but produces no output on either stdout and stderr.
     return 0 if $rc != 0 and $out eq "" and $err eq "";
     return $out =~ tr/X/X/ if $rc == 0;			# count 'em X's
     return $self->set_error($err || $out);
@@ -464,12 +464,12 @@ sub _query
 	$self->_ccm( 
 	    qw/query -u -ns -nf -format/ => $format, $query);
 
-    # NOTE: if there are no hits, `ccm query' exits 
+    # NOTE: If there are no hits, `ccm query' exits 
     # with status 1 (classic mode) or 6 (web mode),
-    # but produces no output on either stdout and stderr
+    # but produces no output on either stdout and stderr.
     return [ ] if $rc != 0 && $out eq "" && $err eq "";
 
-    # NOTE: if the query string contained a syntax error, Synergy
+    # NOTE: If the query string contained a syntax error, Synergy
     # prints "Syntax error in query request", but won't tell you the
     # query string, making it hard to diagnose the problem.
     # So append the query string to the error message.
@@ -1088,7 +1088,7 @@ sub relations_arrayref
 
     # NOTE: If there are no hits, `ccm relate' exits 
     # with status 1 (classic mode) or 6 (web mode),
-    # but produces no output on either stdout and stderr
+    # but produces no output on either stdout and stderr.
     return [ ] if $rc != 0 and $out eq "" and $err eq "";
     return $self->set_error($err || $out) unless $rc == 0;
 
@@ -1199,7 +1199,7 @@ sub _relations
 
     # NOTE: If there are no hits, `ccm relate' exits 
     # with status 1 (classic mode) or 6 (web mode),
-    # but produces no output on either stdout and stderr
+    # but produces no output on either stdout and stderr.
     return [ ] if $rc != 0 and $out eq "" and $err eq "";
     return $self->set_error($err || $out) unless $rc == 0;
 

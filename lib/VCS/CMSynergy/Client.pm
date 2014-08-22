@@ -39,7 +39,7 @@ use Log::Log4perl qw(:easy);
 use Exporter();
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
-    is_win32 _pathsep $Error $Ccm_command _exitstatus _error 
+    is_win32 _pathsep $Error $Ccm_command _error 
     _KEYWORDS _FILE_SPEC _FILE_SPEC_KEYWORDS );
 
 use constant is_win32 => $^O eq 'MSWin32' || $^O eq 'cygwin';
@@ -257,7 +257,7 @@ sub _ccm
 		my $set = $this->{coprocess}->before;
 		($rc) = $set =~ /^(\d+)/
 		    or return _error("unrecognized result from `set error': $set");
-		($rc, $$rerr) = (_exitstatus($rc), "");
+		($rc, $$rerr) = ($rc << 8, "");         # fake $?
 		last CCM;
 	    }
 	}
@@ -355,11 +355,8 @@ sub _kill_coprocess
     $self->{coprocess} = undef;
 }
 
-# helper: inverse function of POSIX::WEXITSTATUS()
-sub _exitstatus	{ return $_[0] << 8; }
-
-# helper: return a triple ($rc, $out, $err)
-sub _error	{ return (_exitstatus(255), "", $_[0]) }
+# helper: create a fake triple ($rc, $out, $err) as returned from _cmd()
+sub _error	{ return (255 << 8, "", $_[0]) }
 
 sub error
 {

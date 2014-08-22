@@ -42,6 +42,9 @@ use strict;
 use warnings;
 use File::Temp qw(tempfile);
 
+use Type::Params qw( validate );
+use Types::Standard qw( Optional HashRef );
+
 =head2 users
 
   $hash_ref = $ccm->users;
@@ -71,48 +74,39 @@ the role listed first for a user, as CM Synergy uses this as default
 role for the user's session when the user calls B<ccm start> without
 the B<-r> option.
 
-If you have one of the modules L<Tie::Hash::Indexed> or L<Tie::IxHash> 
-installed, than the value returned by L</users> is actually 
-a reference to a tied hash that preserves the insertion order of keys.
-In this case, the order of hash keys reflects the order 
-of user lines in the I<users> "file".
+Newer version of Synergy treat user names case insensitively.
+Hence the value returned by L</users> is actually a C<Tie::CPHash>,
+a case insensitive, but case preserving hash table.
 
-Note that
+Note that the roundtrip
 
   $ccm->users($ccm->users);
 
 always results in a functionally equivalent users table. The order
-of user lines may have changed, though, unless an order preserving hash
-was used as decribed above.
+of user lines may have changed, though.
 
 Note: For typical CM Synergy administrator usage
 it is usually more convenient to use one of the methods below.
 
 =cut
 
-my $UseIndexedHash;
-foreach (qw/Tie::Hash::Indexed Tie::IxHash/)
-{
-    $UseIndexedHash = $_, last if eval "require $_";
-}
-
 sub users
 {
     my $self = shift;
-    return $self->set_error("too many arguments") unless @_ <= 1;
+    my ($users) = validate(\@_, Optional[HashRef]);
 
     # NOTE: For getting the list of users we use 
     # "ccm attr -show users base-1:model:base" because every role can do that -
     # whereas "ccm users" requires the ccm_admin role.
     # Apparently this is not necessary for Synergy >= 7.2 (web mode): 
     # anybody can run "ccm users -export FILE".
-    if (@_ == 0)
+    unless ($users)
     {
 	my $text = $self->get_attribute(users => $self->base_model);
 	return unless defined $text;
 	
-	my $users = {};
-	tie %$users, $UseIndexedHash if $UseIndexedHash;
+	$users = {};
+	tie %$users, 'Tie::CPHash';
 
 	foreach (split(/\n/, $text))
 	{
@@ -124,10 +118,6 @@ sub users
 
 	return $users;
     }
-
-    my $users = shift;
-    return $self->set_error("illegal type of argument (hash ref expected)") 
-	unless ref $users eq "HASH";
 
     my $text = "";
     while (my ($user, $roles) = each %$users)
@@ -184,7 +174,7 @@ sub add_user
 
   $ccm->delete_user($user);
 
-Deletes the user. No error is signalled if the user doesn't exist.
+Deletes the user. It is no error if the user doesn't exist.
 
 =cut
 
@@ -205,7 +195,7 @@ sub delete_user
   $ccm->add_roles($user, @roles);
 
 Grants the given roles to the user. It is no error if the user
-already has some of the given rules.
+already has some of the given roles.
 
 =cut
 
@@ -231,6 +221,8 @@ sub add_roles
 Revokes the given roles from the user. It is no error if the
 user doesn't have any of the given rules.
 
+If there are no roles left, also deletes the user.
+
 =cut
 
 sub delete_roles
@@ -243,10 +235,18 @@ sub delete_roles
     return $self->set_error("user `$user' doesn't exist")
 	unless exists $users->{$user};
  
+    # NOTE: try to preserve the order of the remaining roles
     my %del;
     @del{@roles} = ();
-
-    $users->{$user} = [ grep { !exists $del{$_} } @{ $users->{$user} } ];
+    my @new_roles = grep { !exists $del{$_} } @{ $users->{$user} };
+    if (@new_roles)
+    {
+        $users->{$user} = \@new_roles;
+    }
+    else
+    {
+        delete $users->{$user};
+    }
 
     $self->users($users);
 }

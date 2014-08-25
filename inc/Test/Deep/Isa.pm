@@ -34,4 +34,11 @@ sub diag_message
 	return "Checking class of $where with isa()";
 }
 
+sub renderExp
+{
+	my $self = shift;
+
+	return "blessed into or ref of type '$self->{val}'";
+}
+
 1;

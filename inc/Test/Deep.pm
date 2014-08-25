@@ -22,7 +22,7 @@ unless (defined $Test::Deep::NoTest::NoTest)
 
 our ($Stack, %Compared, $CompareCache, %WrapCache, $Shallow);
 
-our $VERSION = '0.110';
+our $VERSION = '0.112';
 $VERSION = eval $VERSION;
 
 require Exporter;
@@ -35,7 +35,7 @@ our $DNE = \"";
 our $DNE_ADDR = Scalar::Util::refaddr($DNE);
 
 # if no sub name is supplied then we use the package name in lower case
-my %constructors = (
+my @constructors = (
   All               => "",
   Any               => "",
   Array             => "",
@@ -55,6 +55,7 @@ my %constructors = (
   ListMethods       => "",
   Methods           => "",
   Number            => "num",
+  Obj               => "obj_isa",
   RefType           => "",
   Regexp            => "re",
   RegexpMatches     => "",
@@ -67,9 +68,9 @@ my %constructors = (
   String            => "str",
 );
 
-our @CONSTRUCTORS_FROM_CLASSES;
+my @CONSTRUCTORS_FROM_CLASSES;
 
-while (my ($pkg, $name) = each %constructors)
+while (my ($pkg, $name) = splice @constructors, 0, 2)
 {
 	$name = lc($pkg) unless $name;
 	my $full_pkg = "Test::Deep::$pkg";
@@ -94,10 +95,25 @@ while (my ($pkg, $name) = each %constructors)
   $EXPORT_TAGS{v0} = [
     qw(
       Isa
+      blessed
+      obj_isa
 
       all any array array_each arrayelementsonly arraylength arraylengthonly
-      bag blessed bool cmp_bag cmp_deeply cmp_methods cmp_set code eq_deeply
+      bag bool cmp_bag cmp_deeply cmp_methods cmp_set code eq_deeply
       hash hash_each hashkeys hashkeysonly ignore isa listmethods methods
+      noclass num re reftype regexpmatches regexponly regexpref regexprefonly
+      scalarrefonly scalref set shallow str subbagof subhashof subsetof
+      superbagof superhashof supersetof useclass
+    )
+  ];
+
+  $EXPORT_TAGS{v1} = [
+    qw(
+      obj_isa
+
+      all any array array_each arrayelementsonly arraylength arraylengthonly
+      bag bool cmp_bag cmp_deeply cmp_methods cmp_set code eq_deeply
+      hash hash_each hashkeys hashkeysonly ignore listmethods methods
       noclass num re reftype regexpmatches regexponly regexpref regexprefonly
       scalarrefonly scalref set shallow str subbagof subhashof subsetof
       superbagof superhashof supersetof useclass
@@ -276,7 +292,7 @@ sub descend
 	if (! $Expects and Scalar::Util::blessed($d1) and $d1->isa("Test::Deep::Cmp"))
 	{
 		my $where = $Stack->render('$data');
-		confess "Found a special comparison in $where\nYou can only the specials in the expects structure";
+		confess "Found a special comparison in $where\nYou can only use specials in the expects structure";
 	}
 
 	if (ref $d1 and ref $d2)
@@ -321,7 +337,7 @@ sub descend
 
 	if (ref($d1) and (Scalar::Util::refaddr($d1) == $DNE_ADDR))
 	{
-		# whatever it was suposed to be, it didn't exist and so it's an
+		# whatever it was supposed to be, it didn't exist and so it's an
 		# automatic fail
 		return 0;
 	}
@@ -433,7 +449,7 @@ sub requireclass
 	return Test::Deep::Class->new(1, $val);
 }
 
-# docs and export say this is call useclass, doh!
+# docs and export say this is called useclass, doh!
 
 *useclass = \&requireclass;
 
@@ -534,4 +550,4 @@ sub builder
 
 __END__
 
-#line 1475
+#line 1491

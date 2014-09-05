@@ -44,6 +44,7 @@ use File::Temp qw(tempfile);
 
 use Type::Params qw( validate );
 use Types::Standard qw( Optional HashRef );
+use Tie::CPHash;
 
 =head2 users
 
@@ -135,11 +136,13 @@ sub users
     my ($rc, $out, $err);
     if ($self->version >= 7.2)          # web mode
     {
-        my ($fh, $file) = tempfile();
-        print $fh $text;
-        close $fh;
+	my $tempfile = $self->_text_to_tempfile($text) or return;
 
-        ($rc, $out, $err) = $self->ccm(qw/users -import/, $file);
+        # NOTE: On Cygwin we must convert $tempfile to a native Windows
+        # pathname as we are passing it to a native Windows program.
+	$tempfile = _fullwin32path($tempfile) if $^O eq 'cygwin';
+
+        ($rc, $out, $err) = $self->ccm(qw/users -import/, $tempfile);
     }
     else
     {

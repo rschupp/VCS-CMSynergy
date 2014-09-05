@@ -39,7 +39,7 @@ use Log::Log4perl qw(:easy);
 use Exporter();
 our @ISA = qw(Exporter);
 our @EXPORT_OK = qw(
-    is_win32 _pathsep $Error $Ccm_command _error 
+    is_win32 _fullwin32path _pathsep $Error $Ccm_command _error 
     _KEYWORDS _FILE_SPEC _FILE_SPEC_KEYWORDS );
 
 use constant is_win32 => $^O eq 'MSWin32' || $^O eq 'cygwin';

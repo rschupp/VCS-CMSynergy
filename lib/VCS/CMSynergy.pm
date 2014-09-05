@@ -11,11 +11,11 @@ use 5.006_000;				# i.e. v5.6.0
 use strict;
 
 use VCS::CMSynergy::Client qw(
-    is_win32 $Error $Ccm_command _error
+    is_win32 _fullwin32path $Error $Ccm_command _error
     _FILE_SPEC _KEYWORDS _FILE_SPEC_KEYWORDS );
 
 our @ISA = qw(VCS::CMSynergy::Client);
-
+our @EXPORT_OK = qw( ANY_OF NONE_OF );
 
 use Carp;
 use Config;
@@ -42,12 +42,17 @@ sub import
 	cached_attributes	=> 0,
     );
 
+    my @list;
     foreach (@_)
     {
-	my $opt;
-	die qq[Invalid option "$_" in "use ].__PACKAGE__.qq["]
-	    unless ($opt) = /^[!:](.*)$/i and exists $use{$opt};
-	$use{$opt} = /^:/ ? 1 : 0;
+	if (/^([!:])(.*)$/ and exists $use{$2})
+	{
+	    $use{$2} = $1 eq ":" ? 1 : 0;
+        }
+        else
+        {
+            push @list, $_;
+        }
     }
 
     while (my ($opt, $value) = each %use)
@@ -60,6 +65,9 @@ sub import
     # e.g. eliminate branches guarded with "if (V::C::use_cached_attributes)"
     require VCS::CMSynergy::Object;
     require VCS::CMSynergy::ObjectTieHash if use_tied_objects();
+
+   # let Exporter handle the rest
+   $class->export_to_level(1, undef, @list);
 }
 
 
@@ -109,6 +117,10 @@ sub _start
     $self->{env} = { %{ $client->{env} } } if $client->{env};
     bless $self, $class;
 
+    # prime web_mode and ccm_addr as early as possible
+    $self->{web_mode} = 1 if $self->version >= 7.2 || $args{server};
+    $self->{env}->{CCM_ADDR} = delete $args{CCM_ADDR} if defined $args{CCM_ADDR};
+
     # ini_file and UseCoprocess are only valid for classic mode
     foreach (qw( ini_file UseCoprocess ))
     {
@@ -137,7 +149,6 @@ sub _start
 	push @start, $start_opts{$arg} => $value if defined $start_opts{$arg};
     }
 
-    $self->{env}->{CCM_ADDR} = delete $self->{CCM_ADDR} if defined $self->{CCM_ADDR};
     push @start, '-rc' if $self->{remote_client};
 
     if (defined $self->ccm_addr)
@@ -348,13 +359,7 @@ sub _my_ps
 # determine database path (in canonical format) etc from `ccm ps'
 __PACKAGE__->_memoize_method(database => sub { shift->_my_ps('database'); });
 __PACKAGE__->_memoize_method(user     => sub { shift->_my_ps('user'); });
-__PACKAGE__->_memoize_method(web_mode => sub 
-{
-    my $self = shift;
-    
-    return $self->version >= 7.2 
-           || $self->_my_ps('process') eq "usr_cmd_interface";
-});
+__PACKAGE__->_memoize_method(web_mode => sub { shift->_my_ps('process') eq "usr_cmd_interface"; });
 
 
 sub query
@@ -719,6 +724,10 @@ sub _query_shortcut
 	    my $nested = $self->_query_shortcut($value);
 	    push @clauses, "$key($nested)";
 	}
+	elsif ($ref eq 'CODE')
+        {
+            push @clauses, $value->($key);
+        }
 	else
 	{
 	    (my $method = (caller(1))[3]) =~ s/^.*:://;
@@ -730,6 +739,26 @@ sub _query_shortcut
     DEBUG qq[expanded shortcut query "$result"];
 
     return $result;
+}
+
+sub ANY_OF
+{
+    my @values = @_;
+    return sub
+    {
+       my $key = shift;
+       "(" . join(" or ", map { "$key="._quote_value($_) } @values). ")";
+    };
+}
+
+sub NONE_OF
+{
+    my @values = @_;
+    return sub
+    {
+       my $key = shift;
+       "(" . join(" and ", map { "$key!="._quote_value($_) } @values). ")";
+    };
 }
 
 # helper (not a method): smart quoting of string or boolean values
@@ -1747,18 +1776,18 @@ sub ccm_with_text_editor
     my $tempfile = $self->_text_to_tempfile($text) or return;
 
     # NOTE: 
-    # (1) $Config{cp} is "copy" on Win32, but CMSynergy doesn't invoke
+    # (1) On Win32 $Config{cp} is "copy", but Synergy doesn't invoke
     #     the command processor on Windows when executing user
     #     callbacks like "text_editor"; thus "shell" builtins like "copy"
     #     (and redirection) won't work in user callbacks; hence 
     #     prefix it with "cmd /c" (use "/b" to get a binary copy
-    #     and "/y" to overwite files without prompting)
-    # (2) $tempfile is safe wrt cygwin, because $Config{cp} is
-    #     a cygwin program ("/usr/bin/cp") on cygwin.
+    #     and "/y" to overwite files without prompting).
+    # (2) On Cygwin $Config{cp} is "cp", i.e. a Cygwin program.
+    #     Hence it is safe to pass the Cygwin pathname $tempfile to it.
     my ($rc, $out, $err) = $self->_ccm_with_option(
 	text_editor => $^O eq 'MSWin32' ?
 	    qq[cmd /c copy /b /y "$tempfile" $self->{"%filename"}] :		#/
-	    qq[$Config{cp} '$tempfile' $self->{"%filename"}],
+	    qq[$Config{cp} "$tempfile" $self->{"%filename"}],
 	@$args);
     return $self->set_error($err || $out) unless $rc == 0;
     return wantarray ? ($rc, $out, $err) : 1;

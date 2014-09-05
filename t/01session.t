@@ -22,9 +22,7 @@ my $client = VCS::CMSynergy::Client->new(
     RaiseError	=> $::test_session{RaiseError},
 );
 
-# when using web mode there's a lag between "ccm stop" exiting and
-# the session disappearing from "ccm ps"
-sub snooze { sleep(5) if $ccm->web_mode; }
+my ($ccm_addr, $web_mode);
 
 isa_ok($client, "VCS::CMSynergy::Client");
 is($client->ccm_home, $ENV{CCM_HOME}, q[CCM_HOMEs match]);
@@ -35,13 +33,13 @@ isa_ok($ps, "ARRAY", q[return value of ps()]);
 ok((grep { $_->{process} eq "router" } @$ps) == 1, q[ps: found router]);
 ok((grep { $_->{process} eq "objreg" } @$ps) > 0, q[ps: found object registrar(s)]);
 
-my $ccm_addr;
 {
     # create a new CM Synergy session
     my $ccm = VCS::CMSynergy->new(%::test_session);
     isa_ok($ccm, "VCS::CMSynergy");
     diag("using coprocess") if defined $ccm->{coprocess};
     $ccm_addr = $ccm->ccm_addr;
+    $web_mode = $ccm->web_mode;
 
     # new session should show up in `ccm ps'
     $ps = $client->ps(rfc_address => $ccm_addr);
@@ -60,14 +58,17 @@ my $ccm_addr;
     $ccm2 = undef;
 
     # check that the CM Synergy session is still there
-    snooze();
+    # Note: When using web mode there's a lag between "ccm stop" exiting and
+    # the session disappearing from "ccm ps"
+    sleep(5) if $web_mode;
     ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
        qq[original session $ccm_addr is still registered]);
 
     # $ccm goes out of scope and session should be stopped
 }
+
 # session should no longer show up in `ccm ps'
-snooze();
+sleep(5) if $web_mode;
 ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
    qq[original session $ccm_addr is not registered any more]);
 
@@ -84,7 +85,7 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
     my $rc = $?;
     is($rc >> 8, 42, q[exit() value preserved]);
 
-    snooze();
+    sleep(5) if $web_mode;
     ok(@{ $client->ps(rfc_address => $out) } == 0,
        qq[session $out is not registered any more]);
 }
@@ -101,7 +102,7 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
     $ccm = undef;
 
     # check that the CM Synergy session is still there
-    snooze();
+    sleep(5) if $web_mode;
     ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
        qq[session $ccm_addr is still registered]);
 
@@ -115,7 +116,7 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
     $ccm2 = undef;
 
     # check that the CM Synergy session is still there
-    snooze();
+    sleep(5) if $web_mode;
     ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
        qq[original session $ccm_addr is still registered]);
     # destroy it and check that the CM Synergy session is still there
@@ -129,8 +130,9 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
 
     # $ccm3 goes out of scope and session should be stopped
 }
+
 # session should no longer show up in `ccm ps'
-snooze();
+sleep(5) if $web_mode;
 ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
    qq[original session $ccm_addr is not registered any more]);
 

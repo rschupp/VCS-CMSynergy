@@ -6,8 +6,6 @@ package VCS::CMSynergy::ObjectTieHash;
 use strict;
 use warnings;
 
-our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; $v };
-
 use base 'VCS::CMSynergy::Object';
 
 # TIEHASH(class, { ccm => ..., name => ..., ...})

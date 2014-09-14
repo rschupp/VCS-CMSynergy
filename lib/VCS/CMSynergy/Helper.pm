@@ -6,8 +6,6 @@ package VCS::CMSynergy::Helper;
 use strict;
 use warnings;
 
-our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; $v };
-
 =head1 NAME
 
 VCS::CMSynergy::Helper - ancillary convenience functions

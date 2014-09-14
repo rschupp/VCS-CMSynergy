@@ -6,8 +6,6 @@ package VCS::CMSynergy::Object;
 use strict;
 use warnings;
 
-our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; $v };
-
 =head1 NAME
 
 VCS::CMSynergy::Object - convenience wrapper to treat objectnames as an object

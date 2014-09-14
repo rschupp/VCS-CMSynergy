@@ -3,6 +3,9 @@ package VCS::CMSynergy::Project;
 # Copyright (c) 2001-2010 argumentum GmbH, 
 # See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
 
+use strict;
+use warnings;
+
 our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; $v };
 
 =head1 NAME
@@ -28,8 +31,6 @@ with additional methods for Synergy projects.
 This synopsis only lists the major methods.
 
 =cut 
-
-use strict;
 
 use base qw(VCS::CMSynergy::Object);
 

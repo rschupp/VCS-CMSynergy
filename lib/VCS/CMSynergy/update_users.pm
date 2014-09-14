@@ -19,6 +19,8 @@
 # new_users_file to current_users_file and exits 0, otherwise exists 1;
 # this is to ensure that users has not changed since  VCS::CMSynergy last fetched it
 
+use strict;
+use warnings;
 use File::Copy;
 use Digest::MD5 qw(md5_hex);
 

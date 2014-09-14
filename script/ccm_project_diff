@@ -163,11 +163,13 @@ Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 
 =cut
 
+use strict;
+use warnings; 
+
 use Getopt::Long qw(:config bundling);
 use Pod::Usage;
 use VCS::CMSynergy 1.35 qw(:cached_attributes :tied_objects);
 use VCS::CMSynergy::Helper; 
-use strict;
 
 {
     package Terse;

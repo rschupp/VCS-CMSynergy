@@ -3,6 +3,9 @@ package VCS::CMSynergy::Object;
 # Copyright (c) 2001-2010 argumentum GmbH, 
 # See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
 
+use strict;
+use warnings;
+
 our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; $v };
 
 =head1 NAME
@@ -52,8 +55,6 @@ VCS::CMSynergy::Object - convenience wrapper to treat objectnames as an object
 This synopsis only lists the major methods.
 
 =cut 
-
-use strict;
 
 use base qw(Class::Accessor::Fast);
 __PACKAGE__->mk_ro_accessors(qw/objectname ccm name version cvtype instance/);

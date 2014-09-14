@@ -6,8 +6,6 @@ package VCS::CMSynergy::Project;
 use strict;
 use warnings;
 
-our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; $v };
-
 =head1 NAME
 
 VCS::CMSynergy::Project - convenience methods for C<VCS::CMSynergy::Object>s of type C<"project">

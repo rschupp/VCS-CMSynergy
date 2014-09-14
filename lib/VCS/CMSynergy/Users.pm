@@ -3,8 +3,6 @@ package VCS::CMSynergy::Users;
 # Copyright (c) 2001-2010 argumentum GmbH, 
 # See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
 
-our $VERSION = do { (my $v = q$Revision$) =~ s/^.*:\s*//; $v };
-
 =head1 NAME
 
 VCS::CMSynergy::Users - Perl interface to CM Synergy user administration

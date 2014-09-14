@@ -9,6 +9,7 @@ our $VERSION = '1.36';
 
 use 5.006_000;				# i.e. v5.6.0
 use strict;
+use warnings;
 
 use VCS::CMSynergy::Client qw(
     is_win32 _fullwin32path $Error $Ccm_command _error

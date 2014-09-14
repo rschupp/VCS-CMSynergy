@@ -28,6 +28,7 @@ This synopsis only lists the major methods.
 
 use 5.006_000;					# i.e. v5.6.0
 use strict;
+use warnings;
 
 use Carp;
 use Config;

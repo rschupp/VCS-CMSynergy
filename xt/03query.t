@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use Test::More tests => 24;
-use t::util;
+use xt::util;
 use End;
 use strict;
 

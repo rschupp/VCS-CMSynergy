@@ -89,13 +89,6 @@ requires	'Type::Params'		=> 0;
 requires	'Types::Standard'	=> 0;
 
 test_requires	'Test::More'		=> 0;
-test_requires	'Test::Deep'		=> '0.103';
-
-include		'Test::Deep';
-include		'Test::Deep::*';
-include		'Test::Deep::*::*';
-test_requires	'End'			=> 0;
-include		'End';
 
 # --- Build data
 

@@ -2,7 +2,7 @@
 
 use Test::More tests => 61;
 use End;
-use t::util;
+use xt::util;
 use strict;
 
 BEGIN 

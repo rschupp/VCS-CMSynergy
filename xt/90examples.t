@@ -1,7 +1,7 @@
 #!/usr/bin/perl
 
 use Test::More tests => 8;
-use t::util;
+use xt::util;
 use strict;
 
 use IPC::Run3;

@@ -57,5 +57,9 @@
 ^inc/Scalar/Util.pm$
 ^t/zz
 ^TODO\.
+
 # packfiles that must not be distributed
 ^packfiles/
+
+# fake minimalistic ccm executable
+^fake-ccm-home/

@@ -1,0 +1,14 @@
+#!/bin/bash
+
+case "$1" in
+    version)   echo "IBM Rational Synergy Version 7.2" ;;
+    delimiter) echo "~" ;;
+    ps)        cat <<"EOF" ;;
+rfc address ($CCM_ADDR)
+	process (usr_cmd_interface)
+	user ($USER)
+EOF
+    *)         echo "$0: this is a fake!" ; exit 1 ;;
+esac
+
+exit 0

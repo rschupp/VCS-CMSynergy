@@ -1,7 +1,7 @@
 #!/usr/bin/perl -w
 
 use Test::More tests => 55;
-use t::util;
+use xt::util;
 use strict;
 
 BEGIN { use_ok('VCS::CMSynergy'); }

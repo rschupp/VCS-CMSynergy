@@ -55,7 +55,7 @@ This synopsis only lists the major methods.
 =cut 
 
 use base qw(Class::Accessor::Fast);
-__PACKAGE__->mk_ro_accessors(qw/objectname ccm name version cvtype instance/);
+__PACKAGE__->mk_ro_accessors(qw/objectname ccm/);
 
 use Carp;
 
@@ -79,33 +79,34 @@ my %cvtype2subclass =
 );
 
 
-# VCS::CMSynergy::Object->new(ccm, name, version, cvtype, instance)
+# VCS::CMSynergy::Object->new(ccm, objectname)
 # factory method
 sub new
 {
-    unless (@_ == 6)
+    unless (@_ == 3)
     {
-	carp(__PACKAGE__ . " new: illegal number of arguments");
+	carp(__PACKAGE__ . "::new: illegal number of arguments");
 	return;
     }
-    my $class = shift;
-    my $ccm = shift;
+    my ($class, $ccm, $objectname) = @_;
 
-    my $objectname = $_[0] . $ccm->delimiter . "$_[1]:$_[2]:$_[3]";
+    return $ccm->set_error("invalid objectname `$objectname'")
+	unless $objectname =~ /$ccm->{objectname_rx}/;
 
-    # return "unique" object if using :cached_attributes 
-    return $ccm->{objects}->{$objectname} 
-	if VCS::CMSynergy::use_cached_attributes() 
-           && $ccm->{objects}->{$objectname};
+    # canonicalize delimiter to colon
+    $objectname =~ s/$ccm->{delimiter_rx}/:/;
 
-    my %fields;
-    @fields{qw(name version cvtype instance)} = @_;
-    $fields{objectname} = $objectname;
-    $fields{ccm} = $ccm;
+    # return "unique" object if we already "know" it
+    return $ccm->{objects}->{$objectname} if $ccm->{objects}->{$objectname};
+
+    my %fields = (
+        objectname => $objectname,
+        ccm        => $ccm,
+    );
     Scalar::Util::weaken($fields{ccm}) if $have_weaken;
     $fields{acache} = {} if VCS::CMSynergy::use_cached_attributes();
 
-    if (my $subclass = $cvtype2subclass{$fields{cvtype}})
+    if (my $subclass = $cvtype2subclass{ (split(":", $objectname))[2] })
     {
 	require "VCS/CMSynergy/$subclass.pm";
 	$class = "VCS::CMSynergy::$subclass";
@@ -122,12 +123,18 @@ sub new
 	$self = bless \%fields, $class;
     }
 
-    # remember new object if using :cached_attributes
-    $ccm->{objects}->{$objectname} = $self 
-        if VCS::CMSynergy::use_cached_attributes();
+    # remember new object 
+    $ccm->{objects}->{$objectname} = $self;
 
     return $self;
 }
+
+# access to the parts of the objectname
+# NOTE: DON'T use "shift->{objectname}" as it won't work for :tied_objects
+sub name        { return (split(":", shift->objectname))[0] }
+sub version     { return (split(":", shift->objectname))[1] }
+sub cvtype      { return (split(":", shift->objectname))[2] }
+sub instance    { return (split(":", shift->objectname))[3] }
 
 # convenience methods for frequently used tests
 sub is_dir	{ return shift->cvtype eq "dir"; }
@@ -385,27 +392,24 @@ manipulating an object's attributes using the hash notation.
 =head2 new
 
   # let $ccm be a VCS::CMSynergy
-  $obj = VCS::CMSynergy::Object->new(
-    $ccm, $name, $version, $cvtype, $instance);
+  $obj = VCS::CMSynergy::Object->new($ccm, $objectname);
 
   # more conveniently
   $obj = $ccm->object($name, $version, $cvtype, $instance);
-  $obj2 = $ccm->object("name-version:cvtype:instance");
+  $obj2 = $ccm->object("name~version:cvtype:instance");
 
-Create a C<VCS::CMSynergy::Object> from a CM Synergy session and
-either an objectname
-(sometimes called I<object reference form> in CM Synergy documentation)
-in "name-version:cvtype:instance" format or the four parts specified
-separately. 
+Create a C<VCS::CMSynergy::Object> from a Synergy session and
+an objectname (sometimes called I<object reference form> in Synergy documentation).
+You may use either the database delimiter or a colon to separate the name
+and version parts of the objectname.
 
 Usually you would not call this method directly, but rather
 via the wrapper L<VCS::CMSynergy/object>.
 
 Note that no check is made whether the corresponding object really exists
-in the CM synergy database, use L</exists> for that.
+in the Synergy database, use L</exists> for that.
 
-If you are C<use>ing L<VCS::CMSynergy/:cached_attributes>, 
-invoking C<new> several times with the same objectname
+Invoking C<new> several times with the same objectname
 always returns the I<same> C<VCS::CMSynergy::Object>. This also holds
 for any method that returns C<VCS::CMSynergy::Object>s
 (by calling C<new> implicitly), e.g. L<VCS::CMSynergy/object> or
@@ -416,8 +420,9 @@ L<VCS::CMSynergy/query_object>.
   print $obj->objectname;
 
 Returns the object's complete name in I<object reference form>,
-i.e. C<"name-version:cvtype:instance"> where C<"-"> is meant as
-a placeholder for the actual delimiter of the CM synergy database.
+i.e. C<"name:version:cvtype:instance">. 
+Note that the delimiter between name and version is canonicalized to a colon,
+i.e. independent of the value of database delimiter.
 
 =head2 name, version, cvtype, instance
 

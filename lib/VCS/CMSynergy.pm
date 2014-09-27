@@ -1894,25 +1894,19 @@ sub object
           "\n  or     \$ccm->object(\$objectname)")
 	unless @_ == 1 || @_ == 4;
     
-    return VCS::CMSynergy::Object->new($self, @_) if @_ == 4;
-
-    my $objectname = shift;
-    return VCS::CMSynergy::Object->new($self, $1, $2, $3, $4)
-	if $objectname =~ /$self->{objectname_rx}/;
-
-    return $self->set_error("invalid objectname `$objectname'");
+    return VCS::CMSynergy::Object->new($self, @_ == 4 ? join(":", @_) : $_[0]);
 }
 
 # convenience methods to get the base model object etc
 # NOTE: base_model should actually be determined from attribute "active_model"
 # of "default-1:admin:AC" (the value is an old-style fullname,
 # but I've never seen anything else than "base/model/base/1").
-sub base_model	{ $_[0]->object(qw(base 1 model base)); }
-sub base_admin	{ $_[0]->object(qw(base 1 admin base)); }
-sub dcm_admin	{ $_[0]->object(qw(dcm 1 admin dcm)); }
-sub cs_admin	{ $_[0]->object(qw(cs 1 admin 1)); }
-sub cvtype	{ $_[0]->object($_[1], qw(1 cvtype base)); }
-sub attype	{ $_[0]->object($_[1], qw(1 attype base)); }
+sub base_model	{ $_[0]->object("base:1:model:base"); }
+sub base_admin	{ $_[0]->object("base:1:admin:base"); }
+sub dcm_admin	{ $_[0]->object("dcm:1:admin:dcm"); }
+sub cs_admin	{ $_[0]->object("cs:1:admin:1"); }
+sub cvtype	{ $_[0]->object("$_[1]:1:cvtype:base"); }
+sub attype	{ $_[0]->object("$_[1]:1:attype:base"); }
 
 # FIXME: instead of implementing the inverse function to the
 # ACcent method "displayname" of folder/task/problem objects, one could use

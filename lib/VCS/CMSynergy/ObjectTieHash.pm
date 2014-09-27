@@ -8,7 +8,11 @@ use warnings;
 
 use base 'VCS::CMSynergy::Object';
 
-# TIEHASH(class, { ccm => ..., name => ..., ...})
+use Carp;
+
+my %builtin = map { $_ => 1 } qw( objectname name version cvtype instance );
+
+# TIEHASH(class, { ccm => ..., objectname => ..., ...})
 sub TIEHASH
 {
     my ($class, $href) = @_;
@@ -18,26 +22,28 @@ sub TIEHASH
 sub FETCH
 {
     my ($self, $key) = @_;
-    return $self->get_attribute($key);
+    return $builtin{$key} ? $self->$key : $self->get_attribute($key);
 }
 
 sub STORE
 {
     my ($self, $key, $value) = @_;
+    carp(__PACKAGE__ . qq[::STORE: pseudo attribute "$key" is read-only]) if $builtin{$key};
     return $self->set_attribute($key, $value);
 }
 
 sub EXISTS
 {
     my ($self, $key) = @_;
-    return defined $self->set_attribute($key);
+    return $builtin{$key} || defined $self->set_attribute($key);
 }
 
 sub FIRSTKEY
 {
     my ($self) = @_;
-    $attrs = $self->list_attributes;
-    $self->_private->{_attrs} = [ keys %{ $self->list_attributes } ];
+    my $attrs = $self->list_attributes;
+    # FIXME are %builtin pseudo attrs shown by "ccm attr -la"? esp. objectname
+    $self->_private->{_attrs} = [ keys %$attrs ];
     return pop @{ $self->_private->{_attrs} };
 }
 
@@ -52,18 +58,14 @@ sub NEXTKEY
 {
     package VCS::CMSynergy::Object;
 
-    no strict 'refs';
     no warnings 'redefine';
 
-    foreach my $method (qw(objectname ccm name version cvtype instance))
-    {
-	*{$method} = sub { my $self = shift; (tied %$self || $self)->{$method}; };
-    }
-
-    # access private parts via the tied object
-    # FIXME NOTE why the || below? because in FETCH etc we are NOT tied
+    # access private parts and the only "real" fields via the tied object
+    # NOTE why the || below? because in FETCH etc we are NOT tied
     # but otherwise we ARE
-    sub _private	{ my $self = shift; tied %$self || $self; }
+    sub ccm        { my $self = shift; (tied %$self || $self)->{ccm}; };
+    sub objectname { my $self = shift; (tied %$self || $self)->{objectname}; };
+    sub _private   { my $self = shift; tied %$self || $self; }
 }
 
 

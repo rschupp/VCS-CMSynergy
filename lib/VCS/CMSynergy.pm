@@ -262,11 +262,12 @@ sub _start
 	return $self->set_error($err || $out) unless $rc == 0;
 	$self->{delimiter} = $out;
 
+	$self->{delimiter_rx} = qr/[$self->{delimiter}:]/;
 	$self->{objectname_rx} = 
-	    qr/^(.*?)(?:\Q$self->{delimiter}\E|:)(.*?):(.*?):(.*?)$/;
+	    qr/^(.*?)$self->{delimiter_rx}(.*?):(.*?):(.*?)$/;
 					# -> (name, version, cvtype, instance)
 	$self->{finduse_rx} = 
-	    qr/^(.*?)\Q$self->{delimiter}\E.*?\@(.*?)$/;
+	    qr/^(.*?)$self->{delimiter_rx}.*?\@(.*?)$/;
     					# -> (path, project)
     }
 

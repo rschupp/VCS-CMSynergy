@@ -530,8 +530,10 @@ sub _query
 sub _fullname2objectname
 {
     my ($self, $fullname) = @_;
-    $fullname =~ s{^(.*?)/(.*?)/(.*?)/(.*?)$}
-	          {$3$self->{delimiter}$4:$2:$1};
+    if ($fullname =~ m{/} && (my @p = split("/", $fullname)) == 4)
+    {
+        $fullname = join(":", $p[2], $p[3], $p[1], $p[0]);
+    }
     return $fullname;
 }
 

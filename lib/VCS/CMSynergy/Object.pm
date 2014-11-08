@@ -343,7 +343,7 @@ sub cat_object
     return $self->ccm->cat_object($self, @_);
 }
 
-# $obj->is_foo_of: short for $ccm->query_object({is_foo_of => [ $obj ]})
+# $obj->is_foo_of: short for $ccm->query_object("is_foo_of('$obj')")
 # same for has_foo
 sub AUTOLOAD
 {

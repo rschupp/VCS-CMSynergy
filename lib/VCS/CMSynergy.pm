@@ -659,9 +659,13 @@ sub _query_result
 sub _expand_query
 {
     my ($self, $query) = @_;
-    if (ref $query eq 'HASH')
+    if (ref $query eq 'ARRAY')
     {
 	$query = $self->_query_shortcut($query);
+    }
+    elsif (ref $query eq 'HASH')
+    {
+	$query = $self->_query_deprecated_shortcut($query);
     }
     else
     {
@@ -680,12 +684,41 @@ my %ac_cvtype = map { $_ => "AC/cvtype/$_/1" }
 # helper: expand shortcut queries
 sub _query_shortcut
 {
-    my ($self, $hashref) = @_;
+    my ($self, $aref) = @_;
+    croak("shortcut query must consist of an even number of elements") unless @$aref % 2 == 0;
 
-    DEBUG "shortcut query { ".join(", ", map { "$_ => $hashref->{$_}" } keys %$hashref)." }";
+    DEBUG "shortcut query [ " .
+            join(", ", map { $_ % 2 ? () : qq[$aref->[$_] => "$aref->[$_+1]"] }
+                       0..(@$aref-1)) .
+          "]";
+
+    my %expr;
+    while (@$aref)
+    {
+        my ($key, $value) = slice @aref, 0, 2;
+        push @{ $expr{$key} },
+             ref $value eq "ARRAY"
+                 ? ANY_OF($key, @$value)
+                 : $key . ($value =~ /[*?]/ ? " match " : "=") . _quote_value($value);
+    }
+
+    my $expanded = join(" and ",
+                        map { my $alt = join(" or ", @$_);
+                              @$_ == 1 ? $alt : "($alt)"; } values %expr); 
+    DEBUG qq[expanded shortcut query "$expanded"];
+    return $expanded;
+}
+
+# helper: expand shortcut queries (deprecated)
+sub _query_deprecated_shortcut
+{
+    my ($self, $href) = @_;
+    carp(qq[shortcut queries with {...} are deprecated, see the section on "shortcut query notation" in VCS::CMSynergy's pod]);
+
+    DEBUG "deprecated shortcut query { ".join(", ", map { "$_ => $href->{$_}" } keys %$href)." }";
 
     my @clauses;
-    while (my ($key, $value) = each %$hashref)
+    while (my ($key, $value) = each %$href)
     {
 	my $ref = ref $value;
 	if ($ref eq '')
@@ -726,10 +759,6 @@ sub _query_shortcut
 	    my $nested = $self->_query_shortcut($value);
 	    push @clauses, "$key($nested)";
 	}
-	elsif ($ref eq 'CODE')
-        {
-            push @clauses, $value->($key);
-        }
 	else
 	{
 	    (my $method = (caller(1))[3]) =~ s/^.*:://;
@@ -737,30 +766,22 @@ sub _query_shortcut
 	}
     }
 
-    my $result = join(" and ", @clauses);
-    DEBUG qq[expanded shortcut query "$result"];
+    my $expanded = join(" and ", @clauses);
+    DEBUG qq[expanded shortcut query "$expanded"];
 
-    return $result;
+    return $expanded;
 }
 
 sub ANY_OF
 {
-    my @values = @_;
-    return sub
-    {
-       my $key = shift;
-       "(" . join(" or ", map { "$key="._quote_value($_) } @values). ")";
-    };
+   my $key = shift;
+   return "(" . join(" or ", map { "$key="._quote_value($_) } @_). ")";
 }
 
 sub NONE_OF
 {
-    my @values = @_;
-    return sub
-    {
-       my $key = shift;
-       "(" . join(" and ", map { "$key!="._quote_value($_) } @values). ")";
-    };
+   my $key = shift;
+   return "(" . join(" and ", map { "$key!="._quote_value($_) } @_). ")";
 }
 
 # helper (not a method): smart quoting of string or boolean values

@@ -37,7 +37,7 @@ cmp_vcos($e_got, [], q[query with no match returns empty array]);
     # NOTE: can't use create_attribute() with an empty string here,
     # because it doesn't work on Windows
     my ($attr) = @{ $ccm->query_hashref(
-	{ type => "folder", description => $desc }, @stooges) };
+	[ type => "folder", description => $desc ], @stooges) };
     is($attr->{$_}, "", q[empty string attribute in query]) foreach @stooges;
 }
 
@@ -105,7 +105,7 @@ verbose('ml_got', $ml_got);
 cmp_vcos($ml_got, $ml_expected, q[query for multi-line attributes]);
 
 # test shorthand queries
-my $sh1_got = $ccm->query_object({ name => "bufcolor.c", instance => 1 });
+my $sh1_got = $ccm->query_object([ name => "bufcolor.c", instance => 1 ]);
 verbose('sh1_got', $sh1_got);
 cmp_vcos($sh1_got, $ml_expected, q[shorthand query with several clauses]);
 
@@ -116,17 +116,17 @@ my @sh2_expected = qw(
    toolkit-1.0:project:1
 );
 my $sh2_got = $ccm->query_object(
-    { hierarchy_project_members => [ 'toolkit-1.0:project:1', 'none' ] });
+    "hierarchy_project_members('toolkit-1.0:project:1', 'none'");
 verbose('sh2_got', $sh2_got);
 cmp_vcos($sh2_got, \@sh2_expected,
-   q[shorthand query with hierarchy_project_members()]);
+   q[query with hierarchy_project_members()]);
 
 # task6: Add some fonts to the GUI library for use in the editor
 my ($task6) = @{ $ccm->query_object(
-    {
+    [
 	type => "task",
 	task_synopsis => "Add some fonts to the GUI library for use in the editor"
-    }) };
+    ]) };
 isa_ok($task6, "VCS::CMSynergy::Object", q[task 'Add some fonts...']);
 verbose('task6', $task6);
 
@@ -143,10 +143,10 @@ my @sh3_expected = qw(
   sources-2:dir:2
 );
 my $sh3_got = $ccm->query_hashref(
-    { task => $task6->displayname }, qw(object task_objects));
+    "is_associated_cv_of('$task6')", qw(object task_objects));
 verbose('sh3_got', $sh3_got);
 cmp_vcos([ map { $_->{object} } @$sh3_got ], \@sh3_expected, 
-    q[shorthand query with task => ...]);
+    q[query with task => ...]);
 cmp_deeply([ map { $_->{task_objects} } @$sh3_got ],
     array_each(
 	array_each(isa("VCS::CMSynergy::Object") & methods(cvtype => "task")) & 

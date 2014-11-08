@@ -330,20 +330,11 @@ sub traverse
 	croak(__PACKAGE__."::traverse: argument 2 (dir) must have cvtype `dir': $dir")
 	    unless $dir->is_dir;
 
-	# check that $dir is member of $self
+	# check that $dir is member of $self, also fetch $wanted{attributes}
 	# FIXME there must be a better way to do this
-	my $result = $self->ccm->query_object(
-	    {
-		name		=> $dir->name,
-		cvtype		=> $dir->cvtype,
-		instance	=> $dir->instance,
-		version		=> $dir->version,
-		is_member_of	=> [ $self ]
-	    },
-	    @{ $wanted{attributes} });
+        my $members = $self->is_member_of(@{ $wanted{attributes} });
 	return $self->ccm->set_error("directory `$dir' doesn't exist or isn't a member of `$self'")
-	    unless @$result;
-	$dir = $result->[0];
+	    unless grep { $_ eq $dir } @$members;
     }
     else
     {

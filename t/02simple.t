@@ -16,7 +16,7 @@ isa_ok($ccm, "VCS::CMSynergy");
 
 $ccm->{RaiseError} = 0;
 
-my $got = $ccm->query_object({ type => "project" }, qw( status ));
+my $got = $ccm->query_object([ type => "project" ], qw( status ));
 ok($got, "got any projects?");
 my $ngot = @$got;
 diag("your database contains $ngot project versions");

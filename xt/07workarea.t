@@ -32,7 +32,7 @@ my $pname = "calculator";
 my $pversion = "test$$";
 
 my $result = $ccm->query_object(
-    qq[type='project' and name='$pname' and version match 'test*']);
+    [ type => 'project', name => $pname, version => 'test*' ]);
 ok(@$result == 0, qq[test project ${pname}-test* does not exist yet]);
 
 my %md5_expected;
@@ -51,7 +51,7 @@ my %objects =
     ok($ccm->checkout(-project => "${pname}-1.0", 
 		      -to => $pversion, -path => $tempdir, "-copy_based"), 
 	qq[checkout project ${pname}-1.0 to $pversion]);
-    $result = $ccm->query_object({ type => 'project', name => $pname, version => $pversion });
+    $result = $ccm->query_object([ type => 'project', name => $pname, version => $pversion ]);
     ok(@$result == 1, 
 	qq[test project ${pname}-${pversion} has been created]);
     my $test_proj = $result->[0];

@@ -36,7 +36,7 @@ my $ppl_p = $ccm->base_model->property("project_purpose_list");
 my ($ppl_q) = map { $_->{objectname} eq $ccm->base_model->objectname ? 
                       $_->{project_purpose_list} : () }
 		@{ $ccm->query_hashref(
-		    { name => "base" }, qw/objectname project_purpose_list/) };
+		    [ name => "base" ], qw/objectname project_purpose_list/) };
 is($ppl_a, $ppl_p, "attribute value with trailing newline via attribute/property");
 is($ppl_a, $ppl_q, "attribute value with trailing newline via attribute/query");
 

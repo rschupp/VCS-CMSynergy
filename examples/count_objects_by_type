@@ -44,7 +44,7 @@ foreach my $type (@ARGV ? @ARGV : sort $ccm->types)
 {
     my %pedigree;
     my $versions = 0;
-    foreach (@{ $ccm->query_object({ cvtype => $type }) })
+    foreach (@{ $ccm->query_object([ cvtype => $type ]) })
     {
 	$pedigree{$_->name . ":" . $_->cvtype . ":" . $_->instance}++;
 	$versions++;

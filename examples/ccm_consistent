@@ -14,13 +14,13 @@ my $ccm = VCS::CMSynergy->new(
     RaiseError	=> 1);
 
 my @projects = @{ $ccm->query_object(
-    { hierarchy_project_members => [ $root_project, 'none' ] }) };
+    "hierarchy_project_members('$root_project', 'none')") };
 die "can't find sub projects of project \"$root_project\"\n" unless @projects;
 
 my %members;		# name:cvtype:instance -> objectname -> @projects
 foreach my $proj (@projects)
 {
-    foreach (@{ $ccm->query_object({ is_member_of => $proj }) })
+    foreach (@{ $ccm->query_object([ is_member_of => $proj ]) })
     {
 	my $pedigree = join(":", $_->name, $_->cvtype, $_->instance);
 	push @{ $members{$pedigree}->{$_} }, $proj;

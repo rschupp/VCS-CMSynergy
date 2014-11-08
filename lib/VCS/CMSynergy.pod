@@ -710,62 +710,33 @@ L<query_object|/"query_object">,
 L<query_object|/"query_object"> 
 and L</query_count>
 support a shortcut notation for their common C<$query> parameter. To use
-this shortcut, supply a hash reference for C<$query>
+this shortcut, supply an array reference for C<$query>
 (instead of a simple string):
 
   $result = $ccm->query_hashref(
-    { type => 'csrc', match => '*.cpp' }, qw(objectname status));
+    [ type => 'csrc', name => '*.cpp' ], qw(objectname status));
 
-Every C<< key => value >> represents a simple query. Simple queries
-are combined with AND. The following simple queries are accepted:
+The array must have an even number of elements, shown here as a list of
+C<< $key => $value >> pairs. Each pair represents a simple query. 
+Simple queries with the same C<$key> are combined with "or"
+All other simple queries are combined with "and".
 
-=over 4
+Typically C<< $key => $value >>
+is translated to Synergy query syntax as C<$key = '$value'>.
+Note the quotes around C<$value>. However, quotes are omitted
+if C<$value> is either the string C<"TRUE"> or C<"FALSE">. 
 
-=item "key" => $scalar
+If C<$value> contains a wildcard character (C<*> or C<?>) the pair is
+translated as C<$key match '$value'>.
 
-This is translated to CMSynergy query syntax as C<key = '$scalar'>.
-Note the quotes around C<$scalar>. However, quotes are omitted
-if C<$scalar> is either the string C<"TRUE"> or C<"FALSE">. 
-In general, C<key> is the name of an attribute. 
-The following keys are treated specially:
+If C<$value> is an array reference the translation is the alternative
+of the array elements, e.g.
 
-=over 4
+  stooge => [qw( larry curly moe )]
 
-=item match
+is translated as
 
-C<< match => $scalar >> is short for C<name match '$scalar'>.
-
-=item task
-
-C<< task => $tasknr >> is short for 
-C<is_associated_cv_of(cvtype = 'task' and task_number = '$tasknr')>.
-This corresponds to CM Synergy's B<ccm query -task tasknr>.
-
-=back
-
-=item "key" => \@array
-
-This is translated as a call of a query function, 
-i.e. C<key('$array[0]', ...)>. Quoting is as described above.  Example:
-
-  $ccm->query_object(
-    { hierarchy_project_members => 
-      [ 'toolkit-1.0:project:1', 'none' ] });
-
-=item "key" => \%hash
-
-This is translated as a call of a query function with a nested query
-as parameter: Example:
-
-  $rel = '6.0';
-  $ccm->query_object(
-    { is_member_of => { release => $rel, match => '*web*' });
-
-gets translated to
-
-  "is_member_of(release='6.0' and name match '*web*')" 
-
-=back
+  "(stooge='larry' or stooge='curly' or stooge='moe')"
 
 =head2 history
 

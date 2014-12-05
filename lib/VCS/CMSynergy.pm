@@ -695,7 +695,7 @@ sub _query_shortcut
     my %expr;
     while (@$aref)
     {
-        my ($key, $value) = slice @aref, 0, 2;
+        my ($key, $value) = splice(@$aref, 0, 2);
         push @{ $expr{$key} },
              ref $value eq "ARRAY"
                  ? ANY_OF($key, @$value)
@@ -1255,7 +1255,7 @@ sub _relations
 
 	# first $ncol_from columns are the "from" part;
 	# avoid to parse "from" part more than once if "from => ..." was specified
-	my @cols_from = splice @cols, 0, $ncol_from;
+	my @cols_from = splice(@cols, 0, $ncol_from);
 	$from = $self->_query_result($want_from, \@cols_from, $row_type)
 	    unless $args->{from} && $from;
 
@@ -1264,7 +1264,7 @@ sub _relations
 
 	# next $ncol_to columns are the "to" part;
 	# avoid to parse "to" part more than once if "to => ..." was specified
-	my @cols_to = splice @cols, 0, $ncol_to;
+	my @cols_to = splice(@cols, 0, $ncol_to);
 	$to = $self->_query_result($want_to, \@cols_to, $row_type)
 	    unless $args->{to} && $to;
 
@@ -1437,7 +1437,7 @@ sub _ccm_attribute
     for (my $i = 0; $i < @args; $i++)
     {
 	next unless $args[$i] =~ /^-(?:v|value)$/;
-	(undef, $value) = splice @args, $i, 2;
+	(undef, $value) = splice(@args, $i, 2;
 	last;
     }
     croak(__PACKAGE__.qq[::_ccm_attribute: mssing argument "-value"])
@@ -1503,16 +1503,15 @@ sub delete_attribute
 sub copy_attribute
 {
     my $self = shift;
-     # FIXME convert to use validate()
-    _usage(@_, 3, undef, '{ $name | \\@names }, [ \\@flags, ] $from_file_spec, $to_file_spec...');
 
-    my ($name, @file_specs) = @_;
-    $name = join(':', @$name) if UNIVERSAL::isa($name, 'ARRAY');
-
-    my @flags = UNIVERSAL::isa($file_specs[0], 'ARRAY') ?
-	map { "-$_" } @{ shift @file_specs } : ();
+    # extract flags first (makes validation easier)
+    my @flags;
+    @flags = map { "-$_" } @{ splice(@_, 1, 1) } if defined $_[1] && ref $_[1] eq "ARRAY";
     
-    return scalar $self->ccm(qw/attribute -copy/, $name, @flags, @file_specs);
+    my ($names, $file_specs) = validate(\@_, Str | ArrayRef[Str], slurpy ArrayRef[_FILE_SPEC]);
+    $names = join(':', @$names) if ref $names eq "ARRAY";
+
+    return scalar $self->ccm(qw/attribute -copy/, $names, @flags, @$file_specs);
 }
 
 

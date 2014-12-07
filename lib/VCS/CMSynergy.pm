@@ -774,14 +774,15 @@ sub _query_deprecated_shortcut
 
 sub ANY_OF
 {
-   my $key = shift;
-   return "(" . join(" or ", map { "$key="._quote_value($_) } @_). ")";
+    my $key = shift;
+    croak(__PACKAGE__.qq[::ANY_OF needs at least one value]) unless @_;
+
+    return "(" . join(" or ", map { "$key="._quote_value($_) } @_). ")";
 }
 
 sub NONE_OF
 {
-   my $key = shift;
-   return "(" . join(" and ", map { "$key!="._quote_value($_) } @_). ")";
+    return "(not " . ANY_OF(@_) . ")";
 }
 
 # helper (not a method): smart quoting of string or boolean values
@@ -1437,7 +1438,7 @@ sub _ccm_attribute
     for (my $i = 0; $i < @args; $i++)
     {
 	next unless $args[$i] =~ /^-(?:v|value)$/;
-	(undef, $value) = splice(@args, $i, 2;
+	(undef, $value) = splice(@args, $i, 2);
 	last;
     }
     croak(__PACKAGE__.qq[::_ccm_attribute: mssing argument "-value"])

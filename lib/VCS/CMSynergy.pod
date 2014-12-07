@@ -11,22 +11,22 @@ VCS::CMSynergy - Perl interface to IBM Rational Synergy
   ($rc, $out, $err) = $ccm->ccm($ccm_command, @ccm_args);
   ($rc, $out, $err) = $ccm->any_ccm_command(@ccm_args); 
 
-  $ary_ref = $ccm->query(@ccm_args);
-  $ary_ref = $ccm->query_arrayref($query, @keywords);
-  $ary_ref = $ccm->query_hashref($query, @keywords);
-  $ary_ref = $ccm->query_object($query, @keywords);
+  $aref = $ccm->query(@ccm_args);
+  $aref = $ccm->query_arrayref($query, @keywords);
+  $aref = $ccm->query_hashref($query, @keywords);
+  $aref = $ccm->query_object($query, @keywords);
 
-  $ary_ref = $ccm->finduse(@args);
+  $aref = $ccm->finduse(@args);
   $path = $ccm->findpath($file_spec, $proj_vers);
 
-  $ary_ref = $ccm->history(@ccm_args);
-  $ary_ref = $ccm->history_arrayref($file_spec, @keywords);
-  $ary_ref = $ccm->history_hashref($file_spec, @keywords);
+  $aref = $ccm->history(@ccm_args);
+  $aref = $ccm->history_arrayref($file_spec, @keywords);
+  $aref = $ccm->history_hashref($file_spec, @keywords);
 
-  $ary_ref = $ccm->ls(@ccm_args);
-  $ary_ref = $ccm->ls_object($file_spec);
-  $ary_ref = $ccm->ls_arrayref($file_spec, @keywords);
-  $ary_ref = $ccm->ls_hashref($file_spec, @keywords);
+  $aref = $ccm->ls(@ccm_args);
+  $aref = $ccm->ls_object($file_spec);
+  $aref = $ccm->ls_arrayref($file_spec, @keywords);
+  $aref = $ccm->ls_hashref($file_spec, @keywords);
 
   $value = $ccm->get_attribute($attr_name, $file_spec);
   $ccm->set_attribute($attr_name, $file_spec, $value);
@@ -467,7 +467,7 @@ This is accomplished by a suitable C<AUTOLOAD> method.
 
 =head2 query
 
-  $ary_ref = $ccm->query(@args);
+  $aref = $ccm->query(@args);
 
 Executes the B<ccm query> command with the given C<@args> as parameters.
 The output (as formatted by the C<-format> option) is split into lines.
@@ -504,11 +504,11 @@ L<query_hashref|/"query_arrayref, query_hashref"> handle this case correctly.
 
 =head2 query_arrayref, query_hashref
 
-  $ary_ref = $ccm->query_arrayref($query, @keywords);
-  print "@$_\n" foreach @$ary_ref;
+  $aref = $ccm->query_arrayref($query, @keywords);
+  print "@$_\n" foreach @$aref;
 
-  $ary_ref = $ccm->query_hashref($query, @keywords);
-  print "@$_{@keywords}\n" foreach @$ary_ref;
+  $aref = $ccm->query_hashref($query, @keywords);
+  print "@$_{@keywords}\n" foreach @$aref;
 
 C<query_arrayref> and C<query_hashref>
 execute B<ccm query> with the query expression C<$query> asking
@@ -618,6 +618,7 @@ Note the following differences from B<ccm query>:
 =over 4
 
 =item *
+
 The keyword or attribute names given in C<@keywords> should I<not>
 contain a leading C<%>. Example:
 
@@ -647,7 +648,7 @@ it to B<ccm query>.
 
 =head2 query_object
 
-  $ary_ref = $ccm->query_object($query, @keywords);
+  $aref = $ccm->query_object($query, @keywords);
 
 Executes B<ccm query> with the query expression C<$query> 
 and returns a reference to an array of C<VCS::CMSynergy::Object>s 
@@ -738,9 +739,27 @@ is translated as
 
   "(stooge='larry' or stooge='curly' or stooge='moe')"
 
+=head2 query convenience functions: ANY_OF, NONE_OF 
+
+  use VCS::CMSynergy qw( ANY_OF NONE_OF );
+  
+  $aref = $ccm->query_object(ANY_OF(status => qw( integrate released )), ...);
+
+C<< ANY_OF(key => @values >> and C<< NONE_OF(key => @values) >> 
+are convenience B<functions> returning B<strings> that can be used 
+to build queries. For example, the above is the same as
+
+  $aref = $ccm->query_object("(status='integrate' or status='released')", ...);
+
+The result of C<ANY_OF> and C<NONE_OF> can safely be used in a query
+where syntactically an expression is expected.
+
+Note that you must explicity import C<ANY_OF> and C<NONE_OF> too use
+them without the full module name.
+
 =head2 history
 
-  $ary_ref = $ccm->history(@args);
+  $aref = $ccm->history(@args);
 
 Executes the B<ccm history> command with the given C<@args> as parameters.
 The output (probably formatted by the C<-format> option) is split into 
@@ -754,14 +773,15 @@ Perl argument. For literal arguments the C<qw()> notation may come in handy.
 
 If you are interested in the successor or predecessor or 
 certain attributes of an object in the history,
-you should look at the L<history_arrayref|/"history_arrayref, history_hashref">
-and L<history_hashref|/"history_arrayref, history_hashref">
+you should look at the 
+L<history_arrayref|/"history_arrayref, history_hashref B<(classic mode only)>">
+and L<history_hashref|/"history_arrayref, history_hashref B<(classic mode only)>">
 methods that return this information in structured form. 
 
 =head2 history_arrayref, history_hashref B<(classic mode only)>
 
-  $ary_ref = $ccm->history_arrayref($file_spec, @keywords);
-  $ary_ref = $ccm->history_hashref($file_spec, @keywords);
+  $aref = $ccm->history_arrayref($file_spec, @keywords);
+  $aref = $ccm->history_hashref($file_spec, @keywords);
 
 C<history_arrayref> and C<history_hashref>
 execute B<ccm history> for C<$file_spec> asking
@@ -838,7 +858,7 @@ contain a leading C<%>. Example:
 
 =head2 finduse
 
-  $ary_ref = $ccm->finduse(@args);
+  $aref = $ccm->finduse(@args);
 
 Executes the B<ccm finduse> command with the given C<@args> as parameters.
 It returns a reference to an array of rows, one per C<file_spec> given
@@ -1520,7 +1540,7 @@ of arrays (of three elements each), e.g.
 
 =head2 ls
 
-  $ary_ref = $ccm->ls(@args);
+  $aref = $ccm->ls(@args);
 
 Executes the B<ccm ls> command with the given C<@args> as parameters.
 The output (as formatted by the C<-format> option) is split into lines.
@@ -1540,7 +1560,7 @@ the listed objects, you should look at the L</ls_object> method.
 
 =head2 ls_object
 
-  $ary_ref = $ccm->ls_object($file_spec);
+  $aref = $ccm->ls_object($file_spec);
 
 Lists information about a file or the contents of a directory
 using the work area name C<$file_spec>.
@@ -1549,7 +1569,7 @@ The default C<$file_spec> is the working directory.
 
 =head2 ls_arrayref
 
-  $ary_ref = $ccm->ls_arrayref($file_spec, @keywords);
+  $aref = $ccm->ls_arrayref($file_spec, @keywords);
 
 Lists the values of the built-in keywords or attributes supplied
 in C<@keywords> for a file or the contents of a directory
@@ -1578,7 +1598,7 @@ contain a leading C<%>. Example:
 
 =head2 ls_hashref
 
-  $ary_ref = $ccm->ls_hashref($file_spec, @keywords);
+  $aref = $ccm->ls_hashref($file_spec, @keywords);
 
 Lists the values of the built-in keywords or attributes supplied
 in C<@keywords> for a file or the contents of a directory

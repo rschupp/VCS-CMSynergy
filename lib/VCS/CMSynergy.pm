@@ -1139,14 +1139,7 @@ sub relations_arrayref
     my (@result, $from, $to);
     foreach (split(/\n/, $out))	        	# split into lines 
     {
-        # FIXME 
-        # Using "-format" in web mode is totally broken (as of Synergy 7.2) -
-        # any keyword only produces only "<void>". 
-        # Using no formatting option at all prints
-        #   from-objectname relation-name to-objectname timestamp
-        # but this can't be parsed reliably (e.g. what about blanks in
-        # an object's name?).
-        # In web mode, the "default long format" (option "-l") prints
+        # NOTE: In web mode, the "default long format" (option "-l") prints
         #   (from-info) relation-name (to-info) timestamp
         # where info is
         #    objectname status owner
@@ -1215,29 +1208,48 @@ sub _relations
     # NOTES: 
     # (1) $args->{from_attributes}/$args->{to_attributes} must not be undef
     # (2) only ROW_HASH and ROW_OBJECT are allowed for $row_type
-    croak(__PACKAGE__.qq[::relations_{hashref,object} are not available in web mode])
-            if $self->web_mode;
 
 
     my $want_from = _want($row_type, $args->{from_attributes});
     my $ncol_from = keys %$want_from;
     my $want_to   = _want($row_type, $args->{to_attributes});
     my $ncol_to   = keys %$want_to;
+    my $format;
 
-    # NOTE: If the "from" part (the part before "::") of the format
-    # or the "to" part are empty, Synergy may default it from
-    # the other part. Hence both "from" and "to" part below are never
-    # empty, even if $want_from or $want_to are empty.
-    my $format = 
-	$RS . 			# record delimiter
-	join($FS, 			# column separator
-	    values %$want_from,		# "from" part
-	    "::", 			# will be replaced by name of relation
-	    values %$want_to) .		# "to" part
-	$FS;				# will be followed by create_time
+    if ($self->web_mode)
+    {
+        # NOTE: Web mode wants "%[from]keyword" and "%[to]keyword", resp.,
+        # instead of just "%keyword" for from_attributes
+        # and to_attributes, resp.
+        s/^%/%[from]/ foreach values %$want_from;
+        s/^%/%[to]/   foreach values %$want_to;
+
+        $format =
+            $RS . 			# record delimiter
+            join($FS, 			# column separator
+                values %$want_from,	# "from" part
+                "%name", 		# name of relation
+                values %$want_to,       # "to" part
+                "%create_time");        # create_time of relation
+    }
+    else                                # classic mode
+    {
+        # NOTE: If the "from" part (the part before "::") of the format
+        # or the "to" part are empty, Synergy may default it from
+        # the other part. Hence both "from" and "to" part below are never
+        # empty, even if $want_from or $want_to are empty.
+
+        $format = 
+            $RS . 			# record delimiter
+            join($FS, 			# column separator
+                values %$want_from,	# "from" part
+                "::", 			# will be replaced by name of relation
+                values %$want_to) .	# "to" part
+            $FS;			# will be followed by create_time
+    }
 
     my ($rc, $out, $err) = $self->_ccm(
-	qw/relate -show -format/ => $format, 
+	qw/relate -show -nf -format/ => $format, 
 	    map { defined $args->{$_} ? ( "-$_" => $args->{$_}) : () } 
 		qw/from to name/);
 

@@ -46,26 +46,6 @@ SKIP:
 # test that exists() on an non-existant object doesn't cause an exception 
 ok(!$ccm->object('frobozz.c-1:csrc:1')->exists, q[object doesn't exist]);  #'
 
-SKIP: 
-{
-    skip "get_releases() is obsolete in CM Synergy >= 6.3", 2
-	unless $ccm->version <= 6.2;
-
-    my $rel_expected = {
-	'1.0'	=> [ qw(1.0) ],
-	'1.1'	=> [ qw(1.0 1.1) ],
-	'2.0'	=> [ qw(1.0 1.1 2.0) ],
-	'2.0_SP1'	=> [ qw(1.0 1.1 2.0 2.0_SP1) ],
-	'2.1'	=> [ qw(1.0 1.1 2.0 2.1) ],
-	'3.0'	=> [ qw(1.0 1.1 2.0 2.1 3.0) ],
-	'3.1'	=> [ qw(1.0 1.1 2.0 2.1 3.0 3.1) ]
-    };
-    my $rel_got = $ccm->get_releases;
-    isa_ok($rel_got, "HASH", q[get_releases()]);
-    ok(eq_hash($rel_got, $rel_expected, q[$ccm->get_releases]),
-	q[check release table]);
-}
-
 
 BEGIN { use_ok('VCS::CMSynergy::Users'); }
 

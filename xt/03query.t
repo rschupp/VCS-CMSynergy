@@ -43,30 +43,27 @@ cmp_vcos($e_got, [], q[query with no match returns empty array]);
 
 # test query_object with old-style objectnames returned from the query
 my @b_expected = qw(
-    base-1:admin:base
-    base-1:mcomp:base
-    base-1:model:base
-    binary-1:attype:base
-    binary-1:cvtype:base
-    boolean-1:attype:AC
-    bstype-1:cvtype:AC
-    bstypes-1:mcomp:AC
-    bstypes-1:mcomp:base
-    bufcolor.c-1:csrc:1
-    bufcolor.c-1:csrc:2
-    bufcolor.c-2:csrc:1
-    bufcolor.c-2:csrc:2
-    bufcolor.c-3:csrc:1
-    bufcolor.c-3:csrc:2
-    by_directory-1:bstype:base
-    by_name-1:bstype:AC
+    base:1:admin:base
+    base:1:mcomp:base
+    base:1:model:base
+    baseline:1:cvtype:base
+    binary:1:attype:base
+    binary:1:cvtype:base
+    bitmap:1:attype:base
+    bitmap:1:cvtype:base
+    boolean:1:attype:AC
+    bstype:1:cvtype:AC
+    bstypes:1:mcomp:AC
+    bstypes:1:mcomp:base
+    bufcolor.c:1:csrc:1
+    bufcolor.c:1:csrc:2
+    bufcolor.c:2:csrc:1
+    bufcolor.c:2:csrc:2
+    bufcolor.c:3:csrc:1
+    bufcolor.c:3:csrc:2
+    by_directory:1:bstype:base
+    by_name:1:bstype:AC
 );
-
-push @b_expected, qw(
-    bitmap-1:attype:base
-    bitmap-1:cvtype:base)		if $ccm->version >= 6.0;
-push @b_expected, qw(
-    baseline-1:cvtype:base)		if $ccm->version >= 6.3;
 
 my $b_query = "name match 'b*'";
 my $b_got = $ccm->query_object($b_query);
@@ -167,25 +164,23 @@ cmp_deeply($fd_got,
 
 my $complex_expected = 
 [
-  [ 'task-1:cvtype:base',	'base/cvtype/task/1' ],
-  [ 'text-1:attype:AC',		'AC/attype/text/1' ],
-  [ 'time-1:attype:AC',		'AC/attype/time/1' ],
-  [ 'toolkit-1:dir:1',		'toolkit-1' ],
-  [ 'toolkit-1.0:project:1',	'toolkit-1.0' ],
-  [ 'toolkit-darcy:project:1',	'toolkit-darcy' ],
-  [ 'toolkit-int:project:1',	'toolkit-int' ],
-  [ 'toolkit.ini-1:ascii:1',	'toolkit.ini-1' ],
-  [ 'tset-1:cvtype:base',	'base/cvtype/tset/1' ]
+  [ 'task:1:cvtype:base',	'base/cvtype/task/1' ],
+  [ 'text:1:attype:AC',		'AC/attype/text/1' ],
+  [ 'time:1:attype:AC',		'AC/attype/time/1' ],
+  [ 'toolkit:1:dir:1',		'toolkit-1' ],
+  [ 'toolkit:1.0:project:1',	'toolkit-1.0' ],
+  [ 'toolkit:darcy:project:1',	'toolkit-darcy' ],
+  [ 'toolkit:int:project:1',	'toolkit-int' ],
+  [ 'toolkit:int_20021125:project:1', 'toolkit-int_20021125' ],
+  [ 'toolkit.ini:1:ascii:1',	'toolkit.ini-1' ],
+  [ 'tset:1:cvtype:base',	'base/cvtype/tset/1' ]
 ];
-push @$complex_expected,
-  [ 'toolkit-int_20021125:project:1', 'toolkit-int_20021125' ]
-  if $ccm->version >= 6.3;
 
 # NOTE: Exclude tasks as they are unpredictable (automatic tasks in
 # general, also other test may create tasks that tyhe can't clean up).
-# Also exlude baselines, releasedefs, and recon_temps (CM Synergy >= 6.3 only).
+# Also exlude baselines, releasedefs, and recon_temps.
 my $complex_got = $ccm->query_arrayref(
-    "name match 't*' and not ( cvtype = 'task' or cvtype = 'baseline' or cvtype = 'recon_temp' or cvtype = 'releasedef' )", 
+    "name match 't*' and " . NONE_OF(cvtype => qw(task baseline recon_temp releasedef)),
     qw(objectname displayname));
 verbose('complex_got', $complex_got);
 cmp_bag($complex_got, $complex_expected,

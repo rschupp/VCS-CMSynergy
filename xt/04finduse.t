@@ -26,7 +26,7 @@ SKIP:
     skip q[web mode: query keyword "finduse" does not work in web mode], 2
         if $ccm->web_mode;
 
-    my $q_expected63 = 
+    my $q_expected = 
     [
       {
         objectname => 'main.c-1:csrc:1',
@@ -73,51 +73,6 @@ SKIP:
         }
       }
     ];
-    my $q_expected51 = 
-    [
-      {
-        objectname => 'main.c-1:csrc:1',
-        finduse => {}
-      },
-      {
-        objectname => 'main.c-2:csrc:1',
-        finduse => {}
-      },
-      {
-        objectname => 'main.c-1:csrc:2',
-        finduse => 
-        {
-           'editor-1.0:project:1' => native_path('editor/sources/main.c'),
-           'editor-int:project:1' => native_path('editor/sources/main.c')
-        }
-      },
-      {
-        objectname => 'main.c-2:csrc:2',
-        finduse => 
-        {
-           'editor-darcy:project:1' => native_path('editor/sources/main.c')
-        }
-      },
-      {
-        objectname => 'main.c-1:csrc:3',
-        finduse => 
-        {
-           'guilib-1.0:project:1' => native_path('guilib/sources/main.c'),
-           'guilib-int:project:1' => native_path('guilib/sources/main.c'),
-           'guilib-darcy:project:1' => native_path('guilib/sources/main.c')
-        }
-      },
-      {
-        objectname => 'main.c-1:csrc:4',
-        finduse => 
-        {
-           'calculator-1.0:project:1' => native_path('calculator/sources/main.c'),
-           'calculator-int:project:1' => native_path('calculator/sources/main.c'),
-           'calculator-darcy:project:1' => native_path('calculator/sources/main.c')
-        }
-      }
-    ];
-    my $q_expected = $ccm->version >= 6.3 ? $q_expected63 : $q_expected51;
 
     my $q_got = $ccm->query_hashref("name = 'main.c'", qw(objectname finduse));
     verbose('q_got', $q_got);

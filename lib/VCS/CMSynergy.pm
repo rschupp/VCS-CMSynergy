@@ -1857,7 +1857,7 @@ sub dcm_enabled		{ shift->dcm_database_id ne ""; }
 __PACKAGE__->_memoize_method(default_project_instance => sub
 {
     my $self = shift;
-    return $self->version >= 6.3 && $self->dcm_enabled ?
+    return $self->dcm_enabled ?
 	$self->dcm_database_id . $self->dcm_delimiter . '1' : '1';
 });
 

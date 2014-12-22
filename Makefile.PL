@@ -113,7 +113,7 @@ sub postamble
     return "" unless $Module::Install::AUTHOR;
 
     # UseCoprocess only works in classic mode
-    return "" if $ccm_version < 7.2;
+    return "" if $ccm_version >= 7.2;
 
     # arrange for all tests to be run a second time with UseCoprocess => 1
     # (but only if we can find Expect.pm)

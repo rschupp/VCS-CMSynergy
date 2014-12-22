@@ -1693,33 +1693,6 @@ C<ccm_with_text_editor> returns the same
 value as the inner L</ccm> method, except when there is an error setting
 the new C<$value> of C<$option>.
 
-=head2 get_releases, set_releases
-
-  $releases = $ccm->get_releases;
-  $ccm->set_releases($releases);
-
-C<get_releases> fetches the release table (of active releases) as printed
-by B<ccm releases -show>. It returns a reference to a hash where
-each  key is the release name and the value is (a reference to) 
-a list of included releases, e.g. as formatted by L<Data::Dumper>:
-
-  $releases = {
-      '1.0'	=> [ qw(1.0) ],
-      '1.1'	=> [ qw(1.0 1.1) ],
-      '2.0'	=> [ qw(1.0 1.1 2.0) ],
-      '2.0_SP1'	=> [ qw(1.0 1.1 2.0 2.0_SP1) ],
-      '2.1'	=> [ qw(1.0 1.1 2.0 2.1) ],
-      '3.0'	=> [ qw(1.0 1.1 2.0 2.1 3.0) ],
-      '3.1'	=> [ qw(1.0 1.1 2.0 2.1 3.0 3.1) ]
-  };
-
-C<set_releases> updates the release table. It takes a reference to
-a hash with the same structure as returned by C<get_releases>.
-
-Note: This methods I<do not work> on CM Synergy 6.3 and higher,
-because the B<releases> command has been superceded by the 
-incompatible, though more powerful, B<release> command.
-
 =head2 ccm_addr
 
   print "CCM_ADDR=", $ccm->ccm_addr;
@@ -1770,8 +1743,7 @@ a project spec that only consists of the project's name and version:
   $proj_spec .= ":project:" . $ccm->default_project_instance
     unless $proj_spec =~ /:project:/;
 
-In versions of CM Synergy prior to 6.3 this is always C<"1">. 
-In newer versions it is C<"1"> if the database isn't DCM enabled,
+It is C<"1"> if the database isn't DCM enabled,
 otherwise it is 
 
     $ccm->dcm_database_id . $ccm->dcm_delimiter . "1"

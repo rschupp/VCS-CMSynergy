@@ -330,11 +330,13 @@ sub traverse
 	croak(__PACKAGE__."::traverse: argument 2 (dir) must have cvtype `dir': $dir")
 	    unless $dir->is_dir;
 
-	# check that $dir is member of $self, also fetch $wanted{attributes}
-	# FIXME there must be a better way to do this
-        my $members = $self->is_member_of(@{ $wanted{attributes} });
-	return $self->ccm->set_error("directory `$dir' doesn't exist or isn't a member of `$self'")
-	    unless grep { $_ eq $dir } @$members;
+	# check that $dir is indeed a member of $self
+        my $parents = $self->has_child($dir);
+	return $self->ccm->set_error("directory `$dir' isn't a member of `$self'")
+            unless @$parents;
+
+        # fetch its $wanted{attributes}
+        $dir->property($wanted{attributes}) if $wanted{attributes};
     }
     else
     {
@@ -593,23 +595,32 @@ sub hierarchy_project_members
 }
 
 
-=head2 is_child_of
+=head2 is_child_of, has_child
 
 These are convenience methods to enumerate all members of a directory
-in the context of the invocant project.
+(C<is_child_of>) or all directories that contain the object (C<has_child>),
+both in the context of the invocant project 
 
   $members = $proj->is_child_of($dir, @keywords);
 
-is exactly the same as
+  $parents = $proj->has_child($obj, @keywords);
+
+are exactly the same as
 
   $members = $proj->ccm->query_object(
     "is_child_of('$dir','$proj')", @keywords);
 
-C<$dir> and C<@keywords> are optional. If C<$dir> is supplied
+  $parents = $proj->ccm->query_object(
+    "has_child('$obj','$proj')", @keywords);
+
+For C<has_child>, C<$obj> may be any C<VCS::CMSynergy::Object>.
+
+For C<is_child_of>, C<$dir> is optional; if supplied
 it must be a C<VCS::CMSynergy::Object> of type C<"dir">.
 If C<$dir> is C<undef> or not supplied, C<is_child_of> returns
 the toplevel directory of the invocant project (NOTE: the return value
 is actually a reference to an array with one element).
+
 If you supply C<@keywords> these are passed down
 to L<VCS::CMSynergy/query_object> as additional keywords.
 
@@ -631,6 +642,15 @@ sub is_child_of
     }
 
     return $self->ccm->query_object("is_child_of('$dir','$self')", @$keywords);
+}
+
+sub has_child
+{
+    my $self = shift;
+    my ($obj, $keywords) = 
+        validate(\@_, InstanceOf["VCS::CMSynergy::Object"], _KEYWORDS);
+
+    return $self->ccm->query_object("has_child('$obj','$self')", @$keywords);
 }
 
 

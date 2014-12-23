@@ -503,10 +503,9 @@
   - INCOMPATIBLE CHANGE: The pseudo keyword "finduse" in query_arrayref()
       and query_hashref() does not return a list of project references
       any more. It now returns a hash which maps proj_vers to relative_path. 
-      Similarly, the rows returned by finduse() have changed from
-          [ $description, @project_references ]
-      to
-          [ $description, \%usage_map ].
+      Similarly, the rows returned by finduse() have changed
+      from [ $description, @project_references ]
+      to [ $description, \%usage_map ].
 
   - Converted findpath() to use new finduse(), adjusted t/04finduse.t.
     Convert tests to use Test::More.

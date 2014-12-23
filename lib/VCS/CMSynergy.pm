@@ -1213,8 +1213,8 @@ sub relations_hashref
 {
     my ($self, %args) = @_;
     validate([\%args], Dict[ _FROM_TO_NAME,
-                             from_attribute => Optional[ArrayRef[Str]],
-                             to_attribute   => Optional[ArrayRef[Str]] ]);
+                             from_attributes => Optional[ArrayRef[Str]],
+                             to_attributes   => Optional[ArrayRef[Str]] ]);
 
     my %defaulted;
     foreach (qw/from_attributes to_attributes/)
@@ -1246,11 +1246,11 @@ sub relations_object
 {
     my ($self, %args) = @_;
     validate([\%args], Dict[ _FROM_TO_NAME,
-                             from_attribute => Optional[ArrayRef[Str]],
-                             to_attribute   => Optional[ArrayRef[Str]] ]);
+                             from_attributes => Optional[ArrayRef[Str]],
+                             to_attributes   => Optional[ArrayRef[Str]] ]);
 
     $args{$_} ||= [] foreach qw/from_attributes to_attributes/;
-                                # coz _relations below likes 'em defined
+                                # coz _relations() likes 'em defined
 
     return $self->_relations(\%args, ROW_OBJECT);
 }

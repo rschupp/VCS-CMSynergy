@@ -78,6 +78,9 @@ my %cvtype2subclass =
     project	=> "Project",
 );
 
+# no need to cache these attributes
+my %dont_cache = map { $_ => 1 } qw( objectname name version cvtype instance );
+
 
 # VCS::CMSynergy::Object->new(ccm, objectname)
 # factory method
@@ -268,14 +271,11 @@ sub _update_acache
     return unless VCS::CMSynergy::use_cached_attributes();
 
     my $self = shift;
-    if (@_ == 2)
+    my $attrs = @_ == 2 ?  { @_ } : shift;
+
+    while (my ($k, $v) = each %$attrs)
     {
-	$self->_private->{acache}{$_[0]} = $_[1];
-    }
-    else
-    {
-	my $attrs = shift;
-	@{$self->_private->{acache}}{keys %$attrs} = values %$attrs;
+        $self->_private->{acache}{$k} = $v unless $dont_cache{$k};
     }
 }
 

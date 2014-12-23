@@ -57,8 +57,8 @@ SKIP:
 is(run_perl(qw(-c examples/grep_attr)), 0, q[examples/grep_attr: compile it]);
 {
     chomp(my $exp = << 'EOF');		# must be sorted
-task25-1:task:probtrac:sandbox needs to support rgb color settings
-task28-1:task:probtrac:Add rgb handling code from the sandbox team to bufcolor.c for the play project
+task25:1:task:probtrac:sandbox needs to support rgb color settings
+task28:1:task:probtrac:Add rgb handling code from the sandbox team to bufcolor.c for the play project
 EOF
 	
     my ($rc, $got) = run_perl(qw(examples/grep_attr --ignore-case rgb task_synopsis --query), "type = 'task'");

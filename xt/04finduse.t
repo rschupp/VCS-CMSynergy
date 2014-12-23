@@ -90,7 +90,7 @@ SKIP:
 is($ccm->findpath("main.c-1:csrc:3", "guilib-darcy:project:1"),
    native_path("guilib/sources/main.c"),
    q[$ccm->findpath("main.c-1:csrc:3", "guilib-darcy")]);
-ok(!defined $ccm->findpath("main.c-1:csrc:3", "blurfl"),
+ok(!defined $ccm->findpath("main.c-1:csrc:3", "blurfl-jdoe"),
    q[$ccm->findpath("main.c-1:csrc:3", "blurfl") -- no match]);
 
 exit 0;

@@ -10,7 +10,11 @@ use Test::Deep 0.093;
 
 ### Test::Deep stuff
 
-sub vco		{ return isa("VCS::CMSynergy::Object") & methods(objectname => $_[0]); }
+sub vco		
+{ 
+    (my $objectname = shift) =~ s/-/:/;         # normalize delim to ":"
+    return isa("VCS::CMSynergy::Object") & methods(objectname => $objectname);
+}
 
 # compare sets of objects (with useful diagnostics)
 sub cmp_vcos	{ return cmp_deeply($_[0], vcoset($_[1]), $_[2]); }

@@ -57,54 +57,48 @@ s/^(Created:.*|State:.*|\s*)\n//gm foreach @$h0_exp, @$h0_got;
 ok(eq_set($h0_got, $h0_exp),
    q[$ccm->history("bufcolor.c-1:csrc:2")]);
 
-SKIP: 
-{
-    skip "history_{arrayref,hashref} are not available in web mode", 2
-        if $ccm->web_mode;
-
-    my $h1_exp = [
-       {
-         object => vco('bufcolor.c-1:csrc:2'),
-         task => undef,
-         status_log => 'Fri Sep  5 08:38:16 1997: Status set to \'working\' by ccm_root in role ccm_admin
-    Fri Sep  5 08:53:24 1997: Status set to \'released\' by ccm_root in role ccm_admin',
-         predecessors => [],
-         successors => vcoset([ qw(bufcolor.c-2:csrc:2) ]),
-       },
-       {
-         object => vco('bufcolor.c-2:csrc:2'),
-         task => '25',
-         status_log => 'Fri Sep  5 09:04:57 1997: Status set to \'working\' by ccm_root in role ccm_admin
-    Fri Sep  5 09:06:02 1997: Status set to \'integrate\' by ccm_root in role ccm_admin',
-         predecessors => vcoset([ qw(bufcolor.c-1:csrc:2) ]),
-         successors => vcoset([ qw(bufcolor.c-3:csrc:2) ]),
-       },
-       {
-         object => vco('bufcolor.c-3:csrc:2'),
-         task => '26',
-         status_log => 'Fri Sep  5 09:06:20 1997: Status set to \'working\' by ccm_root in role ccm_admin
-    Fri Sep  5 09:06:48 1997: Status set to \'integrate\' by ccm_root in role ccm_admin',
-         predecessors => vcoset([ qw(bufcolor.c-2:csrc:2) ]),
-         successors => [],
-       }
-    ];
-    my $h1_got = $ccm->history_hashref(
-        "bufcolor.c-3:csrc:2", qw(object predecessors successors task status_log));
-    verbose('h1_got', $h1_got);
-    cmp_deeply($h1_got, array_each(isa("HASH")),
-       q[history_hashref(): isa ARRAY of HASH]);
-    cmp_deeply($h1_got, $h1_exp,
-        q[history_hashref("bufcolor.c-3:csrc:2", ...)]);
-}
+my $h1_exp = [
+   {
+     object => vco('bufcolor.c:1:csrc:2'),
+     task => undef,
+     status_log => 'Fri Sep  5 08:38:16 1997: Status set to \'working\' by ccm_root in role ccm_admin
+Fri Sep  5 08:53:24 1997: Status set to \'released\' by ccm_root in role ccm_admin',
+     predecessors => [],
+     successors => vcoset([ qw(bufcolor.c:2:csrc:2) ]),
+   },
+   {
+     object => vco('bufcolor.c:2:csrc:2'),
+     task => '25',
+     status_log => 'Fri Sep  5 09:04:57 1997: Status set to \'working\' by ccm_root in role ccm_admin
+Fri Sep  5 09:06:02 1997: Status set to \'integrate\' by ccm_root in role ccm_admin',
+     predecessors => vcoset([ qw(bufcolor.c:1:csrc:2) ]),
+     successors => vcoset([ qw(bufcolor.c:3:csrc:2) ]),
+   },
+   {
+     object => vco('bufcolor.c:3:csrc:2'),
+     task => '26',
+     status_log => 'Fri Sep  5 09:06:20 1997: Status set to \'working\' by ccm_root in role ccm_admin
+Fri Sep  5 09:06:48 1997: Status set to \'integrate\' by ccm_root in role ccm_admin',
+     predecessors => vcoset([ qw(bufcolor.c:2:csrc:2) ]),
+     successors => [],
+   }
+];
+my $h1_got = $ccm->history_hashref(
+    "bufcolor.c-3:csrc:2", qw(object predecessors successors task status_log));
+verbose('h1_got', $h1_got);
+cmp_deeply($h1_got, array_each(isa("HASH")),
+   q[history_hashref(): isa ARRAY of HASH]);
+cmp_bag($h1_got, $h1_exp,
+    q[history_hashref("bufcolor.c-3:csrc:2", ...)]);
 
 # test autoloaded is_FOO_of/has_FOO V::C::O methods
 my $predecessors = $ccm->object("bufcolor.c-3:csrc:2")->has_successor;
 cmp_deeply($predecessors, array_each(isa("VCS::CMSynergy::Object")), 
     q[has_successor() returns list of V::C::Os]);
-cmp_vcos($predecessors, [ qw(bufcolor.c-2:csrc:2) ], q[has_successor check]);
+cmp_vcos($predecessors, [ qw(bufcolor.c:2:csrc:2) ], q[has_successor check]);
 my $successors = $ccm->object("bufcolor.c-2:csrc:2")->is_successor_of;
 cmp_deeply($successors, array_each(isa("VCS::CMSynergy::Object")),
     q[is_successor_of() returns list of V::C::Os]);
-cmp_vcos($successors, [ qw(bufcolor.c-3:csrc:2) ], q[is_successor_of check]);
+cmp_vcos($successors, [ qw(bufcolor.c:3:csrc:2) ], q[is_successor_of check]);
 
 exit 0;

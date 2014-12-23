@@ -74,21 +74,21 @@ is($ccm->query_count($b_query), scalar @b_expected, q[query_count()]);
 # test query_arrayref with a multi-line valued keyword
 my $ml_expected = 
 {
-  'bufcolor.c-1:csrc:1' =>
+  'bufcolor.c:1:csrc:1' =>
   { 
      status_log => 'Tue Jun 25 09:47:34 1996: Status set to \'working\' by joe in role developer
 Tue Jun 25 11:41:05 1996: Status set to \'integrate\' by joe in role build_mgr
 Tue Jun 25 15:29:14 1996: Status set to \'test\' by joe in role ccm_admin
 Wed Sep 24 08:58:21 1997: Status set to \'released\' by darcy in role ccm_admin'
    },
-   'bufcolor.c-2:csrc:1' =>
+   'bufcolor.c:2:csrc:1' =>
    {
      status_log => 'Tue Jun 25 11:41:50 1996: Status set to \'working\' by joe in role build_mgr
 Tue Jun 25 11:42:07 1996: Status set to \'integrate\' by joe in role build_mgr
 Tue Jun 25 15:29:16 1996: Status set to \'test\' by joe in role ccm_admin
 Mon Sep 29 17:55:46 1997: Status set to \'integrate\' by darcy in role ccm_admin'
    },
-   'bufcolor.c-3:csrc:1' =>
+   'bufcolor.c:3:csrc:1' =>
    {
      status_log => 'Tue Jun 25 11:43:50 1996: Status set to \'working\' by joe in role build_mgr
 Tue Jun 25 11:44:22 1996: Status set to \'integrate\' by joe in role build_mgr
@@ -107,13 +107,13 @@ verbose('sh1_got', $sh1_got);
 cmp_vcos($sh1_got, $ml_expected, q[shorthand query with several clauses]);
 
 my @sh2_expected = qw(
-   calculator-1.0:project:1
-   editor-1.0:project:1
-   guilib-1.0:project:1
-   toolkit-1.0:project:1
+   calculator:1.0:project:1
+   editor:1.0:project:1
+   guilib:1.0:project:1
+   toolkit:1.0:project:1
 );
 my $sh2_got = $ccm->query_object(
-    "hierarchy_project_members('toolkit-1.0:project:1', 'none'");
+    "hierarchy_project_members('toolkit-1.0:project:1', 'none')");
 verbose('sh2_got', $sh2_got);
 cmp_vcos($sh2_got, \@sh2_expected,
    q[query with hierarchy_project_members()]);
@@ -128,16 +128,16 @@ isa_ok($task6, "VCS::CMSynergy::Object", q[task 'Add some fonts...']);
 verbose('task6', $task6);
 
 my @sh3_expected = qw(
-  fonts.c-1:csrc:1
-  fonts.h-1:incl:1
-  includes-2:dir:3
-  main.c-2:csrc:2
-  makefile-2:makefile:2
-  makefile-2:makefile:3
-  makefile.pc-2:makefile:2
-  makefile.pc-2:makefile:3
-  readme-2:ascii:1
-  sources-2:dir:2
+  fonts.c:1:csrc:1
+  fonts.h:1:incl:1
+  includes:2:dir:3
+  main.c:2:csrc:2
+  makefile:2:makefile:2
+  makefile:2:makefile:3
+  makefile.pc:2:makefile:2
+  makefile.pc:2:makefile:3
+  readme:2:ascii:1
+  sources:2:dir:2
 );
 my $sh3_got = $ccm->query_hashref(
     "is_associated_cv_of('$task6')", qw(object task_objects));

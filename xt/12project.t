@@ -194,7 +194,7 @@ ok($top_project->traverse(
       $trav_tree_expected->{$path} = $_;
       push @trav_depth_got, VCS::CMSynergy::Traversal::depth();
 
-      if ($_->objectname eq 'save.c-1:csrc:1')
+      if ($_->objectname eq 'save.c:1:csrc:1')
       {
 	  @dirs_got = @VCS::CMSynergy::Traversal::dirs;
 	  @projects_got = @VCS::CMSynergy::Traversal::projects;
@@ -229,7 +229,7 @@ is(scalar @VCS::CMSynergy::Traversal::projects, 0,
 my $dir2 = $ccm->object('misc-1:dir:1');
 my @trav2_expected = (
     $dir2->objectname, 
-    qw(toolkit.ini-1:ascii:1 readme-1:ascii:1)
+    qw(toolkit.ini:1:ascii:1 readme:1:ascii:1)
 );
 my @trav2_got;
 $top_project->traverse(
@@ -254,7 +254,7 @@ cmp_vcos($children_got, [ grep { !/:dir:/ } @trav2_expected ],
     qq[is_child_of($dir2)]);
 
 my $obj_from_proj_ref = $top_project->object_from_proj_ref([ qw/toolkit misc readme/ ]);
-cmp_vcos([ $obj_from_proj_ref ], [ 'readme-1:ascii:1' ],
+cmp_vcos([ $obj_from_proj_ref ], [ 'readme:1:ascii:1' ],
     qq[object_from_proj_ref()]);
 
 

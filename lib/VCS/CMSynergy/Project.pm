@@ -18,7 +18,7 @@ with additional methods for Synergy projects.
   use VCS::CMSynergy;
   $ccm = VCS::CMSynergy->new(%attr);
   ...
-  $proj = $ccm->object("editor-1_project:1");
+  $proj = $ccm->object("editor-1:project:1");
   print ref $proj;			# "VCS::CMSynergy::Project"
 
   $proj->chdir_into_wa;
@@ -729,27 +729,27 @@ C<$what> must be one of the following strings:
 
 =item C<"tasks">
 
-shows tasks that are directly in the project’s reconfigure properties
+shows tasks that are directly in the project's reconfigure properties
 
 =item C<"folders">
 
-shows folders that are in the project’s reconfigure properties
+shows folders that are in the project's reconfigure properties
 
 =item C<"tasks_and_folders">
 
-shows tasks and folders that are directly in the project’s 
+shows tasks and folders that are directly in the project's 
 reconfigure properties
 
 =item C<"all_tasks">
 
-shows all tasks that are directly or indirectly in the project’s 
+shows all tasks that are directly or indirectly in the project's 
 reconfigure properties (indirectly means the task is in a folder 
-that is in the project’s reconfigure properties) 
+that is in the project's reconfigure properties) 
 
 =item C<"objects">
 
 shows objects in the task that are either directly or indirectly
-in the project’s reconfigure properties
+in the project's reconfigure properties
 
 =back
 

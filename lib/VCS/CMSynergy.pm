@@ -849,8 +849,60 @@ sub _history
 {
     my ($self, $file_spec, $keywords) = @_;
 
-    croak(__PACKAGE__."::history_{arrayref,hashref} are not available in web mode")
-        if $self->web_mode;
+    return self->_history_classic($file_spec, $keywords)
+        unless $self->web_mode;
+
+    my $want = _want(ROW_HASH, $keywords);
+
+    # the web mode "keywords" for predecessors and successors are
+    # "%[predecessors]objectname" and "%[successors]objectname";
+    # list values are comma separated, "<void>" denotes an empty list
+    # (will be translated to undef by _query_result)
+    foreach (qw( predecessors successors ))
+    {
+        $want->{$_} = "%[$_]objectname" if $want->{$_};
+    }
+
+    my $format = $RS . join($FS, values %$want) . $FS;
+
+    my ($rc, $out, $err) = $self->_ccm(qw/history -nf -format/, $format, $file_spec);
+    return $self->set_error($err || $out) unless $rc == 0;
+
+    my @result;
+    foreach (split(/\Q$RS\E/, $out))		# split into records 
+    {
+	next unless length($_);			# skip empty leading record
+
+	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
+	my $row = $self->_query_result($want, \@cols, ROW_HASH);
+
+        my %cessors;
+        foreach (qw( predecessors successors ))
+        {
+            next unless $want->{$_};
+            my $list = delete $row->{$_};       # temporarily strip slot
+            $cessors{$_} = defined $list ?
+                [ map { $self->object($_) } split(/,/, $list) ] : [];
+        }
+
+        if ($want->{object})
+        {
+            my $obj = delete $row->{object};    # temporarily strip "object" slot...
+            $obj->_update_acache($row);         # ... update $obj's cached attributes
+            $row->{object} = $obj;              # ... and put "object" slot back
+        }
+
+        # put predecessors, successors slots back
+        @$row{keys %cessors} = values %cessors;
+
+	push @result, $row;
+    }
+    return \@result;
+}
+
+sub _history_classic
+{
+    my ($self, $file_spec, $keywords) = @_;
 
     my $want = _want(ROW_HASH, $keywords);
     my $want_predecessors = delete $want->{predecessors};
@@ -909,8 +961,6 @@ sub _history
     }
     return \@result;
 }
-
-
 =for comment
 
 Consider the following history

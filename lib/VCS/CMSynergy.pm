@@ -528,12 +528,17 @@ sub _query
 # doesn't accept these where a "file_spec" is expected 
 # (at least on Unix, because they contain slashes). 
 # Hence rewrite these fullnames to objectnames.
+# Also normalize the name/version separator to a colon.
 sub _fullname2objectname
 {
     my ($self, $fullname) = @_;
     if ($fullname =~ m{/} && (my @p = split("/", $fullname)) == 4)
     {
         $fullname = join(":", $p[2], $p[3], $p[1], $p[0]);
+    }
+    else
+    {
+        $fullname =~ s/$self->{delimiter_rx}/:/;
     }
     return $fullname;
 }
@@ -1138,9 +1143,9 @@ sub finduse
 	}
 
 	# a usage line is matched by finduse_rx
-	if (my ($path, $project) = /$self->{finduse_rx}/)
+	if (my ($path, $proj_spec) = /$self->{finduse_rx}/)
 	{
-	    $uses->{$self->_projspec2objectname($project)} = $path;
+	    $uses->{$self->project_object($proj_spec)} = $path;
 	    next;
 	}
 
@@ -1158,12 +1163,12 @@ sub finduse
 sub findpath
 {
     my $self = shift;
-    my ($file_spec, $proj_vers) = validate(\@_, _FILE_SPEC, Str);
+    my ($file_spec, $proj_spec) = validate(\@_, _FILE_SPEC, Str);
     my $finduse = $self->finduse($file_spec);
     return unless defined $finduse;
     return $self->set_error("`$file_spec' matches more than one object") 
 	unless @$finduse == 1;
-    return $finduse->[0]->[1]->{$proj_vers};
+    return $finduse->[0]->[1]->{$self->project_object($proj_spec)};
 }
 
 

@@ -26,7 +26,7 @@ use Type::Params qw( compile validate );
 use Types::Standard qw( slurpy Optional Str InstanceOf HasMethods
     ArrayRef CodeRef GlobRef HashRef ScalarRef FileHandle Dict );
 use constant _PROJECT_SPEC   => Str | InstanceOf["VCS::CMSynergy::Project"];
-use constant _QUERY_KEYWORDS => compile(Str | HashRef, _KEYWORDS);
+use constant _QUERY_KEYWORDS => compile(Str | ArrayRef | HashRef, _KEYWORDS);
 
 use constant ROW_HASH	=> 1;
 use constant ROW_OBJECT	=> 2;

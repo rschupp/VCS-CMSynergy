@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 61;
+use Test::More tests => 59;
 use End;
 use xt::util;
 use strict;
@@ -22,12 +22,6 @@ my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
-
-my $frobozz = eval { $ccm->get_attribute(frobozz => $ccm->base_model); };
-ok(!$@, 
-    "get_attribute() of non-existent attribute doesn't throw exception");
-ok(!defined $frobozz, 
-    "get_attribute() of non-existent attribute returns undef");
 
 # check that get_attribute() and query_*()/property()
 # will return the same value wrt trailing newline

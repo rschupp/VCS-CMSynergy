@@ -7,7 +7,7 @@ use strict;
 
 BEGIN 
 { 
-    use_ok('VCS::CMSynergy', ':cached_attributes'); 
+    use_ok('VCS::CMSynergy', qw(:cached_attributes NONE_OF)); 
     ok(VCS::CMSynergy::use_cached_attributes(), q[using :cached_attributes]);
 }
 

@@ -115,7 +115,7 @@ my %to_exp =
 );
 
 
-plan tests => 6 + 2 * (keys %from_exp) + 2 * (keys %to_exp);
+plan tests => 5 + 2 * (keys %from_exp) + 2 * (keys %to_exp);
 
 my @use = ();
 push @use, ':cached_attributes' if $ENV{CCM_USE_CACHED_ATTRIBUTES};
@@ -137,7 +137,7 @@ diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
 while (my ($name, $exp) = each %from_exp)
 {
     my @rel_exp =
-        map { [ vco($_->{from}), 
+        map { [ vco($_->{from}),
                 $name, 
                 vco($_->{to}{objectname}), 
                 ignore() ] } @$exp;

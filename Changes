@@ -1,5 +1,98 @@
 1.40  2014-XX-YY  Just when I thought I was out... they pull me back in.
 
+  [BEWARE - USER VISIBLE CHANGE]
+    - The internal structure if VCS::CMSynergy::Object has changed.
+    - This above breaks programs using $obj->{name} etc, but they shouldn't
+      rely on implementation details.
+    - $obj->objectname (or just the stringization of $obj) now uses
+      the "all colon" form. This should not matter when passing it back
+      to Synergy (for any still supported Synergy version), but could
+      cause problems for a program that parses these strings themself
+      (which it shouldn't do, use VCS::CMSynergy::Object methods instead).
+
+  [Use "Log::Log4perl enable" for logging]
+    - add a dependency on Log::Log4perl
+    - remove trace(), trace_msg() methods and $Debug, $Debugfh package variables
+    - instead use Log::Log4perl :easy functions INFO(), TRACE() etc where appropriate
+    - emulate the old environment variable CMSYNERGY_TRACE by easy_initializing
+      Log::Log4perl in a compatible manner
+      Note: CMSYNERGY_TRACE is only honored  if Log::Log4perl isn't initialized
+      already, so as not to interfere with an explicit initialization
+      outside of VCS::CMSynergy
+
+  [New shortcut query syntax]
+    - new syntax is 
+      $ccm->query_method([ key => value , ...], @keywords)
+    - key => value translates to "key = 'value'"
+    - omit quotes if value is "TRUE or "FALSE"
+    - use "match" instead of "=" if value contains wildcards
+    - key => \@values translates to ANY_OF(key, @values)
+    - combine same keys with "or"
+    - combine all others with "and"
+    - deprecate old style syntax
+      $ccm->query_method({ key => value , ...}, @keywords)
+
+  [VCS::CMSynergy::Users: make methods case insensitive wrt user names]
+    - newer Synergy version treat user name case insensitively:
+    - return a Tie::CPHash from users()
+    - add a dependeny on Tie::CPHash
+    - get rid of insertion order preserving hashes, the order of lines
+      in "ccm users" was never relevant
+    - make delete_roles() delete the user if it has no more roles left
+      (because users without roles aren't allowed by Synergy anyway).
+
+  [New methods full_history_hashref() and full_history_arrayref()]
+    When an object is renamed (probably also when its cvtype changed),
+    "ccm history" (and hence history_hashref()) doesn't show the full history.
+    Add new methods that will do that.
+
+  [Other changes]
+  - update for Synergy 7.2, make most methods work with web mode 
+
+  - drop support for Synergy versions older than 6.5
+
+  - normalize objectnames to "all colon separator" form
+
+  - VCS::CMSynergy::Project: add method has_child()
+
+  - upgrade to Module::Install 1.14
+
+  - add covenience functions ANY_OF() and NONE_OF(),
+    useful when building complex queries
+    
+  - always return "unique" objects, not only for :cached_attributes.
+    
+  - for :tied_objects make it possible to use
+    $obj->{objectname}, $obj->{name} etc (read-only, of course)
+    
+  - kwalitee fixes
+
+  - reformat Changes file according to CPAN::Changes::Spec
+
+  - Cygwin: get rid of obsolescent Filesys::CygwinPaths
+    - replace calls to fullwin32path() by running the cygpaths utility
+
+  - replace homegrown _usage() with Type::Params and
+    add a dependency on Type::Params and Types::Standard 
+
+  - move all tests in t/ requiring the "tutorial" database to xt/
+    and don't distribute them anymore
+
+  - VCS::CMSynergy::Project: add convenience methods project_tree(), top_dir()
+
+  - make VCS::CMSynergy::Object methods "displayname" and "cvid" cache
+    their result in the attribute cache (even if not using :cached_attributes)
+    and look there first; this makes the following work wrt caching
+  
+      use VCS::CMSynergy ':cached_attributes';
+      ...
+      my $result = $ccm->query_object("...", qw( displayname ));
+      foreach (@$result) {
+          ... $_->displayname ...; # look Ma: already cached
+      }
+  
+  - purge all references to the deprecated "query_object_with_attributes"
+
 1.35  2010-05-22
 
   - Telelogic has been bought by IBM and "CM Synergy" is now called 

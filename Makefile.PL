@@ -96,8 +96,7 @@ install_script	'script/ccm_project_diff';
 
 clean_files	'xt/zz_*.t';
 
-no_index	module			=> 'VCS::CMSynergy::ObjectTieHash';
-no_index	package			=> 'VCS::CMSynergy::Traversal';
+no_index	namespace		=> 'VCS::CMSynergy';
 no_index	package			=> 'Tie::ReadonlyArray';
 
 WriteAll;

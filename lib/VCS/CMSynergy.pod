@@ -1457,6 +1457,53 @@ Only one C<$file_spec> is allowed.
 
 =back
 
+=head2 properties_hashref, properties_object
+
+  $aref = $ccm->properties_hashref(\@files_specs, @keywords);
+  for (my $i; $i < @files_specs; $i++) {
+    print "$files_specs[$i]\n";
+    print "  $_ => $aref->[$i]{$_}\n" foreach @keywords;
+  }
+
+  $aref = $ccm->query_object(@file_specs, @keywords);
+
+C<properties_hashref> and C<properties_object>
+execute B<ccm property> with the list of C<@files_specs> asking
+for the values of the built-in keywords or attributes supplied
+in C<@keywords>. Note that C<@files_specs> is passed in as an array B<reference>.
+They both return a reference to an array of references,
+one per item in C<@files_specs> (and in the same order).
+
+For C<properties_hashref> an item is a hash containing
+attribute and value pairs where the keys are the C<@keywords>.
+This is similar to the result of 
+L<query_hashref|/"query_arrayref, query_hashref">.
+
+For C<properties_object> an item is the C<VCS::CMSynergy::Object> 
+corresponding to the item in C<@files_specs> at the same index.
+C<properties_object> is most useful when L</:cached_attributes> is in effect.
+In this case, the returned C<VCS::CMSynergy::Object>s 
+have their attribute caches
+primed for the attributes listed in C<@keywords>. You could also
+view it as a fancy form of C<properties_hashref> where we don't store
+the attributes values of C<@keywords> in some anonymous hash,
+but rather in the corresponding object.
+This is similar to the behaviour of L<query_object>.
+
+For consistency, both C<property_hashref> 
+and C<properties_object> return a reference to an empty array
+when invoked with an empty list of C<@files_specs>.
+
+If there was an error, C<undef> is returned.
+
+If the value of a keyword or an attribute is undefined or
+the attribute is not present, the actual value of the corresponding
+hash element is C<undef>.
+
+For the pseudo keywords available in C<@keywords> see the description
+of the  L<query_arrayref|/"query_arrayref, query_hashref"> 
+and  L<query_hashref|/"query_arrayref, query_hashref"> methods.
+
 =head2 property
 
   $value = $ccm->property($keyword, $file_spec);

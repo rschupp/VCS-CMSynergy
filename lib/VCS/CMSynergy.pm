@@ -478,8 +478,8 @@ sub _query
 	next unless length($_);			# skip empty leading record
 
 	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
-	my %finduse;
 
+	my %finduse;
 	if ($want_finduse)
 	{
 	    # finduse information is the last "column" 
@@ -1594,6 +1594,50 @@ sub list_attributes
     # NOTE: regex works for both classic mode and web mode
     my %attrs = $out =~ /^(\S+) \s+ \(? (\S+?) [\s)]/gmx;
     return \%attrs;
+}
+
+
+sub properties_hashref
+{
+    my $self = shift;
+    my ($file_specs, $keywords) = validate(\@_, ArrayRef, _KEYWORDS);
+    # FIXME ArrayRef[_FILE_SPEC]  ???
+
+    return $self->_properties($file_specs, $keywords, ROW_HASH);
+}
+
+sub properties_object
+{
+    my $self = shift;
+    my ($file_specs, $keywords) = validate(\@_, ArrayRef, _KEYWORDS);
+    # FIXME ArrayRef[_FILE_SPEC]  ???
+
+    return $self->_properties($file_specs, $keywords, ROW_OBJECT);
+}
+
+sub _properties
+{
+    my ($self, $file_specs, $keywords, $row_type) = @_;
+    # NOTE: only ROW_HASH and ROW_OBJECT are allowed for $row_type
+
+    return [ ] if @$file_specs == 0;            # silly, but consistent
+
+    my $want = _want($row_type, $keywords);
+    my $format = $RS . join($FS, values %$want) . $FS;
+
+    my ($rc, $out, $err) = 
+	$self->_ccm(qw/properties -nf -format/, $format, @$file_specs);
+    return $self->set_error($err || $out) unless $rc == 0;
+
+    my @result;
+    foreach (split(/\Q$RS\E/, $out))		# split into records 
+    {
+	next unless length($_);			# skip empty leading record
+
+	my @cols = split(/\Q$FS\E/, $_, -1);	# don't strip empty trailing fields
+	push @result, $self->_query_result($want, \@cols, $row_type);
+    }
+    return \@result;
 }
 
 

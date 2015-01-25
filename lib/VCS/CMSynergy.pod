@@ -572,6 +572,8 @@ returns (as formatted by L<Data::Dumper>):
     ...
   ];
 
+This keyword is only valid when using the classic mode to connect to Synergy.
+
 =item C<objectname>
 
 C<objectname> actually I<is> a built-in keyword. However, CM Synergy 
@@ -774,11 +776,11 @@ Perl argument. For literal arguments the C<qw()> notation may come in handy.
 If you are interested in the successor or predecessor or 
 certain attributes of an object in the history,
 you should look at the 
-L<history_arrayref|/"history_arrayref, history_hashref B<(classic mode only)>">
-and L<history_hashref|/"history_arrayref, history_hashref B<(classic mode only)>">
+L<history_arrayref|/"history_arrayref, history_hashref">
+and L<history_hashref|/"history_arrayref, history_hashref">
 methods that return this information in structured form. 
 
-=head2 history_arrayref, history_hashref B<(classic mode only)>
+=head2 history_arrayref, history_hashref
 
   $aref = $ccm->history_arrayref($file_spec, @keywords);
   $aref = $ccm->history_hashref($file_spec, @keywords);
@@ -977,7 +979,7 @@ If there are no hits, a reference to an empty array is returned.
 
 If there was an error, C<undef> is returned.
 
-=head2 relations_hashref B<(classic mode only)>
+=head2 relations_hashref
 
   $ccm->relations_hashref(%options);
 
@@ -1048,7 +1050,7 @@ If there are no hits, a reference to an empty array is returned.
 
 If there was an error, C<undef> is returned.
 
-=head2 relations_object B<(classic mode only)>
+=head2 relations_object
 
   my $related = $ccm->relations_object(%options);
 

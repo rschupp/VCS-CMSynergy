@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 59;
+use Test::More tests => 62;
 use End;
 use xt::util;
 use strict;
@@ -17,6 +17,30 @@ BEGIN
 	ok(VCS::CMSynergy::use_cached_attributes(), q[using :cached_attributes]);
     }
 }
+
+my %props_exp =
+(
+    "calculator:1.0:project:1" =>
+    {
+        "status" => "released",
+        "status_log" => "Wed Aug 13 15:26:09 1997: Status set to 'working' by ccm_root in role ccm_admin\nWed Aug 13 16:29:00 1997: Status set to 'released' by ccm_root in role ccm_admin"
+    },
+    "calculator:int:project:1" =>
+    {
+        "status" => "prep",
+        "status_log" => "Wed Aug 13 16:33:19 1997: Status set to 'working' by ccm_root in role ccm_admin\nWed Aug 13 16:33:31 1997: Status set to 'prep' by ccm_root in role ccm_admin"
+    },
+    "calculator:darcy:project:1" =>
+    {
+        "status" => "working",
+        "status_log" => "Wed Aug 13 16:43:24 1997: Status set to 'working' by darcy in role developer"
+    },
+    "calculator:int_20021125:project:1" =>
+    {
+        "status" => "integrate",
+        "status_log" => "Mon Nov 25 18:36:31 2002: Status set to 'working' by ccm_root in role build_mgr\nMon Nov 25 18:36:32 2002: Status set to 'prep' by ccm_root in role build_mgr\nMon Nov 25 18:36:39 2002: Status set to 'integrate' by ccm_root in role build_mgr"
+    },
+);
 
 my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
@@ -152,7 +176,37 @@ is($ppl_a, $ppl_q, "attribute value with trailing newline via attribute/query");
 	q[check for expected displayname with V::C::O::displayname()]);
 }
 
+
+{
+    my @keywords = qw/ status status_log /;
+    my $props_got = $ccm->properties_hashref([ keys %props_exp ], @keywords);
+    cmp_deeply($props_got, [ values %props_exp ], "properties_hashref");
+
+
+    my @objs = map { $ccm->object($_) } keys %props_exp;
+    $props_got = $ccm->properties_object([ keys %props_exp ], @keywords);
+    cmp_deeply($props_got, [ map { vco($_) } keys %props_exp ], "properties_object: objects");
+
+    SKIP:
+    {
+	skip "not using :cached_attributes", 1 
+	    unless $ENV{CCM_USE_CACHED_ATTRIBUTES};
+        $_->_forget_acache foreach @objs;
+        cmp_deeply([ map { hash_slice($_->_private->{acache}, @keywords) } @$props_got ],
+                   [ values %props_exp ], "properties_object: cached attributes");
+    }
+}
+
+
 exit 0;
+
+sub hash_slice
+{
+    my $hash = shift;
+    my %slice;
+    @slice{@_} = @$hash{@_};
+    return \%slice;
+}
 
 package VCS::CMSynergy;
 

@@ -24,7 +24,7 @@ This synopsis only lists the major methods.
 
 =cut
 
-use 5.006_000;					# i.e. v5.6.0
+use 5.008_001;					# i.e. v5.8.1
 use strict;
 use warnings;
 

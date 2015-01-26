@@ -73,7 +73,7 @@ version_from	'lib/VCS/CMSynergy.pm';
 
 # --- Dependencies
 
-requires	'perl'			=> '5.006';
+requires	'perl'			=> '5.008001';
 requires	'Class::Accessor::Fast' => 0;
 requires        'Tie::CPHash'           => 0;
 requires	'Digest::MD5'		=> 0;

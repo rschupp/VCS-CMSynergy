@@ -1,4 +1,21 @@
-1.40  2014-XX-YY  Just when I thought I was out... they pull me back in.
+1.41  2015-01-26
+
+  [BEWARE - USER VISIBLE CHANGE]
+  - incompatible change: relations_arrayref() now returns objectnames
+    in the "from" and "to" slots of a result row; previously it returned
+    VCS::CMSynergy::Objects in these slots
+  - this makes it more consistent compared with relations_hashref().
+
+  [New methods for retrieving properties of several objects in one command]
+  - add properties_hashref(), properties_object() methods
+  - for getting multiple properties for a lsit of objects with
+    a single CLI command
+  - interface similar to query_{hashref,object}()
+
+  [Other changes]
+  - remove outdated "classic mode only" annotations for some methods from POD
+
+1.40  2014-12 25  Just when I thought I was out... they pull me back in.
 
   [BEWARE - USER VISIBLE CHANGE]
     - The internal structure if VCS::CMSynergy::Object has changed.

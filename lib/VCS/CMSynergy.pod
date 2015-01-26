@@ -956,13 +956,13 @@ e.g. C<associated_cv> or C<successor>.
 
 The result is a reference to an array of 4-tuples
 
-  ($from, $name, $to, $create_time)
+  [ $from, $name, $to, $create_time ]
 
 =over 4
 
 =item $from, $to
 
-The value is a C<VCS::CMSynergy::Object> for the "from" or "to", resp., 
+The value is the objectname of the "from" or "to", resp., 
 element of the relation.
 
 =item $name

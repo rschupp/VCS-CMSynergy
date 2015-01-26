@@ -1182,30 +1182,7 @@ sub relations_arrayref
     my ($self, %args) = @_;
     validate([\%args], Dict[ _FROM_TO_NAME ]);
 
-    my ($rc, $out, $err) = $self->_ccm(qw/ relate -show -nf -l /,
-	    map { defined $args{$_} ? ( "-$_" => $args{$_}) : () } qw/from to name/);
-
-    # NOTE: If there are no hits, `ccm relate' exits 
-    # with status 1 (classic mode) or 6 (web mode),
-    # but produces no output on either stdout and stderr.
-    return [ ] if $rc != 0 and $out eq "" and $err eq "";
-    return $self->set_error($err || $out) unless $rc == 0;
-
-    my (@result, $from, $to);
-    foreach (split(/\n/, $out))	        	# split into lines 
-    {
-        # NOTE: In web mode, the "default long format" (option "-l") prints
-        #   (from-info) relation-name (to-info) timestamp
-        # where info is
-        #    objectname status owner
-        # which can be reasonably parsed assuming that status and owner
-        # don't contain blanks.
-        my ($from, $name, $to, $timestamp) = /^\((.*?)\) (\S+) \((.*?)\) (.*)$/;
-        ($from, $to) = map { s/ \S+ \S+$//; $self->object($_) } $from, $to;
-        push @result, [$from, $name, $to, $timestamp];
-    }
-
-    return \@result;
+    return _flatten_rows($self->relations_hashref(%args), [qw/ from name to create_time /]);
 }
 
 
@@ -1217,13 +1194,14 @@ sub relations_hashref
                              to_attributes   => Optional[ArrayRef[Str]] ]);
 
     my %defaulted;
-    foreach (qw/from_attributes to_attributes/)
+    foreach my $arg (qw/from to/)
     {
-	next if $args{$_};
+        my $attrs = "${arg}_attributes";
+        next if $args{$attrs};
 
         # default to keyword "objectname"
-        $args{$_} = [ qw/objectname/ ];
-        $defaulted{$_}++;
+        $args{$attrs} = [ qw/objectname/ ];
+        $defaulted{$arg}++;
     }
 
     my $result = $self->_relations(\%args, ROW_HASH);
@@ -1233,7 +1211,7 @@ sub relations_hashref
     # hash containing the sole key "objectname" with its value
     foreach my $arg (qw/from to/)
     {
-	if ($defaulted{"${arg}_attributes"})
+	if ($defaulted{$arg})
 	{
 	    $_->{$arg} = $_->{$arg}->{objectname} foreach @$result;
 	}

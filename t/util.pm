@@ -4,6 +4,7 @@
 use strict;
 use warnings;
 
+use Config;
 use Data::Dumper;
 use File::Spec;
 
@@ -19,8 +20,6 @@ BEGIN
 	PrintError	=> 0,
 	RaiseError	=> 1,
 	database	=> $ENV{CCM_TEST_DB},
-	UseCoprocess	=> $ENV{CCM_USE_COPROCESS}||0,
-	ui_database_dir	=> File::Spec->tmpdir,
     );
 
     if ($ENV{CCM_TEST_USER})
@@ -36,6 +35,19 @@ BEGIN
     {
 	die "CCM_TEST_USER not set in environment" 
 	    if $^O eq 'MSWin32' || $^O eq 'cygwin';
+    }
+
+    my $ccm_exe = File::Spec->catfile(
+        $ENV{CCM_HOME}, "bin", "ccm$Config{_exe}");
+    my ($ccm_version) = qx("$ccm_exe" version) 
+        =~ m{(?:CM Synergy|SYNERGY/CM|Telelogic Synergy|IBM Rational Synergy)\s+Version\s+(\d+\.\d+)}i
+            or die "can't determine Synergy version";
+
+    if ($ccm_version < 7.2 && !defined $test_session{server})
+    {
+        # classic mode requested
+        $test_session{UseCoprocess}    = $ENV{CCM_USE_COPROCESS}||0;
+	$test_session{ui_database_dir} = File::Spec->tmpdir;
     }
 
     # Set the date format (the default is "%c" which depends

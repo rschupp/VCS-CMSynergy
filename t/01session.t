@@ -34,7 +34,7 @@ ok((grep { $_->{process} eq "router" } @$ps) == 1, q[ps: found router]);
 ok((grep { $_->{process} eq "objreg" } @$ps) > 0, q[ps: found object registrar(s)]);
 
 {
-    # create a new CM Synergy session
+    # create a new Synergy session
     my $ccm = VCS::CMSynergy->new(%::test_session);
     isa_ok($ccm, "VCS::CMSynergy");
     diag("using coprocess") if defined $ccm->{coprocess};
@@ -48,7 +48,7 @@ ok((grep { $_->{process} eq "objreg" } @$ps) > 0, q[ps: found object registrar(s
     is($ps->[0]->{database}, $ccm->database,
        q[database gleaned from ps should match that from session]);
 
-    # create another session object reusing the CM Synergy session
+    # create another session object reusing the Synergy session
     my $ccm2 = VCS::CMSynergy->new(CCM_ADDR => $ccm_addr);
     isa_ok($ccm2, "VCS::CMSynergy");
     is($ccm2->ccm_addr, $ccm_addr, 
@@ -57,7 +57,7 @@ ok((grep { $_->{process} eq "objreg" } @$ps) > 0, q[ps: found object registrar(s
     # destroy session object 
     $ccm2 = undef;
 
-    # check that the CM Synergy session is still there
+    # check that the Synergy session is still there
     # Note: When using web mode there's a lag between "ccm stop" exiting and
     # the session disappearing from "ccm ps"
     sleep(5) if $web_mode;
@@ -91,7 +91,7 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
 }
 
 {
-    # create a new CM Synergy session with KeepSession on
+    # create a new Synergy session with KeepSession on
     my $ccm = VCS::CMSynergy->new(%::test_session, KeepSession => 1);
     isa_ok($ccm, "VCS::CMSynergy");
     $ccm_addr = $ccm->ccm_addr;
@@ -101,12 +101,12 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
     # destroy session object
     $ccm = undef;
 
-    # check that the CM Synergy session is still there
+    # check that the Synergy session is still there
     sleep(5) if $web_mode;
     ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
        qq[session $ccm_addr is still registered]);
 
-    # create another session object reusing the CM Synergy session
+    # create another session object reusing the Synergy session
     my $ccm2 = VCS::CMSynergy->new(CCM_ADDR => $ccm_addr);
     isa_ok($ccm2, "VCS::CMSynergy");
     is($ccm2->ccm_addr, $ccm_addr, 
@@ -115,13 +115,13 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
     # destroy session object 
     $ccm2 = undef;
 
-    # check that the CM Synergy session is still there
+    # check that the Synergy session is still there
     sleep(5) if $web_mode;
     ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
        qq[original session $ccm_addr is still registered]);
-    # destroy it and check that the CM Synergy session is still there
+    # destroy it and check that the Synergy session is still there
 
-    # create another session object reusing the CM Synergy session,
+    # create another session object reusing the Synergy session,
     # but with KeepSession off
     my $ccm3 = VCS::CMSynergy->new(CCM_ADDR => $ccm_addr, KeepSession => 0);
     isa_ok($ccm3, "VCS::CMSynergy");

@@ -121,7 +121,7 @@ indicated by a line of the form:
 Differences in directories (i.e. both objects are of 
 cvtype "dir", but different versions) are not shown.
 
-Additional CM Synergy information (objectname, modified_time)
+Additional Synergy information (objectname, modified_time)
 is given by lines starting with "synergy a:" or "synergy b:"
 immediately following any of the above "header" lines.
 
@@ -224,7 +224,7 @@ use VCS::CMSynergy::Helper;
 	$self->{ccm} = $old_project->ccm;
 	(undef, $self->{diff_output}) = File::Temp::tempfile();
 
-	# NOTE: On Windows, CM Synergy executes cli_compare_cmd without
+	# NOTE: On Windows, Synergy executes cli_compare_cmd without
 	# using the command interpreter, hence redirections don't work.
 	# If we do not redirect it, the output of cli_compare_cmd
 	# goes into the bit-bucket (i.e. can't be captured from $ccm->diff).
@@ -281,7 +281,7 @@ use VCS::CMSynergy::Helper;
 	    open my $fh, "<", $self->{diff_output};
 
 	    # eat and fake the two header lines (because they contain
-	    # pathnames that point either into the CM Synergy database's
+	    # pathnames that point either into the Synergy database's
 	    # cache area, the work area or a temp file)
 	    <$fh>; print "--- $a/$path\n";
 	    <$fh>; print "+++ $b/$path\n";

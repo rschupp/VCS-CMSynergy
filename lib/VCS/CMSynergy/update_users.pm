@@ -6,7 +6,7 @@
 # 	ccm set text_editor 'perl -e "require VCS::CMSynergy::update_users; update(@ARGV)" %filename d71307df31aa26a0ba8d4bd584dd6bbd tmpfile'
 # 	ccm users
 #
-# $current_users_file	CM Synergy will write the current value of users
+# $current_users_file	Synergy will write the current value of users
 # 			to this file and read the new value from it 
 # 			when this command exits OK
 #

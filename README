@@ -20,7 +20,7 @@ http://download.microsoft.com/download/vc15/Patch/1.52/W95/EN-US/Nmake15.exe
 
 TESTING
 
-Make sure that the CM Synergy command client is installed and working:
+Make sure that the Synergy command client is installed and working:
 
   - check your setting of the CCM_HOME environment variable
   - test the installation with

@@ -21,7 +21,7 @@ them to the corresponding options for L<VCS::CMSynergy/new>.
 All options and arguments in C<@ARGV> that it doesn't know about 
 are left untouched. 
 
-It may be used to make all your CM Synergy scripts accept a
+It may be used to make all your Synergy scripts accept a
 uniform set of options:
 
   use Getopt::Long;
@@ -30,13 +30,13 @@ uniform set of options:
   use VCS::CMSynergy::Helper;
   ...
 
-  # extract CM Synergy options from @ARGV
+  # extract Synergy options from @ARGV
   my $ccm_opts = VCS::CMSynergy::Helper::GetOptions or pod2usage();
 
   # process other options in @ARGV
   GetOptions(...) or pod2usage();
 
-  # start CM Synergy session
+  # start Synergy session
   my $ccm = VCS::CMSynergy->new(
       %$ccm_opts,
       RaiseError => 1,
@@ -92,7 +92,7 @@ can use all lowercase letters for their own options.
 Here's the short description of recognized options that you 
 can cut and paste into your script's POD:
 
-  CM Synergy Options:
+  Synergy Options:
 
   -D PATH | --database PATH       database path
   -H HOST | --host HOST           engine host

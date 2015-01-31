@@ -15,7 +15,7 @@ use End;
 
 # convert project reference from Unix pathnames to native pathnames
 # NOTE: We can't use File::Spec here since Cygwin uses slash as the path
-# delimiter, but CM Synergy on Windows returns backslashes 
+# delimiter, but Synergy on Windows returns backslashes 
 # in project references.
 sub native_path
 {

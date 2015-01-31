@@ -5,7 +5,7 @@ package VCS::CMSynergy::Client;
 
 =head1 NAME
 
-VCS::CMSynergy::Client - base class for CM Synergy methods that don't require a session
+VCS::CMSynergy::Client - base class for Synergy methods that don't require a session
 
 =head1 SYNOPSIS
 
@@ -132,7 +132,7 @@ sub new
 
     my $ccm_exe = File::Spec->catfile(
 	$self->{env}->{CCM_HOME}, "bin", "ccm$Config{_exe}");
-    return $self->set_error("CCM_HOME = `$self->{env}->{CCM_HOME}' does not point to a valid CM Synergy installation")
+    return $self->set_error("CCM_HOME = `$self->{env}->{CCM_HOME}' does not point to a valid Synergy installation")
 	unless -x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe);
 	# NOTE: -x $ccm_exe fails on cygwin
     $self->{ccm_exe} = $ccm_exe;
@@ -539,7 +539,7 @@ sub status
 	}
 	if (/^database: (.*)/i && $session)
 	{
-	    # sanitize database path (all other CM Synergy information commands
+	    # sanitize database path (all other Synergy information commands
 	    # show it with trailing "/db", so we standardize on that)
 	    # NOTE: careful here, because the database might reside on Windows
 	    ($session->{database} = $1) 		
@@ -652,7 +652,7 @@ you want to use a method without a session I<and>
 
 =item *
 
-you have several installations of CM Synergy, i.e. several C<$CCM_HOME>s, I<and>
+you have several installations of Synergy, i.e. several C<$CCM_HOME>s, I<and>
 
 =item *
 
@@ -662,7 +662,7 @@ invocation of your program.
 =back
 
 A typical example is an administrative program that iterates over all 
-your CM Synergy databases in all your installations:
+your Synergy databases in all your installations:
 
   foreach my $ccm_home (qw(/usr/local/ccm51 /usr/local/ccm62 /usr/local/ccm63))
   {
@@ -711,10 +711,10 @@ the default instance was created.
 
   my $client = VCS::CMSynergy::Client->new( CCM_HOME => "/usr/local/ccm62" );
 
-Creates a new CM Synergy client.
+Creates a new Synergy client.
 
 If it fails (e.g. CCM_HOME doesn't seem to contain a valid
-CM Synergy installation), it returns C<undef>.
+Synergy installation), it returns C<undef>.
 
 C<new> is called with an attribute hash. The following attributes
 are currently supported:
@@ -776,19 +776,19 @@ Returns the last error that occured in this client.
 
   $last_cmsynergy_command = $client->ccm_command;
 
-Returns the last CM Synergy command invoked on behalf of the
+Returns the last Synergy command invoked on behalf of the
 C<VCS::CMSynergy::Client>.
 
 =head2 out
 
-Returns the raw standard output of the last CM Synergy command invoked
+Returns the raw standard output of the last Synergy command invoked
 on behalf of the C<VCS::CMSynergy::Client>.
 In scalar context the output is returned as a possibly multi-line string.
 In list context it is returned as an array of pre-chomped lines.
 
 =head2 err
 
-Returns the raw standard error of the last CM Synergy command invoked
+Returns the raw standard error of the last Synergy command invoked
 on behalf of the C<VCS::CMSynergy::Client>.
 The return value is a possibly multi-line string regardless of calling context.
 
@@ -798,7 +798,7 @@ The return value is a possibly multi-line string regardless of calling context.
   $ary_ref = $client->ps(user => "jdoe", process => "gui_interface", ...);
 
 Executes B<ccm ps> and returns a reference to an array of references,
-one per CM Synergy process. Each reference points to a hash
+one per Synergy process. Each reference points to a hash
 containing pairs of field names (e.g. C<host>, C<database>, C<pid>) and values
 for that particular process as listed by B<ccm ps>.
 
@@ -878,7 +878,7 @@ as formatted by L<Data::Dumper>:
   $ary_ref = $client->status;
 
 Executes B<ccm status> and returns a reference to an array of references,
-one per CM Synergy session. Each reference points to a hash
+one per Synergy session. Each reference points to a hash
 containing pairs of field names (e.g. C<database>) and values
 for that particular session.
 
@@ -919,15 +919,15 @@ as formatted by L<Data::Dumper>:
   ($full_version, $schema_version, 
     $informix_version, @patches) = $client->version;
 
-Returns version info about the CM Synergy installation.
-In a scalar context C<version> returns the (short) CM Synergy version number,
+Returns version info about the Synergy installation.
+In a scalar context C<version> returns the (short) Synergy version number,
 e.g. "6.2". In an array context the following information is returned:
 
 =over 4
 
 =item *
 
-the full CM Synergy version (e.g. "6.2.3041")
+the full Synergy version (e.g. "6.2.3041")
 
 =item *
 
@@ -939,7 +939,7 @@ the Informix version (e.g. "9.21.UC3X6")
 
 =item *
 
-a possible empty array of applied CM Synergy patches
+a possible empty array of applied Synergy patches
 
 =back
 
@@ -979,7 +979,7 @@ Returns the exit status (i.e. C<$?>) from executing C<@cmd>.
   @databases = $client->databases;
   @databases = $client->databases($servername);
 
-Returns an array containing the names of all known CM Synergy databases. 
+Returns an array containing the names of all known Synergy databases. 
 
 Note: This method does not work on Windows.
 

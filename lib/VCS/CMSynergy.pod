@@ -38,7 +38,7 @@ VCS::CMSynergy - Perl interface to IBM Rational Synergy
 
 This synopsis only lists the major methods.
 
-Methods that don't need a CM Synergy session are described
+Methods that don't need a Synergy session are described
 in L<VCS::CMSynergy::Client>. In fact, C<VCS::CMSynergy>
 is derived from C<VCS::CMSynergy::Client>.
 
@@ -88,7 +88,7 @@ on the same object.
 If this option is in effect.
 you can use a C<VCS::CMSynergy::Object> in the same way you
 would use a hash reference. The available keys are the underlying
-CM Synergy object's attributes. 
+Synergy object's attributes. 
 See L<VCS::CMSynergy::Object/TIEHASH INTERFACE> for details.
 
 =head1 GENERAL METHODS
@@ -98,14 +98,14 @@ See L<VCS::CMSynergy::Object/TIEHASH INTERFACE> for details.
   my $ccm = VCS::CMSynergy->new( database => "/ccmdb/foo/db" )
               or die VCS::CMSynergy->error;
 
-Starts a new CM Synergy session. Returns a session handle if it succeeds. 
+Starts a new Synergy session. Returns a session handle if it succeeds. 
 
 If it fails to start a session, it returns C<undef>. Use
-C<< VCS::CMSynergy->error >> to get the error string printed by CM Synergy.
+C<< VCS::CMSynergy->error >> to get the error string printed by Synergy.
 
 Multiple simultaneous sessions to multiple databases or with
 engines running on different hosts, even using different versions
-of CM Synergy, are supported.
+of Synergy, are supported.
 
 C<new> issues a B<ccm start> command and remembers the C<CCM_ADDR>
 in the session object (together with other session state).
@@ -119,25 +119,25 @@ are currently supported:
 
 =item C<database> (string)
 
-CM Synergy database path. 
+Synergy database path. 
 
 This is the only attribute required on Unix systems.
 
 =item C<host> (string)
 
-CM Synergy engine host to use.
+Synergy engine host to use.
 
 It defaults to the local host.
 
 =item C<role> (string)
 
-User's initial CM Synergy role.
+User's initial Synergy role.
 
 It defaults to C<developer>.
 
 =item C<user> (string)
 
-CM Synergy user. 
+Synergy user. 
 
 This attribute is available and required on Windows systems only.
 
@@ -146,7 +146,7 @@ This attribute is available and required on Windows systems only.
 User's password. 
 
 This attribute is required on Windows systems or when using
-ESD to connect to the CM Synergy engine.
+ESD to connect to the Synergy engine.
 
 =item C<server> (string)
 
@@ -157,9 +157,9 @@ Note that support for web mode is incomplete and only lightly tested.
 
 =item C<ini_file> (string) B<(classic mode only)>
 
-CM Synergy ini file to use. 
+Synergy ini file to use. 
 
-In contrast to the CM Synergy B<ccm start> command there is I<no>
+In contrast to the Synergy B<ccm start> command there is I<no>
 default ini file consulted. (On Unix systems this is achieved
 by executing B<ccm start> with the option C<-f /dev/null>.) The reason
 is that we want scripts to behave in a reproducible way. Otherwise
@@ -174,7 +174,7 @@ This option is only valid when using the classic mode to connect to Synergy.
 
 =item C<CCM_ADDR> (string)
 
-Specifies the RFC address of an established CM Synergy session.
+Specifies the RFC address of an established Synergy session.
 
 If you specify this attribut L</new> does not create a new session,
 but will attach to the one specified. Also, implicitly sets C<KeepSession>
@@ -192,9 +192,9 @@ Value of the C<CCM_HOME> environment variable to use for this session.
 It defaults from the environment variable of the same name,
 i.e. C<$ENV{CCM_HOME}>.
 
-This is only of interest if you have multiple version of CM Synergy
+This is only of interest if you have multiple version of Synergy
 installed. You can have simultaneous sessions using different
-CM Synergy versions (the module takes care of setting the C<CCM_HOME>
+Synergy versions (the module takes care of setting the C<CCM_HOME>
 variable appropriately before issuing any C<ccm> commands). 
 
 =item C<ui_database_dir> (string)
@@ -221,7 +221,7 @@ won't do, as this file is I<not> read by L</new> by default).
 
 =item C<remote_client> (boolean)
 
-If the value is true, it specifies that you want to start the CM Synergy
+If the value is true, it specifies that you want to start the Synergy
 session as a remote client. This corresponds to the C<-rc> option for
 B<ccm start>. This option is only useful on Unix systems. It defaults
 to false.
@@ -296,7 +296,7 @@ If this attribute is true then destruction of the new session handle
 will not cause a B<ccm stop>. 
 
 This may be used if you want to
-create a new CM Synergy session in one program and then re-use it
+create a new Synergy session in one program and then re-use it
 in another program (since session creation is a rather time consuming
 operation). In this case you should use C</ccm_addr> to extract
 the session's RFC address (after C</new> returns) and somehow pass it
@@ -313,7 +313,7 @@ B<You must have the L<Expect> module installed to use this feature.>
 C<UseCoprocess> is ignored there.)
 
 If C<UseCoprocess> is false, C<VCS::CMSynergy.pm> executes a separate
-C<ccm> process whenever it invokes the CM Synergy CLI, e.g.
+C<ccm> process whenever it invokes the Synergy CLI, e.g.
 
   $ccm->checkout('foo.c');
   $ccm->set_attribute('color', 'foo.c', 'blue');
@@ -327,13 +327,13 @@ results in the execution of the following three processes:
 
 In particular, we incur the startup overhead of B<ccm> three times.
 This overhead is noticable, esp. if you are doing 
-lots of CM Synergy operations.
+lots of Synergy operations.
 
-If C<UseCoprocess> is true, only one B<ccm> process per CM Synergy
+If C<UseCoprocess> is true, only one B<ccm> process per Synergy
 session ever gets executed. The way it works is that
 C<< VCS::CMSynergy->new >> starts an "interactive"
 (i.e. one invoked without arguments) B<ccm> process in the background.
-Later invocations of the CM Synergy CLI pipe their commands to its input and 
+Later invocations of the Synergy CLI pipe their commands to its input and 
 read back the output (up to the next C<< "ccm>" >> prompt). 
 The actual command is then followed in the same way by C<set error>
 to retrieve the success status. Destruction  of the session object
@@ -373,7 +373,7 @@ The default value of C<UseCoprocess> is false.
 
   $ccm->DESTROY;
 
-Stops the CM Synergy session represented by the session handle
+Stops the Synergy session represented by the session handle
 by executing B<ccm stop> (unless the session has the C<KeepSession>
 attribut set).
 
@@ -381,7 +381,7 @@ You should never call this method explicitly, as it
 is invoked by the Perl runtime when the Perl process exits
 (either by calling C<exit> or because of a C<die>).
 Hence, a script using the C<VCS::CMSynergy> module will not leave
-any CM Synergy sessions hanging around. 
+any Synergy sessions hanging around. 
 
 Actually, the Perl runtime will call C<DESTROY> when the last reference
 to a session handle goes out of scope, so in the following example
@@ -389,7 +389,7 @@ each session will be stopped as soon as one loop through the C<foreach>
 body is completed, i.e. there is at most one session in progress
 at any one time:
 
-  my @databases = ...;		# a list of CM Synergy databases
+  my @databases = ...;		# a list of Synergy databases
   foreach my $db (@databases)
   {
     my $ccm = VCS::CMSynergy->new( database => $db, ... );
@@ -576,7 +576,7 @@ This keyword is only valid when using the classic mode to connect to Synergy.
 
 =item C<objectname>
 
-C<objectname> actually I<is> a built-in keyword. However, CM Synergy 
+C<objectname> actually I<is> a built-in keyword. However, Synergy 
 B<ccm query -f %objectname> returns the deprecated I<fullname>
 (i.e. C<subsystem/cvtype/name/version>) for certain model objects
 (e.g. try B<ccm query -f %objectname -i base>) (but refuses to accept
@@ -944,7 +944,7 @@ C<%options> may contain any of the following keys:
 =item from => $file_spec, to => $file_spec
 
 Restricts one or both ends of the relation. The option value may
-be any C<$file_spec> accepted by CM Synergy including 
+be any C<$file_spec> accepted by Synergy including 
 a C<VCS::CMSynergy::Object>.
 
 =item name => $string
@@ -995,7 +995,7 @@ C<%options> may contain any of the following keys:
 =item from => $file_spec, to => $file_spec
 
 Restricts one or both ends of the relation. The option value may
-be any C<$file_spec> accepted by CM Synergy including 
+be any C<$file_spec> accepted by Synergy including 
 a C<VCS::CMSynergy::Object>.
 
 =item name => $string
@@ -1423,7 +1423,7 @@ C<"suball">, e.g.
   $ccm->copy_attribute($attr_name, [ qw(subproj suball) ], 
   	               "proja-1.0:project:1", "projb-1.0:project:1");
 
-Cf. the CM Synergy documentation on the I<attribute command>
+Cf. the Synergy documentation on the I<attribute command>
 for the meaning of these flags.
 
 Note the following differences from B<ccm attribute -copy>:
@@ -1513,7 +1513,7 @@ The first form returns the value of property C<$keyword> for C<$file_spec>
 (using B<ccm properties -f ...>). The second form returns the values
 of all properties in C<@keywords> as a hash reference.
 
-You can use any of the CM Synergy built-in keywords for C<$keyword> or
+You can use any of the Synergy built-in keywords for C<$keyword> or
 C<@keywords>.  If the value of a keyword is undefined, C<undef> is returned
 (whereas B<ccm properties> would print it as the string C<< "<void>" >>).
 
@@ -1524,7 +1524,7 @@ C<@keywords>.  If the value of a keyword is undefined, C<undef> is returned
   $contents = $ccm->cat_object($object);
   $ccm->cat_object($object, $destination);
 
-Retrieves the contents (the "source" in CM Synergy terminology)
+Retrieves the contents (the "source" in Synergy terminology)
 of an object without the need for a workarea using B<ccm cat>. 
 
 For both forms above, C<$object> must be a C<VCS::CMSynergy::Object>.
@@ -1700,8 +1700,8 @@ that is sensitive to the value of the session option C<text_editor>.
 
 C<ccm_with_text_editor> is useful in scripting B<ccm> commands
 like B<ccm users>. These commands usually open a temporary file
-generated by CM Synergy in a user-specified editor. Then the user edits 
-the contents and save her changes. Finally, CM Synergy reads back 
+generated by Synergy in a user-specified editor. Then the user edits 
+the contents and save her changes. Finally, Synergy reads back 
 the temporary file and does something with the (changed) contents. 
 
 C<ccm_with_text_editor> does the following
@@ -1725,7 +1725,7 @@ executes
 
   $ccm->ccm(@cmd)
 
-which causes CM Synergy to accept C<$text_value> as the "updated value"
+which causes Synergy to accept C<$text_value> as the "updated value"
 w.r.t. to command C<@cmd>,
 
 =item *
@@ -1805,7 +1805,7 @@ C<ping> tests whether session C<$ccm> is still alive
 (without causing an exception if it fails).
 
 This could be used e.g. from a web application that keeps a pool
-of established CM Synergy sessions to deal with user requests:
+of established Synergy sessions to deal with user requests:
 before invoking a command on a session the application must make
 sure that the session is still valid. If not, it will automatically
 create a new session.
@@ -1816,7 +1816,7 @@ create a new session.
   $obj2 = $ccm->object($name, $version, $cvtype, $instance);
 
 Create a C<VCS::CMSynergy::Object> from either an I<objectname>
-(sometimes called "object reference form" in CM Synergy documentation)
+(sometimes called "object reference form" in Synergy documentation)
 in "name-version:cvtype:instance" format or the four parts specified
 separately. 
 
@@ -1860,10 +1860,10 @@ C<VCS::CMSynergy::Object>), but with the version C<$version>.
   $obj = $ccm->object_from_cvid($cvid, @keywords);
 
 Returns the C<VCS::CMSynergy::Object> corresponding to the
-cvid C<$cvid> (the internal primary identifier of a CM Synergy object).
+cvid C<$cvid> (the internal primary identifier of a Synergy object).
 If the cvid doesn't exist, C<undef> is returned. 
 
-This is handy, for example, when you're parsing certain CM Synergy 
+This is handy, for example, when you're parsing certain Synergy 
 log files that contain only the cvid and you want to identify 
 the corresponding object.
 
@@ -1902,7 +1902,7 @@ Note: C<object_from_proj_ref> is implemented by something like
     $model = $ccm->base_model;
     $project_type = $ccm->cvtype("project");
 
-These are convenience methods for dealing with CM Synergy objects
+These are convenience methods for dealing with Synergy objects
 used to access the database model:
 
 =over 4

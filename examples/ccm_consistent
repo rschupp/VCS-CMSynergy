@@ -7,7 +7,7 @@ use strict;
 
 my ($root_project) = @ARGV;
 
-# assume existing CM Synergy session
+# assume existing Synergy session
 my $ccm = VCS::CMSynergy->new(
     CCM_ADDR	=> $ENV{CCM_ADDR}, 
     PrintError	=> 0,

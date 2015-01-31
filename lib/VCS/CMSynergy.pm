@@ -231,7 +231,7 @@ sub _start
     # a minimal ini file with the correct setting of "user"
     # and set $CCM_INI_FILE to its name.
     #
-    # NOTE: CM Synergy versions >= 6.0 on Windows do not use 
+    # NOTE: Synergy versions >= 6.0 on Windows do not use 
     # %SystemRoot%\ccm.ini any more. However, the problem persists:
     # if there's a [UNIX information] section in $CCM_HOME\etc\ccm.ini
     # or the user's personal ccm.ini its "User" setting will be used
@@ -500,11 +500,11 @@ sub _query
 	    # which we parse into a hash
 	    #   "project_objectname" => "relative_path/name"
 
-	    # NOTE: Starting with CCM 6.3, project objects may have instances
+	    # NOTE: Starting with Synergy 6.3, project objects may have instances
 	    # other than '1' (either for DCM reasons, or because someone
 	    # created a second project with the same name while the
 	    # model attribute "multiple_local_proj_instances" was TRUE).
-	    # CCM 6.3 apparently still returns "proj_vers" if instance='1' and
+	    # Synergy 6.3 apparently still returns "proj_vers" if instance='1' and
 	    # the full objectname otherwise. We return the full objectname
 	    # in any case.
 
@@ -531,7 +531,7 @@ sub _query
 
 # Sigh. "ccm query -f %objectname" returns old-style fullnames
 # (i.e. "instance/cvtype/name/version") for certain legacy types of 
-# objects, e.g. "cvtype" and "attype". But CM Synergy
+# objects, e.g. "cvtype" and "attype". But Synergy
 # doesn't accept these where a "file_spec" is expected 
 # (at least on Unix, because they contain slashes). 
 # Hence rewrite these fullnames to objectnames.
@@ -684,7 +684,7 @@ sub _expand_query
 	# Sanitize query string by replacing whitespace (esp. newlines)
 	# by a single blank except inside single or double quotes.
 	# This helps to improve the legibility of longish queries with 
-	# whitespace and line breaks (which CM Synergy's CLI dosen't grok).
+	# whitespace and line breaks (which Synergy's CLI dosen't grok).
 	$query =~ s/('.*?'|".*?"|[^'"\s]+)|(\s+)/defined $2 ? " " : $1/sge;
     }
     return $query;
@@ -798,7 +798,7 @@ sub NONE_OF
 }
 
 # helper (not a method): smart quoting of string or boolean values
-# NOTE: CM Synergy seems to use the following quoting rules
+# NOTE: Synergy seems to use the following quoting rules
 # for the right hand side of an "attribute value clause" in a query:
 # - string and text values must be quoted
 # - boolean values ("TRUE" or "FALSE") must not be quoted
@@ -1500,9 +1500,9 @@ sub _ccm_attribute
     if ($value eq "")
     {
 	# Setting a text attribute to an empty string is a real PITA:
-	# - CM Synergy will launch text_editor, even if "-v ''" was specified
+	# - Synergy will launch text_editor, even if "-v ''" was specified
 	# - if the temporary file containing the attribute's value is empty 
-	#   after the editor exits, CM Synergy prompts with:
+	#   after the editor exits, Synergy prompts with:
 	#	Result of edit is an empty attribute.
 	#	Confirm: (y/n) [n] 
 	
@@ -2028,7 +2028,7 @@ sub attype	{ $_[0]->object("$_[1]:1:attype:base"); }
 # FIXME: instead of implementing the inverse function to the
 # ACcent method "displayname" of folder/task/problem objects, one could use
 #    $self>query_object("query_function('$displayname')");
-# but query functions like folder() didn't appear before CCM 6.x;
+# but query functions like folder() didn't appear before Synergy 6.x;
 sub _displayname2object
 {
     my ($self, $name, $cvtype, $format, $subsys) = @_;

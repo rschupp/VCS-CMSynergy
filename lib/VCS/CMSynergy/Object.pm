@@ -374,8 +374,8 @@ __END__
 =head1 DESCRIPTION
 
 A C<VCS::CMSynergy::Object> is mostly a glorified wrapper for
-a CM Synergy's objectname (sometimes called I<object reference form>
-in CM Synergy documentation). Because of its overloaded string conversion
+a Synergy's objectname (sometimes called I<object reference form>
+in Synergy documentation). Because of its overloaded string conversion
 method (see below), it can be used with C<VCS::CMSynergy> methods wherever
 an objectname would be appropriate, esp. where the documentation
 specifies a B<file_spec>.
@@ -533,7 +533,7 @@ L</delete_attribute> calls).
   print "$obj doesn't exist" unless $obj->exists;
 
 Tests whether the C<VCS::CMSynergy::Object> corresponds to an object
-in the CM Synergy database (without causing an exception if it doesn't).
+in the Synergy database (without causing an exception if it doesn't).
 
 =head1 PROPERTY METHODS
 
@@ -579,7 +579,7 @@ are exactly the same as
 If you supply extra arguments then these are passed down
 to L<VCS::CMSynergy/query_object> as additional keywords.
 
-See the CM Synergy documentation for the built-in relations. Note that it's
+See the Synergy documentation for the built-in relations. Note that it's
 not considered an error to use a non-existing relation, the methods
 will simply return (a reference to) an empty list.
 This is consistent with the behaviour of B<ccm query> in this case.
@@ -594,11 +594,11 @@ This is consistent with the behaviour of B<ccm query> in this case.
 When C<use>ing L<VCS::CMSynergy/:tied_objects>,
 you can use a C<VCS::CMSynergy::Object> in the same way you
 would use a hash reference. The available keys are the underlying
-CM Synergy object's attributes. 
+Synergy object's attributes. 
 
 Note that contrary to the behaviour of real hashes, keys don't
 spring into existence "on demand". Getting or setting the value
-of an attribute that does not exist for the underlying CM Synergy object
+of an attribute that does not exist for the underlying Synergy object
 will return C<undef> or throw an excpetion (depending on your sessions's
 setting of L<VCS::CMSynergy/RaiseError>). 
 However, testing for the existence of an attribute
@@ -647,7 +647,7 @@ the object.
 
 Every C<VCS::CMSynergy::Object> keeps a reference to the session
 (a C<VCS::CMSynergy>) where it was created in. It needs this "back pointer"
-so it can implement methods that invoke CM Synergy operations,
+so it can implement methods that invoke Synergy operations,
 e.g. L</get_attribute>. These references can
 prevent the timely garbage collection of a session (esp. 
 B<ccm stop> called from L<VCS::CMSynergy/DESTROY>) if a  

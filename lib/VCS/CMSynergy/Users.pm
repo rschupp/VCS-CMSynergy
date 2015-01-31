@@ -5,7 +5,7 @@ package VCS::CMSynergy::Users;
 
 =head1 NAME
 
-VCS::CMSynergy::Users - Perl interface to CM Synergy user administration
+VCS::CMSynergy::Users - Perl interface to Synergy user administration
 
 =head1 SYNOPSIS
 
@@ -69,7 +69,7 @@ You must be in the B<ccm_admin> role to use this form.
 
 All operations try to preserve the order of roles (L<add_roles> appends
 the roles that are actually new for the user). This mostly matters for
-the role listed first for a user, as CM Synergy uses this as default
+the role listed first for a user, as Synergy uses this as default
 role for the user's session when the user calls B<ccm start> without
 the B<-r> option.
 
@@ -84,7 +84,7 @@ Note that the roundtrip
 always results in a functionally equivalent users table. The order
 of user lines may have changed, though.
 
-Note: For typical CM Synergy administrator usage
+Note: For typical Synergy administrator usage
 it is usually more convenient to use one of the methods below.
 
 =cut

@@ -132,6 +132,12 @@ sub new
 
     my $ccm_exe = File::Spec->catfile(
 	$self->{env}->{CCM_HOME}, "bin", "ccm$Config{_exe}");
+    if ($^O eq 'cygwin')
+    {
+        # Cygwin: avoid potential "MS-DOS style path detected" warning
+        run3 [ qw( cygpath --unix --absolute ), $ccm_exe ], \undef, \$ccm_exe, \undef;
+        $ccm_exe =~ s/\015?\012\z//g;                   # OS agnostic chomp
+    }
     return $self->set_error("CCM_HOME = `$self->{env}->{CCM_HOME}' does not point to a valid Synergy installation")
 	unless -x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe);
 	# NOTE: -x $ccm_exe fails on cygwin

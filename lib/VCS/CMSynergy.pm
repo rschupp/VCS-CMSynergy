@@ -23,7 +23,7 @@ use File::Temp qw(tempfile);            # in Perl core v5.6.1 and later
 use Log::Log4perl qw(:easy);
 
 use Type::Params qw( compile validate );
-use Types::Standard qw( slurpy Optional Str InstanceOf HasMethods
+use Types::Standard qw( slurpy Optional Str InstanceOf HasMethods Undef
     ArrayRef CodeRef GlobRef HashRef ScalarRef FileHandle Dict );
 use constant _PROJECT_SPEC   => Str | InstanceOf["VCS::CMSynergy::Project"];
 use constant _QUERY_KEYWORDS => compile(Str | ArrayRef | HashRef, _KEYWORDS);
@@ -416,7 +416,7 @@ sub query_object
 sub query_count
 {
     my $self = shift;
-    my ($query) = validate(\@_, Str | HashRef);
+    my ($query) = validate(\@_, Str | ArrayRef | HashRef);
 
     my ($rc, $out, $err) = $self->_ccm(
         qw/query -u -ns -nf -format X/, $self->_expand_query($query));
@@ -1341,9 +1341,11 @@ sub project_tree
 {
     my $self = shift;
     my ($options, $projects) = 
-        validate(\@_, HashRef, slurpy ArrayRef[_PROJECT_SPEC]);
+        validate(\@_, Undef | HashRef, slurpy ArrayRef[_PROJECT_SPEC]);
 
-    my %wanted = %$options;     # make a copy, because we're modifying it below
+    # make a copy of $options, because we're modifying it below
+    my %wanted = %{ $options || {} };           # Note: $options may be undef
+
     my $mark_projects = delete $wanted{mark_projects};
     $wanted{pathsep} ||= VCS::CMSynergy::Client::_pathsep;
     my $omit_rx = (delete $wanted{omit_top_dir}) && qr/^.*?\Q$wanted{pathsep}\E/;
@@ -1383,10 +1385,11 @@ sub project_diff
 {
     my $self = shift;
     my ($arg_options, $old_project, $new_project, $differ) = 
-        validate(\@_, HashRef, _PROJECT_SPEC, _PROJECT_SPEC, HasMethods[qw( added deleted changed )]);
+        validate(\@_, Undef | HashRef, _PROJECT_SPEC, _PROJECT_SPEC, HasMethods[qw( added deleted changed )]);
 
-    $arg_options = {} unless defined $arg_options; # still needed?
-    my %options = %$arg_options;        # make a copy, so we can't inadvertently modify it
+    # make a copy of $arg_options, because we're modifying it below
+    my %options = %{ $_argoptions || {} };      # Note: $arg_options may be undef
+
     my $hide_sub_trees = delete $options{hide_sub_trees};
 
     # FIXME lift this hardcoded restriction:
@@ -1585,8 +1588,7 @@ sub list_attributes
 sub properties_hashref
 {
     my $self = shift;
-    my ($file_specs, $keywords) = validate(\@_, ArrayRef, _KEYWORDS);
-    # FIXME ArrayRef[_FILE_SPEC]  ???
+    my ($file_specs, $keywords) = validate(\@_, ArrayRef[_FILE_SPEC], _KEYWORDS);
 
     return $self->_properties($file_specs, $keywords, ROW_HASH);
 }
@@ -1594,8 +1596,7 @@ sub properties_hashref
 sub properties_object
 {
     my $self = shift;
-    my ($file_specs, $keywords) = validate(\@_, ArrayRef, _KEYWORDS);
-    # FIXME ArrayRef[_FILE_SPEC]  ???
+    my ($file_specs, $keywords) = validate(\@_, ArrayRef[_FILE_SPEC], _KEYWORDS);
 
     return $self->_properties($file_specs, $keywords, ROW_OBJECT);
 }

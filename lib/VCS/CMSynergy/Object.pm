@@ -571,13 +571,19 @@ are somehow related to the invoking object:
   $obj->is_RELATION_of
   $obj->has_RELATION
 
-are exactly the same as
+returns exactly the same as
 
   $obj->ccm->query_object("is_RELATION_of('$obj')")
   $obj->ccm->query_object("has_RELATION('$obj')")
 
 If you supply extra arguments then these are passed down
-to L<VCS::CMSynergy/query_object> as additional keywords.
+to L<VCS::CMSynergy/query_object> as additional keywords, e.g.
+
+  $obj->is_RELATION_of(@keywords)
+
+returns exactly the same as
+
+  $obj->ccm->query_object("is_RELATION_of('$obj')", @keywords)
 
 See the Synergy documentation for the built-in relations. Note that it's
 not considered an error to use a non-existing relation, the methods

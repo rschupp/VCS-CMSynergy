@@ -84,27 +84,6 @@ sub new
 }
 
 
-# %start_opts: its keys are all valid options that can be
-# passed to VCS::CMSynergy::_start; moreover,
-# if $start_opts{foo} is defined then arg "foo" is automagically
-# passed to "ccm start" as "... $start_opts{foo} $args{foo} ..."
-my %start_opts =
-(
-    KeepSession		=> undef,
-    UseCoprocess	=> undef,
-    CCM_ADDR		=> undef,
-    ini_file		=> undef,
-    remote_client	=> undef,
-    database		=> "-d",
-    home		=> "-home",
-    host		=> "-h",
-    server		=> "-s",
-    password		=> "-pw",
-    role		=> "-r",
-    ui_database_dir	=> "-u",
-    user		=> "-n",
-);
-
 sub _start
 {
     my ($class, $client, %args) = @_;
@@ -117,41 +96,22 @@ sub _start
     bless $self, $class;
 
     # prime web_mode and ccm_addr as early as possible
-    $self->{web_mode} = 1 if $self->version >= 7.2 || $args{server};
+    $self->{web_mode} = 1 if $self->version >= 7.2;
     $self->{env}->{CCM_ADDR} = delete $args{CCM_ADDR} if defined $args{CCM_ADDR};
 
-    # ini_file and UseCoprocess are only valid for classic mode
-    foreach (qw( ini_file UseCoprocess ))
+    foreach (qw( KeepSession UseCoprocess ))
     {
-        return $self->set_error(qq["$_" is not valid for web mode])
-            if $self->web_mode && $args{$_};
+        $self->{$_} = delete $args{$_} if exists $args{$_};
     }
 
-    # Cygwin: some start options denote path names that are 
-    # passed down to Synergy; convert them to native Windows form
-    if ($^O eq 'cygwin')
-    {
-	foreach (qw/home ini_file ui_database_dir/)
+    if (defined $self->ccm_addr)        # reuse an existing Synergy session
 	{
-	    $args{$_} = _fullwin32path($args{$_}) if defined $args{$_};
-	}
-    }
+        # NOTE: Web mode may be determined (if still unknown) via "ccm ps".
 
-    my @start = qw/start -m -q -nogui/;
+        # anything still left in %args is an error
+        croak(__PACKAGE__."::_start: option(s) not valid when CCM_ADDR is specified: ".
+             join(", ", keys %args)) if %args;
 
-    while (my ($arg, $value) = each %args)
-    {
-	croak(__PACKAGE__.qq[::_start: unrecognized argument "$arg"]) 
-	    unless exists $start_opts{$arg};
-
-	$self->{$arg} = $value unless $arg eq "password";
-	push @start, $start_opts{$arg} => $value if defined $start_opts{$arg};
-    }
-
-    push @start, '-rc' if $self->{remote_client};
-
-    if (defined $self->ccm_addr)
-    {
 	$self->{KeepSession} = 1 unless defined $self->{KeepSession};
         INFO sprintf(qq[will %s session "%s"],
                      $self->{KeepSession} ? "keep" : "not keep",
@@ -169,13 +129,57 @@ sub _start
 	    push @{ $self->{files_to_unlink} }, $self->{ini_file};
 	}
     }
-    else
+    else                                # start a new Synergy session
     {
+        # NOTE: Web mode in Synergy version prior to 7.2 must be explicitly
+        # requested with option "-s".
+        $self->{web_mode} ||= defined $args{server};
+
+        # Cygwin: some start options denote path names that are 
+        # passed down to Synergy; convert them to native Windows form
+        if ($^O eq 'cygwin')
+        {
+            foreach (qw/home ini_file ui_database_dir/)
+            {
+                $args{$_} = _fullwin32path($args{$_}) if defined $args{$_};
+            }
+        }
+
+        # %start_opts: its keys are all valid options that can be
+        # passed to VCS::CMSynergy::_start; moreover,
+        # if $start_opts{foo} is defined then arg "foo" is automagically
+        # passed to "ccm start" as "... $start_opts{foo} $args{foo} ..."
+        my %start_opts =
+        (
+            database		=> "-d",
+            server		=> "-s",
+            password		=> "-pw",
+            role		=> "-r",
+            user		=> "-n",
+        $self->web_mode ? () : (                # classic mode only
+            ini_file		=> undef,
+            remote_client	=> undef,
+            home		=> "-home",
+            host		=> "-h",
+            ui_database_dir	=> "-u",
+        ));
+
+        my @start = qw/start -m -q -nogui/;
+        while (my ($arg, $value) = each %args)
+        {
+            croak(__PACKAGE__."::_start: invalid option: $arg")
+                unless exists $start_opts{$arg};
+
+            $self->{$arg} = $value unless $arg eq "password";
+            push @start, $start_opts{$arg} => $value if defined $start_opts{$arg};
+        }
+        push @start, '-rc' if $self->{remote_client};
+
 	# NOTE: If neither database nor CCM_ADDR was specified "ccm start ..."
-	# will fail later on, but with rather cryptic messages from CM Synergy;
-	# hence better fail early
-	return $self->set_error("don't know how to connect to CM Synergy: neither database nor CCM_ADDR specified")
-	    unless $args{database};
+	# will fail later on, but with rather cryptic messages from Synergy;
+	# hence better fail early.
+	croak(__PACKAGE__."::_start: don't know how to connect to Synergy: neither database nor CCM_ADDR specified")
+	    unless $self->{database};
 
 	unless ($self->web_mode)
 	{
@@ -245,14 +249,17 @@ sub _start
 
     if ($self->{UseCoprocess})
     {
-	if ($self->_spawn_coprocess)
+        if ($self->web_mode)
+        {
+	    carp(__PACKAGE__."::_start: UseCoprocess is invalid in web mode -- ignoring UseCoprocess");
+        }
+	elsif ($self->_spawn_coprocess)
 	{
 	    TRACE sprintf("spawned coprocess (pid=%d)", $self->{coprocess}->pid);
 	}
 	else
 	{
-	    carp(__PACKAGE__." new: can't establish coprocess: $self->{error}\n" .
-	         "-- ignoring UseCoprocess");
+	    carp(__PACKAGE__."::_start: can't establish coprocess: $self->{error} -- ignoring UseCoprocess");
 	}
     }
 

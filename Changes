@@ -1,3 +1,19 @@
+1.42  2015-02-01
+
+  [BEWARE - USER VISIBLE CHANGE]
+  - change error handling for ccm(): if the user checks the return value
+    of ccm() (ie. calls ccm() in non-void context) do NOT RaiseError etc
+  - users NOT using PrintError/RaiseError/HandleError should see no
+    change in behaviour
+  - users using PrintError/RaiseError/HandleError are now given a choice:
+    they can use try/catch semantics as before OR they can check
+    return codes
+
+  [Other changes]
+  - make starting a session in classic mode work again
+  - when re-using an existing session, fail early if CCM_ADDR is bogus
+  - actually allow undef in some arguments as per documentation
+    
 1.41  2015-01-26
 
   [BEWARE - USER VISIBLE CHANGE]

@@ -1384,19 +1384,19 @@ sub project_tree
 sub project_diff
 {
     my $self = shift;
-    my ($arg_options, $old_project, $new_project, $differ) = 
+    my ($options, $old_project, $new_project, $differ) = 
         validate(\@_, Undef | HashRef, _PROJECT_SPEC, _PROJECT_SPEC, HasMethods[qw( added deleted changed )]);
 
-    # make a copy of $arg_options, because we're modifying it below
-    my %options = %{ $_argoptions || {} };      # Note: $arg_options may be undef
+    # make a copy of $options, because we're modifying it below
+    my %opts = %{ $options || {} };     # Note: $options may be undef
 
-    my $hide_sub_trees = delete $options{hide_sub_trees};
+    my $hide_sub_trees = delete $opts{hide_sub_trees};
 
     # FIXME lift this hardcoded restriction:
     # we must also adjust the regex below (to extract dirname from $path)
-    $options{pathsep} = "/";    
+    $opts{pathsep} = "/";    
 
-    my $tree = $self->project_tree(\%options, $old_project, $new_project);
+    my $tree = $self->project_tree(\%opts, $old_project, $new_project);
 
     $differ->start($old_project, $new_project) if $differ->can("start");
 

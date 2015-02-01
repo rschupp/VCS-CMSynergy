@@ -104,18 +104,20 @@ sub _start
         $self->{$_} = delete $args{$_} if exists $args{$_};
     }
 
-    if (defined $self->ccm_addr)        # reuse an existing Synergy session
-        {
+    if (defined(my $ccm_addr = $self->ccm_addr))  # reuse an existing Synergy session
+    {
         # NOTE: Web mode may be determined (if still unknown) via "ccm ps".
+        croak(__PACKAGE__.qq[::_start: can't find session "$ccm_addr" in "ccm ps"])
+              unless $self->_my_ps();
 
         # anything still left in %args is an error
         croak(__PACKAGE__."::_start: option(s) not valid when CCM_ADDR is specified: ".
              join(", ", keys %args)) if %args;
 
         $self->{KeepSession} = 1 unless defined $self->{KeepSession};
-        INFO sprintf(qq[will %s session "%s"],
-                     $self->{KeepSession} ? "keep" : "not keep",
-                     $self->ccm_addr);
+        INFO sprintf(qq[%s keep session "%s"],
+                     $self->{KeepSession} ? "will" : "won't",
+                     $ccm_addr);
 
         if (is_win32 && !$self->web_mode)
         {
@@ -351,19 +353,23 @@ sub ccm_addr    { return shift->{env}->{CCM_ADDR}; }
 
 sub delimiter   { return shift->{delimiter}; }
 
-
+# find my session's entry in "ccm ps";
+# if FIELD was specified, return the value of tthat field;
+# otherwise return true if my session was found, false otherwise
 sub _my_ps
 { 
-    my ($self, $field) = @_;
+    my $self = shift;
+    my ($field) = @_;
 
     my $ccm_addr = $self->ccm_addr;
     my $ps = $self->ps(rfc_address => $ccm_addr);
-    return $self->set_error("can't find current session `$ccm_addr' in `ccm ps'") 
-        unless $ps && @$ps > 0;
+    return $ps && @$ps if @_ == 0;
+    return $self->set_error(qq[can't find current session "$ccm_addr" in "ccm ps"]) 
+        unless $ps && @$ps;
     return $ps->[0]->{$field};
 }
 
-# determine database path (in canonical format) etc from `ccm ps'
+# determine database path (in canonical format) etc from "ccm ps"
 __PACKAGE__->_memoize_method(database => sub { shift->_my_ps('database'); });
 __PACKAGE__->_memoize_method(user     => sub { shift->_my_ps('user'); });
 __PACKAGE__->_memoize_method(web_mode => sub { shift->_my_ps('process') eq "usr_cmd_interface"; });

@@ -417,10 +417,13 @@ RFC address (i.e. attribute CCM_ADDR), while the second form leaves you with an
 =head2 ccm
 
   ($rc, $out, $err) = $ccm->ccm($command, @args);
+  $ok = $ccm->ccm($command, @args);
 
 This is the workhorse of the VCS::CMSynergy module. It executes B<ccm> 
 with command C<$command> and (optional) parameters C<@args>.
-In array context it returns a three-element array consisting of
+
+In array context (the first form above) C<ccm>
+returns a three-element array consisting of
 the (operating system) exit code of B<ccm>, and what B<ccm> printed
 on stdout and stderr. Note that the exit code is 0 if B<ccm>
 operated successfully. On DOSish operating systems the 
@@ -428,11 +431,15 @@ operated successfully. On DOSish operating systems the
 by Perl in "text" mode, i.e. contain LF characters instead of CRLF.
 In any case, C<$out> and C<$err> have been C<chomp>ed.
 
-In scalar context C<ccm> returns the
-"logical" exit code, i.e. C<!$rc>, so that you can write:
+In scalar context (the second form above) C<ccm> returns the
+"logical" exit code, i.e. C<$rc == 0>, so that you can write:
 
   $ccm->ccm('checkout', $file_spec) 
       or die "checkout failed: ".$ccm->error;
+
+If you B<do> check the return value (i.e. C<ccm> is called in non-void context)
+then B<no> automatic error handling 
+(cf.  L</RaiseError>, L</PrintError> and L</HandleError>) is done.
 
 Note that you must pass every C<ccm> argument or option as a single Perl 
 argument. For literal arguments the C<qw()> notation may come in handy, e.g.
@@ -440,7 +447,7 @@ argument. For literal arguments the C<qw()> notation may come in handy, e.g.
   ($rc, $out, $err) = $ccm->ccm(qw(finduse -state working));
 
 Most specialized methods in the VCS::CMSynergy module are ultimately implemented
-via the L</ccm> method. Using it directly is only recommended for
+via the C<ccm> method. Using it directly is only recommended for
 commands that perform some action, e.g. B<ccm checkout>, as opposed to 
 query-like commands. For the latter, e.g. B<ccm query>, use one of the 
 methods that return the information in structured form, 
@@ -449,8 +456,8 @@ L<query_hashref|/"query_arrayref, query_hashref">, instead of having
 to parse C<$out> yourself.
 
 In fact, there is a shortcut for "action" commands: if you call
-a non-existent method on a VCS::CMSynergy object, it tries to invoke
-the L</ccm> method with the original method name as the C<$command>
+a non-existent method on a C<VCS::CMSynergy> object, it tries to invoke
+the C<ccm> method with the original method name as the C<$command>
 followed by the parameters of the original call, i.e.
 
   $ccm->checkout($file_spec);
@@ -460,7 +467,7 @@ and
   $ccm->ccm('checkout', $file_spec);
 
 are equivalent (given that there is no real C<checkout> method).
-Return values are those of L</ccm> (depending on context).
+Return values are those of C<ccm> (depending on context).
 This is accomplished by a suitable C<AUTOLOAD> method.
 
 =head1 QUERY METHODS

@@ -107,8 +107,9 @@ sub _start
     if (defined(my $ccm_addr = $self->ccm_addr))  # reuse an existing Synergy session
     {
         # NOTE: Web mode may be determined (if still unknown) via "ccm ps".
-        croak(__PACKAGE__.qq[::_start: can't find session "$ccm_addr" in "ccm ps"])
-              unless $self->_my_ps();
+
+        # fail early if CCM_ADDR is bogus
+        return unless $self->_my_ps("process");
 
         # anything still left in %args is an error
         croak(__PACKAGE__."::_start: option(s) not valid when CCM_ADDR is specified: ".
@@ -353,9 +354,8 @@ sub ccm_addr    { return shift->{env}->{CCM_ADDR}; }
 
 sub delimiter   { return shift->{delimiter}; }
 
-# find my session's entry in "ccm ps";
-# if FIELD was specified, return the value of tthat field;
-# otherwise return true if my session was found, false otherwise
+# find my session's entry in "ccm ps" and return the value of $field
+# returns undef (or throws an error) if the session can't be found
 sub _my_ps
 { 
     my $self = shift;
@@ -363,10 +363,8 @@ sub _my_ps
 
     my $ccm_addr = $self->ccm_addr;
     my $ps = $self->ps(rfc_address => $ccm_addr);
-    return $ps && @$ps if @_ == 0;
-    return $self->set_error(qq[can't find current session "$ccm_addr" in "ccm ps"]) 
+    return $self->set_error(qq[can't find session "$ccm_addr" in "ccm ps"]) 
         unless $ps && @$ps;
-    return $ps->[0]->{$field};
 }
 
 # determine database path (in canonical format) etc from "ccm ps"

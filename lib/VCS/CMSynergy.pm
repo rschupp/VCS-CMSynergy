@@ -95,21 +95,28 @@ sub _start
     $self->{env} = { %{ $client->{env} } } if $client->{env};
     bless $self, $class;
 
-    # prime web_mode and ccm_addr as early as possible
+    # remember the process that created $self (so we can check in DESTROY)
+    $self->{pid} = $$;
+
+    # prime web_mode early as possible
     $self->{web_mode} = 1 if $self->version >= 7.2;
-    $self->{env}->{CCM_ADDR} = delete $args{CCM_ADDR} if defined $args{CCM_ADDR};
 
     foreach (qw( KeepSession UseCoprocess ))
     {
         $self->{$_} = delete $args{$_} if exists $args{$_};
     }
 
-    if (defined(my $ccm_addr = $self->ccm_addr))  # reuse an existing Synergy session
+    if (defined(my $ccm_addr = delete $args{CCM_ADDR}))  # reuse an existing Synergy session
     {
         # NOTE: Web mode may be determined (if still unknown) via "ccm ps".
 
         # fail early if CCM_ADDR is bogus
-        return unless $self->_my_ps("process");
+        my $ps = $self->ps(rfc_address => $ccm_addr);
+        return $self->set_error(qq[can't find session "$ccm_addr" in "ccm ps"]) 
+            unless $ps && @$ps;
+
+        $self->{env}{CCM_ADDR} = $ccm_addr;
+        $self->{web_mode} = $ps->[0]{process} eq "usr_cmd_interface";
 
         # anything still left in %args is an error
         croak(__PACKAGE__."::_start: option(s) not valid when CCM_ADDR is specified: ".
@@ -213,7 +220,7 @@ sub _start
         my ($rc, $out, $err) = $self->_ccm(@start);
         return $self->set_error($err || $out) unless $rc == 0;
 
-        $self->{env}->{CCM_ADDR} = $out;
+        $self->{env}{CCM_ADDR} = $out;
         INFO qq[started session "$out"];
     }
 
@@ -240,12 +247,8 @@ sub _start
     # or the user's personal ccm.ini its "User" setting will be used
     # and may trigger the "security violation".
 
-    $self->{env}->{CCM_INI_FILE} = $self->{ini_file}
+    $self->{env}{CCM_INI_FILE} = $self->{ini_file}
         if is_win32 && !$self->web_mode;
-
-    # remember the process that created $self (so we can check in DESTROY)
-    $self->{pid} = $$;
-
 
     # web mode renames the %filename placeholder (cf. "ccm set text_editor")
     $self->{"%filename"} = $self->web_mode ? "%file" : "%filename";
@@ -350,7 +353,7 @@ sub DESTROY
 }
 
 
-sub ccm_addr    { return shift->{env}->{CCM_ADDR}; }
+sub ccm_addr    { return shift->{env}{CCM_ADDR}; }
 
 sub delimiter   { return shift->{delimiter}; }
 
@@ -365,6 +368,8 @@ sub _my_ps
     my $ps = $self->ps(rfc_address => $ccm_addr);
     return $self->set_error(qq[can't find session "$ccm_addr" in "ccm ps"]) 
         unless $ps && @$ps;
+
+    return $ps->[0]{$field};
 }
 
 # determine database path (in canonical format) etc from "ccm ps"

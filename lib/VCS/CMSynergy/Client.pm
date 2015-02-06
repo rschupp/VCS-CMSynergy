@@ -186,10 +186,11 @@ sub ccm						# class/instance method
 
     my ($rc, $out, $err) = $this->_ccm(@_);
 
-    return wantarray ? ($rc, $out, $err) : $rc == 0 if defined wantarray;
-    # NOTE: "defined wantarray" checks if we're called in non-void context
+    # Note: "defined wantarray" checks if we're called in non-void context
+    return wantarray ? ($rc, $out, $err) : $rc == 0 
+        if defined wantarray;
     return $this->set_error($err || $out, undef, 0, $rc, $out, $err);
-    # NOTE: most failing ccm commands issue their error messages on stdout!
+        unless $rc == 0;
 }
 
 

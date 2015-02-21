@@ -71,16 +71,10 @@ license		'perl';
 abstract_from	'lib/VCS/CMSynergy.pod';
 version_from	'lib/VCS/CMSynergy.pm';
 
-provides        'VCS::CMSynergy::Client' => {
-                    file => 'lib/VCS/CMSynergy/Client.pm' },
-                'VCS::CMSynergy::Object' => {
-                    file => 'lib/VCS/CMSynergy/Object.pm' },
-                'VCS::CMSynergy::Project' => {
-                    file => 'lib/VCS/CMSynergy/Project.pm' },
-                'VCS::CMSynergy::Helper' => {
-                    file => 'lib/VCS/CMSynergy/Helper.pm' },
-                'VCS::CMSynergy::Users' => {
-                    file => 'lib/VCS/CMSynergy/Users.pm' };
+no_index        package => 
+                    'Tie::ReadonlyArray', 
+                    'VCS::CMSynergy::ObjectTieHash', 
+                    'VCS::CMSynergy::Traversal';
 
 # --- Dependencies
 

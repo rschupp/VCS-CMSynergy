@@ -1,4 +1,4 @@
-1.43  2015-02-21
+1.45  2015-02-21
 
   [Bug fixes]
   - fix a critical thinko with error handling in ccm():

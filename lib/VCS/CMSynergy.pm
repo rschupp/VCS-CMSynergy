@@ -982,54 +982,52 @@ sub _history_classic
     }
     return \@result;
 }
-=for comment
 
-Consider the following history
+# Consider the following history
+# 
+#   ...  ->  foo,3  ->  foo,4  ->  foo,5  ->  bar,6  ->  bar,7  ->  ...
+# 
+# The "history" command reports only a partial view of that.
+# E.g. invoked as "ccm history foo,N:ascii:1" for some N it shows only the chain
+# of versions of "foo" plus "bar,6". predecessor/successor lists are 
+# artificially cut off at the "rename points",
+# so neither "ccm history foo,1:ascii:1" nor "ccm history bar,6:ascii:1" has the
+# complete predecessor/successor information. 
+# 
+# In order to produce a complete history it is _not_ enough to simply
+# "glue" together the graphs for foo,N and bar,N. We must form the
+# "union" of predecessor/successor lists for the overlapping elements.
+# 
+#   ccm history foo,5:ascii:1
+# 
+#   foo,5:ascii:1
+#   Predecessors:
+#           foo,4:ascii:1
+#   Successors:
+#           bar,6:ascii:1
+#   ***************************************************************
+#   bar,6:ascii:1
+#   Predecessors:
+#           foo,5:ascii:1
+#   Successors:
+#   ***************************************************************
+# 
+#   ccm history bar,6:ascii:1
+# 
+#   foo,5:ascii:1
+#   Predecessors:
+#   Successors:
+#           bar,6:ascii:1
+#   ***************************************************************
+#   bar,6:ascii:1
+#   Predecessors:
+#           foo,5:ascii:1
+#   Successors:
+#           bar,7:ascii:1
+#   ***************************************************************
 
-  ...  ->  foo,3  ->  foo,4  ->  foo,5  ->  bar,6  ->  bar,7  ->  ...
 
-The "history" command reports only a partial view of that.
-E.g. invoked as "ccm history foo,N:ascii:1" for some N it shows only the chain
-of versions of "foo" plus "bar,6". predecessor/successor lists are 
-artificially cut off at the "rename points",
-so neither "ccm history foo,1:ascii:1" nor "ccm history bar,6:ascii:1" has the
-complete predecessor/successor information. 
-
-In order to produce a complete history it is _not_ enough to simply
-"glue" together the graphs for foo,N and bar,N. We must form the
-"union" of predecessor/successor lists for the overlapping elements.
-
-  ccm history foo,5:ascii:1
-
-  foo,5:ascii:1
-  Predecessors:
-          foo,4:ascii:1
-  Successors:
-          bar,6:ascii:1
-  ***************************************************************
-  bar,6:ascii:1
-  Predecessors:
-          foo,5:ascii:1
-  Successors:
-  ***************************************************************
-
-  ccm history bar,6:ascii:1
-
-  foo,5:ascii:1
-  Predecessors:
-  Successors:
-          bar,6:ascii:1
-  ***************************************************************
-  bar,6:ascii:1
-  Predecessors:
-          foo,5:ascii:1
-  Successors:
-          bar,7:ascii:1
-  ***************************************************************
-
-=cut
-
-# FIXME pod
+# FIXME needs pod
 sub full_history_arrayref
 {
     my $self = shift;
@@ -1038,7 +1036,7 @@ sub full_history_arrayref
     return _flatten_rows($self->_full_history($file_spec, $keywords), $keywords);
 }
 
-# FIXME pod
+# FIXME needs pod
 sub full_history_hashref
 {
     my $self = shift;

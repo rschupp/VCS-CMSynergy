@@ -1,3 +1,22 @@
+1.43  2015-02-21
+
+  [Bug fixes]
+  - fix a critical thinko with error handling in ccm():
+    ccm() erroneously reports an error when
+    - RaiseError or PrintError is on
+    - it is called in void context
+    - the actual "ccm" command exited with success
+    thanks to Jürgen Schorer for reporting this
+  - don't "remember" CCM_ADDR in $self until we've checked it
+  - if CCM_ADDR is bogus, don't croak(), use set_error() instead
+  
+  [Other changes]
+  - add documentaion about logging via Log::Log4perl;
+    remove reference to no longer existing trace() and trace_msg() methods
+  - add explicitly "provides" and drop "no_index: namespace";
+    hopefully this will make the documentation for
+    VCS::CMSynergy::{Client,Object,Project,Helper} show up on CPAN
+
 1.42  2015-02-01
 
   [BEWARE - USER VISIBLE CHANGE]

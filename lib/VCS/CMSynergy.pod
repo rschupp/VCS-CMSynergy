@@ -1961,6 +1961,32 @@ hence the following methods are inherited from the latter:
 Note: All these methods can be invoked on a session object
 or as class methods.
 
+=head1 LOGGING
+
+C<VCS::CMSynergy> is "Log::Log4perl enabled". That means it logs via
+the L<Log::Log4perl> module. All you have to do to turn logging on is
+something like the following in your program:
+
+    use VCS::CMsynergy;
+    use Log::Log4perl ':easy';
+    ...
+    Log::Log4perl->easy_init($DEBUG);
+    ...
+
+This will turn on logging (to C<STDERR>) at the C<$DEBUG> level for B<all> 
+"Log::Log4perl enabled" modules used by your program. 
+To turn on logging for the C<VCS::CMSynergy> modules only use
+
+    Log::Log4perl->easy_init(
+        { level => $DEBUG, category => "VCS::CMSynergy" });
+
+See L<Log::Log4perl/Easy-Mode> and L<Log::Log4perl/Stealth-loggers>
+for more information.
+
+For log level C<$TRACE> B<all> calls to the Synergy CLI are logged in
+gory detail (arguments, output to stdout and stderr, exit code and 
+duration of execution).
+
 =head1 SEE ALSO
 
 L<VCS::CMSynergy::Client>,

@@ -189,8 +189,8 @@ sub ccm						# class/instance method
     # Note: "defined wantarray" checks if we're called in non-void context
     return wantarray ? ($rc, $out, $err) : $rc == 0 
         if defined wantarray;
-    return $this->set_error($err || $out, undef, 0, $rc, $out, $err);
-        unless $rc == 0;
+
+    $this->set_error($err || $out) unless $rc == 0;
 }
 
 

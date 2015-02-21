@@ -1948,8 +1948,6 @@ hence the following methods are inherited from the latter:
 
 =item C<ccm_command>, C<out>, C<err>
 
-=item C<trace>, C<trace_msg>
-
 =item C<version>
 
 =item C<ps>

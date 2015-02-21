@@ -1,6 +1,6 @@
 package VCS::CMSynergy::Users;
 
-# Copyright (c) 2001-2014 argumentum GmbH
+# Copyright (c) 2001-2015 argumentum GmbH
 # See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
 
 =head1 NAME

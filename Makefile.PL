@@ -71,9 +71,7 @@ license		'perl';
 abstract_from	'lib/VCS/CMSynergy.pod';
 version_from	'lib/VCS/CMSynergy.pm';
 
-provides        'VCS::CMSynergy' => {
-                    file => 'lib/VCS/CMSynergy.pm' },
-                'VCS::CMSynergy::Client' => {
+provides        'VCS::CMSynergy::Client' => {
                     file => 'lib/VCS/CMSynergy/Client.pm' },
                 'VCS::CMSynergy::Object' => {
                     file => 'lib/VCS/CMSynergy/Object.pm' },

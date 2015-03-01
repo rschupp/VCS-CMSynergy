@@ -253,9 +253,9 @@ my $children_got = $top_project->is_child_of($dir2);
 cmp_vcos($children_got, [ grep { !/:dir:/ } @trav2_expected ],
     qq[is_child_of($dir2)]);
 
-my $obj_from_proj_ref = $top_project->object_from_proj_ref([ qw/toolkit misc readme/ ]);
-cmp_vcos([ $obj_from_proj_ref ], [ 'readme:1:ascii:1' ],
-    qq[object_from_proj_ref()]);
+my $obj_from_path = $top_project->object_from_path([ qw/toolkit misc readme/ ]);
+cmp_vcos([ $obj_from_path ], [ 'readme:1:ascii:1' ],
+    qq[object_from_path()]);
 
 
 ## get_member_info

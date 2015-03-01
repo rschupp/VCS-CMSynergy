@@ -654,19 +654,22 @@ sub has_child
 }
 
 
-=head2 object_from_proj_ref
+=head2 object_from_path
 
-  $obj = $proj->object_from_proj_ref($path, @keywords);
-  $obj = $proj->object_from_proj_ref(\@path_components, @keywords);
+  $obj = $proj->object_from_path($path, @keywords);
+  $obj = $proj->object_from_path(\@path_components, @keywords);
 
-is exactly the same as 
+Returns the C<VCS::CMSynergy::Object> identified by
+workarea path C<$path> in project C<$proj>.
 
   $obj = $proj->ccm->object_from_proj_ref($path, $proj, @keywords);
   $obj = $proj->ccm->object_from_proj_ref(\@path_components, $proj, @keywords);
 
+See L<VCS::CMSynergy/object_from_proj_ref> for details.
+
 =cut
 
-sub object_from_proj_ref
+sub object_from_path
 {
     my $self = shift;
     my ($path, $keywords) = validate(\@_, (Str | ArrayRef[Str]), _KEYWORDS);

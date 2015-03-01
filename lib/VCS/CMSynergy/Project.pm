@@ -302,7 +302,7 @@ sub traverse
 {
     my $self = shift;
     my ($arg_wanted, $dir) = 
-        validate(\@_, CodeRef | HashRef, Optional[InstanceOf["VCS::CMSynergy::Object"]]);
+        validate(\@_, (CodeRef | HashRef), Optional[InstanceOf["VCS::CMSynergy::Object"]]);
 
     my %wanted;
     if (ref $arg_wanted eq 'CODE')
@@ -669,7 +669,7 @@ is exactly the same as
 sub object_from_proj_ref
 {
     my $self = shift;
-    my ($path, $keywords) = validate(\@_, Str | ArrayRef[Str], _KEYWORDS);
+    my ($path, $keywords) = validate(\@_, (Str | ArrayRef[Str]), _KEYWORDS);
 
     return $self->ccm->object_from_proj_ref($path, $self, @$keywords);
 }

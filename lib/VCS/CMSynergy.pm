@@ -26,7 +26,7 @@ use Type::Params qw( compile validate );
 use Types::Standard qw( slurpy Optional Str InstanceOf HasMethods Undef
     ArrayRef CodeRef GlobRef HashRef ScalarRef FileHandle Dict );
 use constant _PROJECT_SPEC   => Str | InstanceOf["VCS::CMSynergy::Project"];
-use constant _QUERY_KEYWORDS => compile(Str | ArrayRef | HashRef, _KEYWORDS);
+use constant _QUERY_KEYWORDS => compile((Str | ArrayRef | HashRef), _KEYWORDS);
 
 use constant ROW_HASH   => 1;
 use constant ROW_OBJECT => 2;
@@ -1348,7 +1348,7 @@ sub project_tree
 {
     my $self = shift;
     my ($options, $projects) = 
-        validate(\@_, Undef | HashRef, slurpy ArrayRef[_PROJECT_SPEC]);
+        validate(\@_, (Undef | HashRef), slurpy ArrayRef[_PROJECT_SPEC]);
 
     # make a copy of $options, because we're modifying it below
     my %wanted = %{ $options || {} };           # Note: $options may be undef
@@ -1392,7 +1392,7 @@ sub project_diff
 {
     my $self = shift;
     my ($options, $old_project, $new_project, $differ) = 
-        validate(\@_, Undef | HashRef, _PROJECT_SPEC, _PROJECT_SPEC, HasMethods[qw( added deleted changed )]);
+        validate(\@_, (Undef | HashRef), _PROJECT_SPEC, _PROJECT_SPEC, HasMethods[qw( added deleted changed )]);
 
     # make a copy of $options, because we're modifying it below
     my %opts = %{ $options || {} };     # Note: $options may be undef
@@ -1571,7 +1571,7 @@ sub copy_attribute
     my @flags;
     @flags = map { "-$_" } @{ splice(@_, 1, 1) } if defined $_[1] && ref $_[1] eq "ARRAY";
     
-    my ($names, $file_specs) = validate(\@_, Str | ArrayRef[Str], slurpy ArrayRef[_FILE_SPEC]);
+    my ($names, $file_specs) = validate(\@_, (Str | ArrayRef[Str]), slurpy ArrayRef[_FILE_SPEC]);
     $names = join(':', @$names) if ref $names eq "ARRAY";
 
     return scalar $self->ccm(qw/attribute -copy/, $names, @flags, @$file_specs);
@@ -1638,7 +1638,7 @@ sub property
 {
     my $self = shift;
     my ($keyword_s, $file_spec) = 
-        validate(\@_, ( Str | ArrayRef[Str] ), _FILE_SPEC);
+        validate(\@_, (Str | ArrayRef[Str]), _FILE_SPEC);
 
     if (ref $keyword_s)
     {
@@ -2106,7 +2106,7 @@ sub object_from_proj_ref
 {
     my $self = shift;
     my ($path, $proj_spec, $keywords) =
-        validate(\@_, Str | ArrayRef[Str], _PROJECT_SPEC, _KEYWORDS);
+        validate(\@_, (Str | ArrayRef[Str]), _PROJECT_SPEC, _KEYWORDS);
 
     $path = join(VCS::CMSynergy::Client::_pathsep, @$path) if ref $path; 
     $proj_spec = $proj_spec->displayname if ref $proj_spec;

@@ -229,7 +229,7 @@ sub copy_attribute
 {
     my $self = shift;
     my ($names, $to_file_specs) = 
-        validate(\@_, Str | ArrayRef[Str], slurpy ArrayRef);
+        validate(\@_, (Str | ArrayRef[Str]), slurpy ArrayRef);
     $names = [ $names ] unless ref $names;
 
     # NOTE: no $flags allowed, because honouring them would need

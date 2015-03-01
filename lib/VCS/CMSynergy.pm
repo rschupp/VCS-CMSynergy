@@ -881,7 +881,7 @@ sub _history
     # (will be translated to undef by _query_result)
     foreach (qw( predecessors successors ))
     {
-        $want->{$_} = "%[$_]objectname" if $want->{$_};
+        $want->{$_} = "%{[$_]objectname[separator='\\n' null='']}" if $want->{$_};
     }
 
     my $format = $RS . join($FS, values %$want) . $FS;
@@ -902,8 +902,7 @@ sub _history
         {
             next unless $want->{$_};
             my $list = delete $row->{$_};       # temporarily strip slot
-            $cessors{$_} = defined $list ?
-                [ map { $self->object($_) } split(/,/, $list) ] : [];
+            $cessors{$_} = [ map { $self->object($_) } split(/\n/, $list) ];
         }
 
         if ($want->{object})

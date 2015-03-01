@@ -1,3 +1,15 @@
+1.46  2015-03-01
+
+  [BEWARE - USER VISIBLE CHANGE]
+  - rename VCS::CMSynergy::Project::object_from_proj_ref() to object_from_path()
+
+  [Bug fixes]
+  - work around a problem with Type::Params::validate() 
+    in certain Perl versions
+
+  [Other changes]
+  - make history commands in web mode more robust
+
 1.45  2015-02-21
 
   [Bug fixes]

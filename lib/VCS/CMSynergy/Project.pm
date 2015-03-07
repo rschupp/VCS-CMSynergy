@@ -39,7 +39,7 @@ use Types::Standard qw( Str Optional InstanceOf Maybe
 use File::Spec;
 use Cwd;
 
-use VCS::CMSynergy::Client qw(_KEYWORDS);
+use VCS::CMSynergy qw( _KEYWORDS );
 
 
 =head1 WORKAREA METHODS

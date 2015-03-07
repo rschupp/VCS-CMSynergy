@@ -10,11 +10,12 @@ use strict;
 use warnings;
 
 use VCS::CMSynergy::Client qw(
-    is_win32 _fullwin32path $Error $Ccm_command _error
-    _FILE_SPEC _KEYWORDS _FILE_SPEC_KEYWORDS );
+    is_win32 _fullwin32path $Error $Ccm_command _error);
 
 our @ISA = qw(VCS::CMSynergy::Client);
-our @EXPORT_OK = qw( ANY_OF NONE_OF );
+our @EXPORT_OK = qw( ANY_OF NONE_OF
+                     _FILE_SPEC _KEYWORDS 
+                     ROW_HASH ROW_OBJECT _want $RS $FS);
 
 use Carp;
 use Config;
@@ -22,11 +23,14 @@ use File::Spec;
 use File::Temp qw(tempfile);            # in Perl core v5.6.1 and later
 use Log::Log4perl qw(:easy);
 
-use Type::Params qw( compile validate );
+use Type::Params qw( validate );
 use Types::Standard qw( slurpy Optional Str InstanceOf HasMethods Undef
     ArrayRef CodeRef GlobRef HashRef ScalarRef FileHandle Dict );
-use constant _PROJECT_SPEC   => Str | InstanceOf["VCS::CMSynergy::Project"];
-use constant _QUERY_KEYWORDS => compile((Str | ArrayRef | HashRef), _KEYWORDS);
+
+use constant _KEYWORDS     => slurpy ArrayRef[Str];
+use constant _FILE_SPEC    => ( Str | InstanceOf["VCS::CMSynergy::Object"] );
+use constant _PROJECT_SPEC => ( Str | InstanceOf["VCS::CMSynergy::Project"] );
+use constant _QUERY        => ( Str | ArrayRef | HashRef );
 
 use constant ROW_HASH   => 1;
 use constant ROW_OBJECT => 2;
@@ -397,7 +401,7 @@ sub query
 sub query_arrayref
 {
     my $self = shift;
-    my ($query, $keywords) = _QUERY_KEYWORDS->(@_);
+    my ($query, $keywords) = validate(\@_, _QUERY, _KEYWORDS);
 
     return _flatten_rows($self->_query($query, $keywords, ROW_HASH), $keywords);
 }
@@ -406,7 +410,7 @@ sub query_arrayref
 sub query_hashref
 {
     my $self = shift;
-    my ($query, $keywords) = _QUERY_KEYWORDS->(@_);
+    my ($query, $keywords) = validate(\@_, _QUERY, _KEYWORDS);
 
     return $self->_query($query, $keywords, ROW_HASH);
 }
@@ -415,7 +419,7 @@ sub query_hashref
 sub query_object
 {
     my $self = shift;
-    my ($query, $keywords) = _QUERY_KEYWORDS->(@_);
+    my ($query, $keywords) = validate(\@_, _QUERY, _KEYWORDS);
 
     return $self->_query($query, $keywords, ROW_OBJECT);
 }
@@ -425,7 +429,7 @@ sub query_object
 sub query_count
 {
     my $self = shift;
-    my ($query) = validate(\@_, Str | ArrayRef | HashRef);
+    my ($query) = validate(\@_, _QUERY);
 
     my ($rc, $out, $err) = $self->_ccm(
         qw/query -u -ns -nf -format X/, $self->_expand_query($query));
@@ -849,7 +853,7 @@ sub history
 sub history_arrayref
 {
     my $self = shift;
-    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
+    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
 
     return _flatten_rows($self->_history($file_spec, $keywords), $keywords);
 }
@@ -858,7 +862,7 @@ sub history_arrayref
 sub history_hashref
 {
     my $self = shift;
-    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
+    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
 
     return $self->_history($file_spec, $keywords);
 }
@@ -877,8 +881,7 @@ sub _history
 
     # the web mode "keywords" for predecessors and successors are
     # "%[predecessors]objectname" and "%[successors]objectname";
-    # list values are comma separated, "<void>" denotes an empty list
-    # (will be translated to undef by _query_result)
+    # use "\n" to separate list elements and "" for an empty list
     foreach (qw( predecessors successors ))
     {
         $want->{$_} = "%{[$_]objectname[separator='\\n' null='']}" if $want->{$_};
@@ -1030,7 +1033,7 @@ sub _history_classic
 sub full_history_arrayref
 {
     my $self = shift;
-    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
+    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
 
     return _flatten_rows($self->_full_history($file_spec, $keywords), $keywords);
 }
@@ -1039,7 +1042,7 @@ sub full_history_arrayref
 sub full_history_hashref
 {
     my $self = shift;
-    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
+    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
 
     return $self->_full_history($file_spec, $keywords);
 }
@@ -1722,7 +1725,7 @@ sub ls
 sub ls_arrayref
 {
     my $self = shift;
-    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
+    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
 
     return _flatten_rows($self->_ls($file_spec, $keywords, ROW_HASH), $keywords);
 }
@@ -1731,7 +1734,7 @@ sub ls_arrayref
 sub ls_hashref
 {
     my $self = shift;
-    my ($file_spec, $keywords) = _FILE_SPEC_KEYWORDS->(@_);
+    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
 
     return $self->_ls($file_spec, $keywords, ROW_HASH);
 }

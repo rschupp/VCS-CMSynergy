@@ -37,21 +37,10 @@ use Log::Log4perl qw(:easy);
 
 use Exporter();
 our @ISA = qw(Exporter);
-our @EXPORT_OK = qw(
-    is_win32 _fullwin32path _pathsep $Error $Ccm_command _error 
-    _KEYWORDS _FILE_SPEC _FILE_SPEC_KEYWORDS );
+our @EXPORT_OK = qw( is_win32 _fullwin32path _pathsep $Error $Ccm_command _error );
 
 use constant is_win32 => $^O eq 'MSWin32' || $^O eq 'cygwin';
 use constant _pathsep => is_win32 ? "\\" : "/" ;
-
-use Type::Params qw( compile );
-use Types::Standard qw( slurpy Str ArrayRef InstanceOf);
-use constant _KEYWORDS           => slurpy ArrayRef[Str];
-use constant _FILE_SPEC          => Str | InstanceOf["VCS::CMSynergy::Object"];
-use constant _FILE_SPEC_KEYWORDS => compile(_FILE_SPEC, _KEYWORDS);
-
-
-# FIXME edit CMSynergy.pod
 
 our ($Error, $Ccm_command, $Default);
 

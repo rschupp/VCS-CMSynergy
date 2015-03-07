@@ -58,6 +58,8 @@
 ^t/zz
 ^TODO\.
 
+^MYMETA
+
 # extended tests
 ^xt/
 

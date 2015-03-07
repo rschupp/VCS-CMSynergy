@@ -36,7 +36,7 @@ use Type::Params qw( validate );
 use File::Spec;
 use Cwd;
 
-use VCS::CMSynergy qw( _KEYWORDS ROW_OBJECT _want $RS $FS );
+use VCS::CMSynergy qw( _KEYWORDS ROW_OBJECT ROW_HASH _want $RS $FS );
 
 =head1 METHODS
 

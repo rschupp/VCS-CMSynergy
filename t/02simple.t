@@ -19,11 +19,11 @@ $ccm->{RaiseError} = 0;
 my $got = $ccm->query_object([ type => "project" ], qw( status ));
 ok($got, "got any projects?");
 my $ngot = @$got;
-diag("your database contains $ngot project versions");
+diag("your database contains $ngot project versions...");
 
-my %st;
-$st{ $_->get_attribute("status") }++ foreach @$got;
-diag("  $_: $st{$_}") foreach sort keys %st;
+my %status;
+$status{ $_->get_attribute("status") }++ foreach @$got;
+diag("  $status{$_} with status $_") foreach sort keys %status;
 
 exit 0;
 

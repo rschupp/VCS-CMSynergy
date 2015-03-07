@@ -73,9 +73,9 @@ use overload
 my $have_weaken = eval "use Scalar::Util qw(weaken); 1";
 
 
-my %cvtype2subclass = 
-( 
-    project	=> "Project",
+my %cvtype2subclass = qw(
+    project	      Project
+    project_grouping  ProjectGrouping
 );
 
 # no need to cache these attributes
@@ -380,7 +380,7 @@ method (see below), it can be used with C<VCS::CMSynergy> methods wherever
 an objectname would be appropriate, esp. where the documentation
 specifies a B<file_spec>.
 
-When L<VCS::CMSynergy::Object/:cached_attributes> is in effect,
+When L<VCS::CMSynergy/:cached_attributes> is in effect,
 a C<VCS::CMSynergy::Object> keeps a "demand loaded"
 cache of attribute names and values.
 

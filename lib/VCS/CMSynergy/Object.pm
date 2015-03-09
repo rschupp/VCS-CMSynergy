@@ -74,8 +74,10 @@ my $have_weaken = eval "use Scalar::Util qw(weaken); 1";
 
 
 my %cvtype2subclass = qw(
+    baseline          Baseline
     project	      Project
     project_grouping  ProjectGrouping
+    process_rule      ProcessRule
 );
 
 # no need to cache these attributes
@@ -359,13 +361,28 @@ sub AUTOLOAD
     croak("Can't locate class method \"$method\" via class \"$class\"")
 	unless ref $this;
 
-    if ($method =~ /^(is_.*_of|has_.*)$/)
+    if ($method =~ /^(?:is_.*_of|has_.*)$/)
     {
 	return $this->ccm->query_object("$method('$this')", @_);
     }
     croak("Can't locate object method \"$method\" via class \"$class\"");
 }
 
+# this method requires $self to implement a method _show($what, \@keywords, $row_type)
+sub show_hashref
+{
+    my $self = shift;
+    my ($what, $keywords) = validate(\@_, Str, VCS::CMSynergy::_KEYWORDS());
+    return $self->_show($what, $keywords, VCS::CMSynergy::ROW_HASH());
+}
+
+# this method requires $self to implement a method _show($what, \@keywords, $row_type)
+sub show_object
+{
+    my $self = shift;
+    my ($what, $keywords) = validate(\@_, Str, VCS::CMSynergy::_KEYWORDS());
+    return $self->_show($what, $keywords, VCS::CMSynergy::ROW_OBJECT());
+}
 
 1;
 

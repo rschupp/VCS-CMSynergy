@@ -13,9 +13,7 @@ use VCS::CMSynergy::Client qw(
     is_win32 _fullwin32path $Error $Ccm_command _error);
 
 our @ISA = qw(VCS::CMSynergy::Client);
-our @EXPORT_OK = qw( ANY_OF NONE_OF
-                     _FILE_SPEC _KEYWORDS 
-                     ROW_HASH ROW_OBJECT _want $RS $FS);
+our @EXPORT_OK = qw( ANY_OF NONE_OF );
 
 use Carp;
 use Config;
@@ -39,13 +37,13 @@ sub import
 {
     my $class = shift;
 
+    my @list;
     my %use =
     (
         tied_objects            => 0,
         cached_attributes       => 0,
     );
 
-    my @list;
     foreach (@_)
     {
         if (/^([!:])(.*)$/ and exists $use{$2})
@@ -58,21 +56,23 @@ sub import
         }
     }
 
-    while (my ($opt, $value) = each %use)
+    unless (caller() =~ /^VCS::CMSynergy/)
     {
-        eval "use constant use_$opt => $value";
+        while (my ($opt, $value) = each %use)
+        {
+            eval "use constant use_$opt => $value";
+        }
     }
+
+    # let Exporter handle the rest
+    __PACKAGE__->export_to_level(1, undef, @list);
 
     # require V::C::Object _after_ use_* have been defined,
     # so that optimization based on constant expressions can 
     # e.g. eliminate branches guarded with "if (V::C::use_cached_attributes)"
     require VCS::CMSynergy::Object;
     require VCS::CMSynergy::ObjectTieHash if use_tied_objects();
-
-   # let Exporter handle the rest
-   $class->export_to_level(1, undef, @list);
 }
-
 
 sub new
 {

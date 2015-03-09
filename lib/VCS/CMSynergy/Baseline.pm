@@ -1,4 +1,4 @@
-package VCS::CMSynergy::ProjectGrouping;
+package VCS::CMSynergy::Baseline;
 
 # Copyright (c) 2001-2015 argumentum GmbH
 # See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
@@ -8,23 +8,21 @@ use warnings;
 
 =head1 NAME
 
-VCS::CMSynergy::ProjectGrouping - convenience methods for C<VCS::CMSynergy::Object>s of type I<project_grouping>
+VCS::CMSynergy::Baseline - convenience methods for C<VCS::CMSynergy::Object>s of type I<baseline>
 
 =head1 SYNOPSIS
 
-C<VCS::CMSynergy::ProjectGrouping> is a subclass of 
+C<VCS::CMSynergy::Baseline> is a subclass of 
 L<C<VCS::CMSynergy::Object>|VCS::CMSynergy::Object>
-with additional methods for Synergy I<project_groupings>.
+with additional methods for Synergy I<baselines>.
 
   use VCS::CMSynergy;
   $ccm = VCS::CMSynergy->new(%attr);
   ...
-  $proj = $ccm->object("editor-1:project:1");
-  $pg = $proj->project_grouping();
+  $bsl = $ccm->object("20080527 Platform Game 1.1 Release~1:baseline:1");
 
-  $projects = $pg->show_object("projects");
-  $tasks = $pg->show_object(
-    tasks_on_top_of_baseline => qw( task_synopsis completion_date ));
+  $projects = $bsl->show_object("projects");
+  $tasks = $bsl->show_object(tasks => qw( task_synopsis completion_date ));
 
 =cut 
 
@@ -42,42 +40,36 @@ use Cwd;
   $aref = $pg->show_object($what, @keywords);
 
 These two methods are convenience wrappers for 
-B<ccm project_grouping -show $what>. For return values and the
+B<ccm baseline -show $what>. For return values and the
 meaning of the optional C<@keywords> parameters see the descriptions
 of L<query_hashref|VCS::CMSynergy/"query_arrayref, query_hashref"> 
 and L<query_object|VCS::CMSynergy/query_object>.
 
 The following strings can be used for C<$what>, see the Synergy documentation
-of the B<ccm project_grouping -show> sub command for their meaning:
+of the B<ccm baseline -show> sub command for their meaning:
 
 =over 5
 
 =item *
-added_tasks
+change_requests
 
 =item *
-all_tasks
+component_tasks
 
 =item *
-automatic_tasks
+fully_included_change_requests
 
 =item *
-baseline
-
-=item *
-folders
-
-=item *
-objects
+partially_included_change_requests
 
 =item *
 projects
 
 =item *
-removed_tasks
+objects
 
 =item *
-tasks_on_top_of_baseline
+tasks
 
 =back
 
@@ -94,13 +86,13 @@ sub _show
     my $format = $VCS::CMSynergy::RS . join($VCS::CMSynergy::FS, values %$want) . $VCS::CMSynergy::FS;
 
     my ($rc, $out, $err) = $self->ccm->ccm( 
-            qw/project_grouping -u -ns -nch -nf/,
+            qw/baseline -u -ns -nch -nf/,
             -show   => $what,
             -format => $format, $self);
     return $self->set_error($err || $out) unless $rc == 0;
 
     # split $out at $RS and ignore the first element
-    # (which is either empty or a header "Project Grouping ...:")
+    # (which is either empty or a header "Baseline...:")
     my (undef, @records) = split(/\Q${VCS::CMSynergy::RS}\E/, $out);
 
     my @result;

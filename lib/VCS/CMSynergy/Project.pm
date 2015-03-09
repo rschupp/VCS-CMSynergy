@@ -39,8 +39,6 @@ use Types::Standard qw( Str Optional InstanceOf Maybe
 use File::Spec;
 use Cwd;
 
-use VCS::CMSynergy qw( _KEYWORDS );
-
 
 =head1 WORKAREA METHODS
 
@@ -578,7 +576,7 @@ to L<VCS::CMSynergy/query_object> as additional keywords.
 sub recursive_is_member_of
 {
     my $self = shift;
-    my ($order_spec, $keywords) = @_ ? validate(\@_, Maybe[Str], _KEYWORDS) : ();
+    my ($order_spec, $keywords) = @_ ? validate(\@_, Maybe[Str], VCS::CMSynergy::_KEYWORDS()) : ();
     $order_spec ||= "none";
 
     return $self->ccm->query_object("recursive_is_member_of('$self',$order_spec)", @$keywords);
@@ -588,7 +586,7 @@ sub recursive_is_member_of
 sub hierarchy_project_members
 {
     my $self = shift;
-    my ($order_spec, $keywords) = @_ ? validate(\@_, Maybe[Str], _KEYWORDS) : ();
+    my ($order_spec, $keywords) = @_ ? validate(\@_, Maybe[Str], VCS::CMSynergy::_KEYWORDS()) : ();
     $order_spec ||= "none";
 
     return $self->ccm->query_object("hierarchy_project_members('$self',$order_spec)", @$keywords);
@@ -630,7 +628,7 @@ sub is_child_of
 {
     my $self = shift;
     my ($dir, $keywords) = 
-        validate(\@_, Maybe[InstanceOf["VCS::CMSynergy::Object"]], _KEYWORDS);
+        validate(\@_, Maybe[InstanceOf["VCS::CMSynergy::Object"]], VCS::CMSynergy::_KEYWORDS());
     if (defined $dir)
     {
 	croak(__PACKAGE__."::is_child_of: argument 1 ($dir) must have cvtype `dir'")
@@ -648,11 +646,48 @@ sub has_child
 {
     my $self = shift;
     my ($obj, $keywords) = 
-        validate(\@_, InstanceOf["VCS::CMSynergy::Object"], _KEYWORDS);
+        validate(\@_, InstanceOf["VCS::CMSynergy::Object"], VCS::CMSynergy::_KEYWORDS());
 
     return $self->ccm->query_object("has_child('$obj','$self')", @$keywords);
 }
 
+
+=head2 project_grouping, process_rule
+
+  $pg = $proj->project_grouping(@keywords);
+
+  $pr = $proj->process_rule(@keywords);
+
+These are convenience methods to return 
+the I<project_grouping> (as a C<VCS::CMSynergy::Projectgrouping>) 
+and I<process_rule> (as a C<VCS::CMSynergy::Object>) of the invocant project.
+
+are exactly the same as
+
+  $pg = $proj->is_project_grouping_of(@keywords)->[0];
+
+  $pr = $proj->is_reconfigure_template_of(@keywords)->[0];
+
+Note that static projects have neither I<project_grouping> nor
+I<process_rule>; in that case C<undef> is returned.
+
+If you supply C<@keywords> these are passed down to
+L<is_..._of|VCS::CMSynergy::Object/"is_RELATION_of, has_RELATION">
+as additional keywords.
+
+=cut
+
+sub project_grouping
+{
+    my $self = shift;
+    return $self->is_project_grouping_of(@_)->[0];
+}
+
+sub process_rule
+{
+    my $self = shift;
+    return $self->is_reconfigure_template_of(@_)->[0];
+}
 
 =head2 object_from_path
 
@@ -672,7 +707,7 @@ See L<VCS::CMSynergy/object_from_proj_ref> for details.
 sub object_from_path
 {
     my $self = shift;
-    my ($path, $keywords) = validate(\@_, (Str | ArrayRef[Str]), _KEYWORDS);
+    my ($path, $keywords) = validate(\@_, (Str | ArrayRef[Str]), VCS::CMSynergy::_KEYWORDS());
 
     return $self->ccm->object_from_proj_ref($path, $self, @$keywords);
 }
@@ -790,7 +825,7 @@ sub show_reconfigure_properties
 {
     my $self = shift;
     my $opts = @_ && ref $_[-1] eq "HASH" ? pop : {};
-    my ($what, $keywords) = validate(\@_, Str, _KEYWORDS);
+    my ($what, $keywords) = validate(\@_, Str, VCS::CMSynergy::_KEYWORDS());
 
     croak(__PACKAGE__."::show_reconfigure_properties:".
 	  " argument 1 (what) must be one of tasks|folders|tasks_and_folders|all_tasks|objects")

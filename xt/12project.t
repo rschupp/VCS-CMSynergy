@@ -1,6 +1,6 @@
 #!/usr/bin/perl
 
-use Test::More tests => 23;
+use Test::More tests => 32;
 use xt::util;
 use strict;
 
@@ -15,6 +15,7 @@ isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 
 my $top_project = $ccm->object('toolkit-1.0:project:1');
+isa_ok($top_project, "VCS::CMSynergy::Project");
 
 my %project_tree_expected = (
   tree_0_0 =>
@@ -374,5 +375,39 @@ Wed Aug 13 16:27:29 1997: Status set to \'released\' by ccm_root in role ccm_adm
     cmp_deeply($mi_subprojects_got, $mi_subprojects_expected, 
 	qq[get_member_info_object($top_project) with subprojects]);
 }
+
+my $prep_project = $ccm->object('toolkit-int:project:1');
+
+my $pg = $prep_project->project_grouping;
+isa_ok($pg, 'VCS::CMSynergy::ProjectGrouping');
+cmp_deeply($pg, vco('Toolkit%002f2.0%003aintegrate-1:project_grouping:1'), "project_grouping");
+
+my @pg_projects_exp = qw(
+  calculator:int:project:1
+  editor:int:project:1
+  guilib:int:project:1
+  toolkit:int:project:1
+);
+my $pg_projects_got = $pg->show_object('projects');
+cmp_vcos($pg_projects_got, \@pg_projects_exp, "project_grouping: show projects");
+
+my $pg_baseline_got = $pg->show_object('baseline');
+cmp_deeply($pg_baseline_got, [vco('toolkit_2.0_INT_1-1:baseline:1')], "project_grouping: show baseline");
+
+my @pg_folders_exp = qw(
+  4:1:folder:probtrac
+);
+my $pg_folders_got = $pg->show_object('folders');
+cmp_vcos($pg_folders_got, \@pg_folders_exp, "project_grouping: show baseline");
+
+my $pr = $prep_project->process_rule;
+isa_ok($pr, 'VCS::CMSynergy::ProcessRule');
+cmp_deeply($pr, vco('Toolkit%003aIntegration Testing:2.0:process_rule:1'), "process_rules");
+
+my @pr_folder_templates_exp = (
+  'all completed tasks for release %release:1:folder_temp:1',
+);
+my $pr_folder_templates_got = $pr->show_object('folder_templates');
+cmp_vcos($pr_folder_templates_got, \@pr_folder_templates_exp, "process_rule: show folder_templates");
 
 exit(0);

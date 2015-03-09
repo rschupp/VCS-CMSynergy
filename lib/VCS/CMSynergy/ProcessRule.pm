@@ -1,4 +1,4 @@
-package VCS::CMSynergy::ProjectGrouping;
+package VCS::CMSynergy::ProcessRule;
 
 # Copyright (c) 2001-2015 argumentum GmbH
 # See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
@@ -8,23 +8,21 @@ use warnings;
 
 =head1 NAME
 
-VCS::CMSynergy::ProjectGrouping - convenience methods for C<VCS::CMSynergy::Object>s of type I<project_grouping>
+VCS::CMSynergy::ProcessRule - convenience methods for C<VCS::CMSynergy::Object>s of type I<process_rule>
 
 =head1 SYNOPSIS
 
-C<VCS::CMSynergy::ProjectGrouping> is a subclass of 
+C<VCS::CMSynergy::ProcessRule> is a subclass of 
 L<C<VCS::CMSynergy::Object>|VCS::CMSynergy::Object>
-with additional methods for Synergy I<project_groupings>.
+with additional methods for Synergy I<process_rules>.
 
   use VCS::CMSynergy;
   $ccm = VCS::CMSynergy->new(%attr);
   ...
   $proj = $ccm->object("editor-1:project:1");
-  $pg = $proj->project_grouping();
+  $pr = $proj->process_rule();
 
-  $projects = $pg->show_object("projects");
-  $tasks = $pg->show_object(
-    tasks_on_top_of_baseline => qw( task_synopsis completion_date ));
+  $projects = $pr->show_object("baseline_projects");
 
 =cut 
 
@@ -38,46 +36,28 @@ use Cwd;
 
 =head2 show
 
-  $aref = $pg->show_hashref($what, @keywords);
-  $aref = $pg->show_object($what, @keywords);
+  $aref = $pr->show_hashref($what, @keywords);
+  $aref = $pr->show_object($what, @keywords);
 
 These two methods are convenience wrappers for 
-B<ccm project_grouping -show $what>. For return values and the
+B<ccm process_rule -show $what>. For return values and the
 meaning of the optional C<@keywords> parameters see the descriptions
 of L<query_hashref|VCS::CMSynergy/"query_arrayref, query_hashref"> 
 and L<query_object|VCS::CMSynergy/query_object>.
 
 The following strings can be used for C<$what>, see the Synergy documentation
-of the B<ccm project_grouping -show> sub command for their meaning:
+of the B<ccm process_rule -show> sub command for their meaning:
 
 =over 5
 
 =item *
-added_tasks
-
-=item *
-all_tasks
-
-=item *
-automatic_tasks
-
-=item *
-baseline
+baseline_projects
 
 =item *
 folders
 
 =item *
-objects
-
-=item *
-projects
-
-=item *
-removed_tasks
-
-=item *
-tasks_on_top_of_baseline
+folder_templates
 
 =back
 
@@ -94,13 +74,13 @@ sub _show
     my $format = $VCS::CMSynergy::RS . join($VCS::CMSynergy::FS, values %$want) . $VCS::CMSynergy::FS;
 
     my ($rc, $out, $err) = $self->ccm->ccm( 
-            qw/project_grouping -u -ns -nch -nf/,
+            qw/process_rule -u -ns -nch -nf/,
             -show   => $what,
             -format => $format, $self);
     return $self->set_error($err || $out) unless $rc == 0;
 
     # split $out at $RS and ignore the first element
-    # (which is either empty or a header "Project Grouping ...:")
+    # (which is either empty or a header "Process Rule...:")
     my (undef, @records) = split(/\Q${VCS::CMSynergy::RS}\E/, $out);
 
     my @result;

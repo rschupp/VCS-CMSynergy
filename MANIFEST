@@ -18,10 +18,12 @@ inc/Module/Install/Win32.pm
 inc/Module/Install/WriteAll.pm
 lib/VCS/CMSynergy.pm
 lib/VCS/CMSynergy.pod
+lib/VCS/CMSynergy/Baseline.pm
 lib/VCS/CMSynergy/Client.pm
 lib/VCS/CMSynergy/Helper.pm
 lib/VCS/CMSynergy/Object.pm
 lib/VCS/CMSynergy/ObjectTieHash.pm
+lib/VCS/CMSynergy/ProcessRule.pm
 lib/VCS/CMSynergy/Project.pm
 lib/VCS/CMSynergy/ProjectGrouping.pm
 lib/VCS/CMSynergy/update_users.pm

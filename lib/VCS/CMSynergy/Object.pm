@@ -392,7 +392,7 @@ sub _generic_show
     croak(__PACKAGE__.'::show_{hashref,object} are only available in web mode')
         unless $self->ccm->web_mode;
     croak(__PACKAGE__.'::show_{hashref,object}($what, ...): $what must be one of '
-         .join(", ", @$valid_whats)
+         .join(", ", @$valid_whats))
         unless grep { $_ eq $what } @$valid_whats; 
 
     my $want = VCS::CMSynergy::_want($row_type, $keywords);

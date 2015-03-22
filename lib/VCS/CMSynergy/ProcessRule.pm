@@ -69,8 +69,8 @@ sub _show
 {
     my ($self, $what, $keywords, $row_type) = @_;
 
-    return $self->_genery_show(process_rule => \@WHAT,
-                               $what, $keywords, $row_type);
+    return $self->_generic_show(process_rule => \@WHAT,
+                                $what, $keywords, $row_type);
 }
 
 1;

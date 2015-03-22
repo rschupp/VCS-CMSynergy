@@ -1,3 +1,29 @@
+1.47  2015-03-22
+
+  [New methods for baseline, process_rule, projects and project_grouping objects]
+  - add derived classes VCS::CMSynergy::{Baseline,ProcessRule,ProjectGrouping}
+  - add methods show_hashref(), show_object() that wrap 
+    "ccm baseline -show WHAT" etc
+  - add convenience methods project_grouping(), process_rules()
+    to VCS::CMSynergy::Project to quickly move from a project to its
+    project_grouping or process_rules, resp.
+
+  [Bug fixes]
+  - add workaround for with some Types:Standard expression 
+    in certain Perl versions
+
+      perl -MTypes::Standard=Str,ArrayRef,slurpy \
+        -e 'my @spec = ( [], Str | ArrayRef[Str], slurpy ArrayRef[Str] ); 
+            print scalar(@spec), "\n";'
+    
+    prints:
+    
+        2 (broken): Perl 5.8.9 5.10.1 5.12.4
+        3 (OK): Perl 5.14.4 5.16.3 5.20.1
+    
+    Adding superfluous parenthesis around complex Types::Standard expressions
+    like "Str | ArrayRef[Str]" makes all Perl versions print "3".
+
 1.46  2015-03-01
 
   [BEWARE - USER VISIBLE CHANGE]

@@ -1750,10 +1750,9 @@ sub ls_hashref
 sub ls_object
 {
     my $self = shift;
-    my ($file_spec) = validate(\@_, Optional[_FILE_SPEC]);
-    $file_spec = '.' unless defined $file_spec;
+    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
 
-    return $self->_ls($file_spec, [], ROW_OBJECT);
+    return $self->_ls($file_spec, $keywords, ROW_OBJECT);
 }
 
 

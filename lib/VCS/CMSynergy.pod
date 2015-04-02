@@ -24,7 +24,7 @@ VCS::CMSynergy - Perl interface to IBM Rational Synergy
   $aref = $ccm->history_hashref($file_spec, @keywords);
 
   $aref = $ccm->ls(@ccm_args);
-  $aref = $ccm->ls_object($file_spec);
+  $aref = $ccm->ls_object($file_spec, @keywords);
   $aref = $ccm->ls_arrayref($file_spec, @keywords);
   $aref = $ccm->ls_hashref($file_spec, @keywords);
 
@@ -1616,12 +1616,16 @@ the listed objects, you should look at the L</ls_object> method.
 
 =head2 ls_object
 
-  $aref = $ccm->ls_object($file_spec);
+  $aref = $ccm->ls_object($file_spec, @keywords);
 
 Lists information about a file or the contents of a directory
 using the work area name C<$file_spec>.
 Returns a reference to an array of corresponding C<VCS::CMSynergy::Object>s.
-The default C<$file_spec> is the working directory.
+
+Calling C<ls_object> with an optional list of C<@keywords> 
+is only useful when L</:cached_attributes> is in effect. 
+In this case the returned C<VCS::CMSynergy::Object>s have their attribute caches
+primed for the attributes listed in C<@keywords>.
 
 =head2 ls_arrayref
 

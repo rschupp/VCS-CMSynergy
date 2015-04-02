@@ -1,3 +1,16 @@
+1.48  2015-04-02
+
+  [BEWARE - USER VISIBLE CHANGE]
+  - add optional @keywords parameter to VCS::CMSynergy::ls_object()
+    - makes syntax consistent with ls_{arrayref,hashref} and other
+      *_object methods
+    - make parameter $file_spec mandatory (otherwise parameters are ambiguous)
+
+  [Other changes]
+  - drop all references to obsolete get_member_info CLI command
+  - make VCS::CMsynergy->new(CCM_ADDR => ..., role => ..., ...) work
+  - make tests t/*t not fail when CCM_TEST_DB is not set
+
 1.47  2015-03-22
 
   [New methods for baseline, process_rule, projects and project_grouping objects]

@@ -1,14 +1,37 @@
-#!/bin/bash
+#!/bin/sh
 
 case "$1" in
     version)   echo "IBM Rational Synergy Version 7.2" ;;
     delimiter) echo "~" ;;
     ps)        cat <<EOF ;;
+All Rfc processes... 3 processes located:
+----------------------
+rfc address (synix:5412:127.0.1.1)
+	process (router)
+	user (ccm_root)
+	host (synix)
+	pid (2934)
+	update (7.2.1-00~0~0)
+	client_install_url_win (http://synix:8500/install)
+	host_addr ()
+rfc address (synix:38677:127.0.1.1)
+	process (objreg)
+	policy (one_per_db)
+	noblock (true)
+	callback (objreg:cb_init)
+	max_conns (256)
+	objreg_machine (synix)
+	objreg_machine_hostname (synix)
+	objreg_machine_addr (127.0.1.1)
+	pid (3110)
+	user (ccm_root)
+	host (synix)
+	host_addr ()
 rfc address ($CCM_ADDR)
 	process (usr_cmd_interface)
 	user ($USER)
 EOF
-    *)         echo "$0: this is a fake!" ; exit 1 ;;
+    *)         echo "$0: this is a FAKE" ; exit 1 ;;
 esac
 
 exit 0

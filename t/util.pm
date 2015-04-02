@@ -12,11 +12,16 @@ our %test_session;
 
 BEGIN
 {
-    die "CCM_HOME not set in environment" unless $ENV{CCM_HOME};
-    die "CCM_TEST_DB not set in environment" unless $ENV{CCM_TEST_DB};
+    die "CCM_HOME not set in environment"
+        unless $ENV{CCM_HOME};
+    die "CCM_TEST_DB not set in environment" 
+        unless $ENV{CCM_TEST_DB};
+    die "CCM_TEST_USER not set in environment" 
+        unless $ENV{CCM_TEST_USER} || !($^O eq 'MSWin32' || $^O eq 'cygwin');
 
     %test_session = 
     (
+        CCM_HOME        => $ENV{CCM_HOME},
 	PrintError	=> 0,
 	RaiseError	=> 1,
 	database	=> $ENV{CCM_TEST_DB},
@@ -30,11 +35,6 @@ BEGIN
 
 	$test_session{server} = delete $test_session{host}
 	    if $test_session{host} =~ /^https?:/i;
-    }
-    else
-    {
-	die "CCM_TEST_USER not set in environment" 
-	    if $^O eq 'MSWin32' || $^O eq 'cygwin';
     }
 
     my $ccm_exe = File::Spec->catfile(

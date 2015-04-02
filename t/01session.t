@@ -1,37 +1,18 @@
 #!/usr/bin/perl
 
-use Test::More tests => 28;
+use Test::More $ENV{CCM_TEST_DB} 
+    ? ( tests => 21 )
+    : ( skip_all => "no test database specified (set CCM_TEST_DB)" );
 use t::util;
 use strict;
 
 BEGIN { use_ok('VCS::CMSynergy'); }
-BEGIN { use_ok('VCS::CMSynergy::Client'); }
 
 use Config;
 use File::Spec;
 use IPC::Run3;
 
-# repeat sanity check from Makefile.PL
-my $ccm_exe = File::Spec->catfile($ENV{CCM_HOME}, "bin", "ccm$Config{_exe}");
-ok(-x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe), q[sanity check (executable $CCM_HOME/bin/ccm)]);
-
-# test VCS::CMSynergy::Client
-my $client = VCS::CMSynergy::Client->new(
-    CCM_HOME	=> $ENV{CCM_HOME},
-    PrintError	=> $::test_session{PrintError},
-    RaiseError	=> $::test_session{RaiseError},
-);
-
 my ($ccm_addr, $web_mode);
-
-isa_ok($client, "VCS::CMSynergy::Client");
-is($client->ccm_home, $ENV{CCM_HOME}, q[CCM_HOMEs match]);
-
-
-my $ps = $client->ps;
-isa_ok($ps, "ARRAY", q[return value of ps()]);
-ok((grep { $_->{process} eq "router" } @$ps) == 1, q[ps: found router]);
-ok((grep { $_->{process} eq "objreg" } @$ps) > 0, q[ps: found object registrar(s)]);
 
 {
     # create a new Synergy session
@@ -42,7 +23,7 @@ ok((grep { $_->{process} eq "objreg" } @$ps) > 0, q[ps: found object registrar(s
     $web_mode = $ccm->web_mode;
 
     # new session should show up in `ccm ps'
-    $ps = $client->ps(rfc_address => $ccm_addr);
+    my $ps = VCS::CMSynergy->ps(rfc_address => $ccm_addr);
     is(@$ps, 1, 
        qq[ps(rfc_address => $ccm_addr) is array of length 1]);
     is($ps->[0]->{database}, $ccm->database,
@@ -61,7 +42,7 @@ ok((grep { $_->{process} eq "objreg" } @$ps) > 0, q[ps: found object registrar(s
     # Note: When using web mode there's a lag between "ccm stop" exiting and
     # the session disappearing from "ccm ps"
     sleep(5) if $web_mode;
-    ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
+    ok(@{ VCS::CMSynergy->ps(rfc_address => $ccm_addr) } > 0,
        qq[original session $ccm_addr is still registered]);
 
     # $ccm goes out of scope and session should be stopped
@@ -69,7 +50,7 @@ ok((grep { $_->{process} eq "objreg" } @$ps) > 0, q[ps: found object registrar(s
 
 # session should no longer show up in `ccm ps'
 sleep(5) if $web_mode;
-ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
+ok(@{ VCS::CMSynergy->ps(rfc_address => $ccm_addr) } == 0,
    qq[original session $ccm_addr is not registered any more]);
 
 # test that VCS::CMSynergy::DESTROY doesn't mangle script's exit() value
@@ -86,7 +67,7 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
     is($rc >> 8, 42, q[exit() value preserved]);
 
     sleep(5) if $web_mode;
-    ok(@{ $client->ps(rfc_address => $out) } == 0,
+    ok(@{ VCS::CMSynergy->ps(rfc_address => $out) } == 0,
        qq[session $out is not registered any more]);
 }
 
@@ -95,7 +76,7 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
     my $ccm = VCS::CMSynergy->new(%::test_session, KeepSession => 1);
     isa_ok($ccm, "VCS::CMSynergy");
     $ccm_addr = $ccm->ccm_addr;
-    ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
+    ok(@{ VCS::CMSynergy->ps(rfc_address => $ccm_addr) } > 0,
        qq[new session $ccm_addr with KeepSession "on" is registered]);
 
     # destroy session object
@@ -103,7 +84,7 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
 
     # check that the Synergy session is still there
     sleep(5) if $web_mode;
-    ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
+    ok(@{ VCS::CMSynergy->ps(rfc_address => $ccm_addr) } > 0,
        qq[session $ccm_addr is still registered]);
 
     # create another session object reusing the Synergy session
@@ -117,7 +98,7 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
 
     # check that the Synergy session is still there
     sleep(5) if $web_mode;
-    ok(@{ $client->ps(rfc_address => $ccm_addr) } > 0,
+    ok(@{ VCS::CMSynergy->ps(rfc_address => $ccm_addr) } > 0,
        qq[original session $ccm_addr is still registered]);
     # destroy it and check that the Synergy session is still there
 
@@ -133,18 +114,20 @@ ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
 
 # session should no longer show up in `ccm ps'
 sleep(5) if $web_mode;
-ok(@{ $client->ps(rfc_address => $ccm_addr) } == 0,
+ok(@{ VCS::CMSynergy->ps(rfc_address => $ccm_addr) } == 0,
    qq[original session $ccm_addr is not registered any more]);
 
-
 # create session using VCS::CMSynergy::Client::start()
-my %session = %::test_session;
-delete @session{qw(CCM_HOME PrintError RaiseError)};
-my $ccm_from_client = $client->start(%session);
+my $client = VCS::CMSynergy::Client->new(
+    CCM_HOME	=> $::test_session{CCM_HOME},
+    PrintError	=> $::test_session{PrintError},
+    RaiseError	=> $::test_session{RaiseError},
+);
+
+delete @::test_session{qw(CCM_HOME PrintError RaiseError)};
+my $ccm_from_client = $client->start(%::test_session);
 isa_ok($ccm_from_client, "VCS::CMSynergy");
 ok(@{ $client->ps(rfc_address => $ccm_from_client->ccm_addr) } > 0,
    q[session from VCS::CMSynergy::Client::start is registered]);
-
-# FIXME test: simultaneous session using a second user (Windows or ESD only)?
 
 exit 0;

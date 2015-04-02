@@ -1,6 +1,8 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 4;
+use Test::More $ENV{CCM_TEST_DB} 
+    ? ( tests => 4 )
+    : ( skip_all => "no test database specified (set CCM_TEST_DB)" );
 use t::util;
 use strict;
 

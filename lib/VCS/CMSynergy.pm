@@ -105,6 +105,8 @@ sub _start
     # prime web_mode early as possible
     $self->{web_mode} = 1 if $self->version >= 7.2;
 
+    my $role = delete $args{role};              # initial role
+
     foreach (qw( KeepSession UseCoprocess ))
     {
         $self->{$_} = delete $args{$_} if exists $args{$_};
@@ -168,7 +170,6 @@ sub _start
             database            => "-d",
             server              => "-s",
             password            => "-pw",
-            role                => "-r",
             user                => "-n",
         $self->web_mode ? () : (                # classic mode only
             ini_file            => undef,
@@ -226,6 +227,12 @@ sub _start
 
         $self->{env}{CCM_ADDR} = $out;
         INFO qq[started session "$out"];
+    }
+
+    if (defined $role)
+    {
+        my ($rc, $out, $err) = $self->_set(role => $role);
+        return $self->set_error($err || $out) unless $rc == 0;
     }
 
     # NOTE: Use of $CCM_INI_FILE fixes the annoying `Warning:

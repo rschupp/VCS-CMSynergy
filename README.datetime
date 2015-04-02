@@ -33,7 +33,6 @@ formatted by the engine or the client:
     properties		engine
     history		engine
     ls			engine
-    get_member_info	engine
     attribute -show	client
 
 In addition, there's a problem with timezones. Synergy reports all

@@ -34,8 +34,8 @@ MANIFEST.SKIP
 META.yml
 README
 README.datetime
-README.get_member_info
 script/ccm_project_diff
+t/00base.t
 t/01session.t
 t/02simple.t
 t/util.pm

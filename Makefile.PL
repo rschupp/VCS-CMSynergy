@@ -111,7 +111,7 @@ sub postamble
     my $self = shift;
 
     # maintainer test only
-    return "" unless $Module::Install::AUTHOR;
+    return "" unless $ENV{RELEASE_TESTING};
 
     # UseCoprocess only works in classic mode
     return "" if $ccm_version >= 7.2;

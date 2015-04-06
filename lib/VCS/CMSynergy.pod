@@ -2005,8 +2005,8 @@ Roderich Schupp, argumentum GmbH <schupp@argumentum.de>
 The VCS::CMSynergy modules are Copyright (c) 2001-2015 argumentum GmbH, 
 L<http://www.argumentum.de>.  All rights reserved.
 
-You may distribute it under the terms of either the GNU General Public
-License or the Artistic License, as specified in the Perl README file.
+This is free software; you can redistribute it and/or modify it under
+the same terms as the Perl 5 programming language system itself.
 
 =cut
 

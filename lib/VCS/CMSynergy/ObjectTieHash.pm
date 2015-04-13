@@ -35,7 +35,7 @@ sub STORE
 sub EXISTS
 {
     my ($self, $key) = @_;
-    return $builtin{$key} || defined $self->set_attribute($key);
+    return $builtin{$key} || defined $self->get_attribute($key);
 }
 
 sub FIRSTKEY

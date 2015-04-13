@@ -1466,7 +1466,7 @@ sub get_attribute
 
     my ($rc, $out, $err) = $self->_ccm(qw/attribute -show/, $name, $file_spec);
     return $out if $rc == 0;
-    return if ($err || $out) =~ /Attribute .* does not exist on object/;
+    return if ($err || $out) =~ /Attribute .* does not exist/;
     return $self->set_error($err || $out);
 }
 

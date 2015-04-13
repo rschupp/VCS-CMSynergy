@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 62;
+use Test::More tests => 64;
 use End;
 use xt::util;
 use strict;
@@ -17,6 +17,17 @@ BEGIN
 	ok(VCS::CMSynergy::use_cached_attributes(), q[using :cached_attributes]);
     }
 }
+
+
+# Note: Even though the Synergy CLI does report a non-existent attribute
+# as an error, it is caught by get_attribute() and undef is returned.
+# This makes retrieving an attribute's value explicitly via 
+# "ccm attribute -show"  and implicitly via a %keyword in a format
+# (when using :cached_attributes) return the same result even for
+# a non-existent attribute.
+my $frobozz = eval { $ccm->get_attribute(frobozz => $ccm->base_model); };
+ok(!$@,               "get_attribute() of non-existent attribute doesn't throw exception");
+ok(!defined $frobozz, "get_attribute() of non-existent attribute returns undef");
 
 my %props_exp =
 (

@@ -1364,7 +1364,8 @@ sub project_tree
 
     my $mark_projects = delete $wanted{mark_projects};
     $wanted{pathsep} ||= VCS::CMSynergy::Client::_pathsep;
-    my $omit_rx = (delete $wanted{omit_top_dir}) && qr/^.*?\Q$wanted{pathsep}\E/;
+    my $omit_rx = (delete $wanted{omit_top_dir}) 
+                  && qr/^.*?\Q$wanted{pathsep}\E/; # everything up to the first pathsep
     # NOTE: all other options are passed thru to traverse() 
     # (and get checked there)
 
@@ -1380,7 +1381,10 @@ sub project_tree
         # directory; the "||=" below makes sure we dont't overwrite
         # the project entry when "mark_projects" is in effect
         my $path = VCS::CMSynergy::Traversal::path();
-        $path =~ s/$omit_rx// or next if $omit_rx;
+        if ($omit_rx)
+        {
+            $path =~ s/$omit_rx// or return; # drop top level entirely
+        }
         @$projects == 1 ? $tree{$path} : $tree{$path}->[$idx] ||= $_;
     };
 

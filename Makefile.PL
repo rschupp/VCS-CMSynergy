@@ -70,6 +70,7 @@ author		'Roderich Schupp <schupp@argumentum.de>';
 license		'perl';
 abstract_from	'lib/VCS/CMSynergy.pod';
 version_from	'lib/VCS/CMSynergy.pm';
+resources       repository => 'https://github.com/rschupp/VCS-CMSynergy';
 
 no_index        package => 
                     'Tie::ReadonlyArray', 

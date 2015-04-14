@@ -3,7 +3,7 @@ package VCS::CMSynergy;
 # Copyright (c) 2001-2015 argumentum GmbH
 # See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
 
-our $VERSION = '1.49';
+our $VERSION = '1.50';
 
 use 5.008_001;                          # i.e. v5.8.1
 use strict;

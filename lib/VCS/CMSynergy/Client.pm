@@ -283,7 +283,7 @@ sub _ccm
     else
     {
         my $success = $rc == 0 ? "ok" : "failed";
-        INFO "ccm($this->{ccm_command}) = $success [$elapsed sec]\n";
+        DEBUG "ccm($this->{ccm_command}) = $success [$elapsed sec]\n";
     }
 
     $this->{out} = $$rout unless exists $opts->{out};

@@ -1,3 +1,16 @@
+1.49  2015-04-14
+
+  [Bug fixes]
+  - fix project_tree() when using omit_top_dir
+  - fix problem with get_attribute() of a non-existent attribute in web mode
+    (would throw an exception, but should just return undef)
+
+  [Other changes]
+  - add LICENSE file, convert README to markdown format
+  - upload to GitHub (https://github.com/rschupp/VCS-CMSynergy)
+    and add this repository to resources
+  - downgrade a Log::Log4perl message from INFO to DEBUG
+
 1.48  2015-04-02
 
   [BEWARE - USER VISIBLE CHANGE]

@@ -18,6 +18,11 @@ BEGIN
     }
 }
 
+my $ccm = VCS::CMSynergy->new(%::test_session);
+isa_ok($ccm, "VCS::CMSynergy");
+diag("using coprocess") if defined $ccm->{coprocess};
+diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
+
 
 # Note: Even though the Synergy CLI does report a non-existent attribute
 # as an error, it is caught by get_attribute() and undef is returned.
@@ -28,6 +33,7 @@ BEGIN
 my $frobozz = eval { $ccm->get_attribute(frobozz => $ccm->base_model); };
 ok(!$@,               "get_attribute() of non-existent attribute doesn't throw exception");
 ok(!defined $frobozz, "get_attribute() of non-existent attribute returns undef");
+
 
 my %props_exp =
 (
@@ -52,11 +58,6 @@ my %props_exp =
         "status_log" => "Mon Nov 25 18:36:31 2002: Status set to 'working' by ccm_root in role build_mgr\nMon Nov 25 18:36:32 2002: Status set to 'prep' by ccm_root in role build_mgr\nMon Nov 25 18:36:39 2002: Status set to 'integrate' by ccm_root in role build_mgr"
     },
 );
-
-my $ccm = VCS::CMSynergy->new(%::test_session);
-isa_ok($ccm, "VCS::CMSynergy");
-diag("using coprocess") if defined $ccm->{coprocess};
-diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
 
 # check that get_attribute() and query_*()/property()
 # will return the same value wrt trailing newline

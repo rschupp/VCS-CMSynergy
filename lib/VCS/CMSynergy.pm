@@ -1910,7 +1910,7 @@ sub _text_to_tempfile
 sub ccm_with_text_editor
 {
     my $self = shift;
-    my ($text, $args) = valiedate(\@_, Str, slurpy ArrayRef);
+    my ($text, $args) = validate(\@_, Str, slurpy ArrayRef);
 
     my $tempfile = $self->_text_to_tempfile($text) or return;
 

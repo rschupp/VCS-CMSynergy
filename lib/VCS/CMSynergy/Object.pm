@@ -78,6 +78,7 @@ my %cvtype2subclass = qw(
     project	      Project
     project_grouping  ProjectGrouping
     process_rule      ProcessRule
+    tset              Tset
 );
 
 # no need to cache these attributes

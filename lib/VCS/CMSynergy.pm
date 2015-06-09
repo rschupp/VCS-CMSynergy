@@ -2050,12 +2050,13 @@ sub attype      { $_[0]->object("$_[1]:1:attype:base"); }
 sub _query_object_unique
 {
     my $self = shift;
-    my $objs = $ccm->query_object(@_);
+
+    my $objs = $self->query_object(@_);
     return $objs->[0] if @$objs == 1;
 
     my $query = $self->_expand_query($_[0]);
     return $self->set_error(@$objs == 0
-        ? qq[no object matches query "$query"])
+        ? qq[no object matches query "$query"]
         : qq[multiple objects match query "$query": @$objs]);
 }
 

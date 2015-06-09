@@ -845,6 +845,31 @@ sub _flatten_rows
     return $rows;
 }
 
+# helper method used by several "ccm foo -show" implementations
+sub _generic_show
+{
+    my ($self, $cmd, $keywords, $row_type) = @_;
+
+    my $want = _want($row_type, $keywords);
+    my $format = $RS . join($FS, values %$want) . $FS;
+
+    my ($rc, $out, $err) = $self->ccm( 
+            @$cmd, qw/-u -ns -nch -nf/, -format => $format);
+    return $self->set_error($err || $out) unless $rc == 0;
+
+    # split $out at $RS and ignore the first element
+    # (which is either empty or a header like "Baseline...:")
+    my (undef, @records) = split(/\Q$RS\E/, $out);
+
+    my @result;
+    foreach (@records)
+    {
+        my @cols = split(/\Q$FS\E/, $_, -1);    # don't strip empty trailing fields
+        my $row = $self->_query_result($want, \@cols, $row_type);
+        push @result, $row;
+    }
+    return \@result;
+}
 
 sub history
 {
@@ -1972,6 +1997,13 @@ sub _projspec2objectname
     $project .= ':project:' . $self->default_project_instance
         unless $project =~ /:project:/;
     return $project;
+}
+
+sub _check_one_of
+{
+    my ($what, @choices) = @_;
+    croak(qq["$what" must be one of ].join(", ", @choices))
+        unless grep { $_ eq $what } @choices;
 }
 
 

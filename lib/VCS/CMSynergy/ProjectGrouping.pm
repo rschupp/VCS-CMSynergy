@@ -30,7 +30,6 @@ with additional methods for Synergy I<project_groupings>.
 
 use base qw(VCS::CMSynergy::Object);
 
-use Carp;
 use File::Spec;
 use Cwd;
 
@@ -83,16 +82,21 @@ tasks_on_top_of_baseline
 
 =cut
 
-my @WHAT = qw( added_tasks all_tasks automatic_tasks
-               baseline folders objects projects
-               removed_tasks tasks_on_top_of_baseline );
+# don't blame errors from _check_one_of below on one of these
+use vars qw(@ISA);
+our @CARP_NOT = ("VCS::CMSynergy", @ISA);
 
 sub _show
 {
     my ($self, $what, $keywords, $row_type) = @_;
 
-    return $self->_generic_show(project_grouping => \@WHAT,
-                                $what, $keywords, $row_type);
+    VCS::CMSynergy::_check_one_of($what, 
+        qw( added_tasks all_tasks automatic_tasks
+            baseline folders objects projects
+            removed_tasks tasks_on_top_of_baseline );
+
+    return $self->_generic_show(
+        [ project_grouping => $self, -show => $what ], $keywords, $row_type);
 }
 
 1;

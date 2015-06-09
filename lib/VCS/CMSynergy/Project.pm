@@ -39,6 +39,10 @@ use Types::Standard qw( Str Optional InstanceOf Maybe
 use File::Spec;
 use Cwd;
 
+# don't blame errors from _check_one_of below on one of these
+use vars qw(@ISA);
+our @CARP_NOT = ("VCS::CMSynergy", @ISA);
+
 
 =head1 WORKAREA METHODS
 
@@ -695,9 +699,7 @@ sub show_reconfigure_properties
     my $opts = @_ && ref $_[-1] eq "HASH" ? pop : {};
     my ($what, $keywords) = validate(\@_, Str, VCS::CMSynergy::_KEYWORDS());
 
-    croak(__PACKAGE__."::show_reconfigure_properties:".
-	  " argument 1 (what) must be one of tasks|folders|tasks_and_folders|all_tasks|objects")
-	unless $what =~ /^(tasks|folders|tasks_and_folders|all_tasks|objects)$/;
+    VCS::CMSynerygy::_check_one_of($what, qw( tasks folders tasks_and_folders all_tasks objects );
 
     my $want = VCS::CMSynergy::_want(1, $keywords);
     my $format = $VCS::CMSynergy::RS . join($VCS::CMSynergy::FS, values %$want) . $VCS::CMSynergy::FS;

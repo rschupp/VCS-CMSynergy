@@ -845,6 +845,31 @@ sub _flatten_rows
     return $rows;
 }
 
+# helper method used by several "ccm foo -show" implementations
+sub _generic_show
+{
+    my ($self, $cmd, $keywords, $row_type) = @_;
+
+    my $want = _want($row_type, $keywords);
+    my $format = $RS . join($FS, values %$want) . $FS;
+
+    my ($rc, $out, $err) = $self->ccm( 
+            @$cmd, qw/-u -ns -nch -nf/, -format => $format);
+    return $self->set_error($err || $out) unless $rc == 0;
+
+    # split $out at $RS and ignore the first element
+    # (which is either empty or a header like "Baseline...:")
+    my (undef, @records) = split(/\Q$RS\E/, $out);
+
+    my @result;
+    foreach (@records)
+    {
+        my @cols = split(/\Q$FS\E/, $_, -1);    # don't strip empty trailing fields
+        my $row = $self->_query_result($want, \@cols, $row_type);
+        push @result, $row;
+    }
+    return \@result;
+}
 
 sub history
 {
@@ -1974,6 +1999,13 @@ sub _projspec2objectname
     return $project;
 }
 
+sub _check_one_of
+{
+    my ($what, @choices) = @_;
+    croak(qq["$what" must be one of ].join(", ", @choices))
+        unless grep { $_ eq $what } @choices;
+}
+
 
 # generic wrapper for undefined method "foo":
 #       $ccm->foo(@args)
@@ -2045,47 +2077,61 @@ sub cs_admin    { $_[0]->object("cs:1:admin:1"); }
 sub cvtype      { $_[0]->object("$_[1]:1:cvtype:base"); }
 sub attype      { $_[0]->object("$_[1]:1:attype:base"); }
 
-# FIXME: instead of implementing the inverse function to the
-# ACcent method "displayname" of folder/task/problem objects, one could use
-#    $self>query_object("query_function('$displayname')");
-# but query functions like folder() didn't appear before Synergy 6.x;
-sub _displayname2object
+
+# do a query_object() and expect exactly one result, error out otherwise
+sub _query_object_unique
 {
-    my ($self, $name, $cvtype, $format, $subsys) = @_;
+    my $self = shift;
 
-    # displayname is either <number> (for a local object)
-    # or <dbid><dcm_delimiter><number> (for a foreign object)
-    if ($self->dcm_enabled)
-    {
-        $self->{dcm_prefix_rx} ||= do { my $rx = quotemeta($self->dcm_delimiter); qr/$rx/; };
-        my @parts = split($self->{dcm_prefix_rx}, $name);
-        if (@parts == 2)        { ($subsys, $name) = @parts; }
-        else                    { $subsys = $self->dcm_database_id; }
-    }
+    my $objs = $self->query_object(@_);
+    return $objs->[0] if @$objs == 1;
 
-    return $self->object(sprintf($format, $name), "1", $cvtype, $subsys);
+    my $query = $self->_expand_query($_[0]);
+    return $self->set_error(@$objs == 0
+        ? qq[no object matches query "$query"]
+        : qq[multiple objects match query "$query": @$objs]);
 }
 
-# get folder/task/problem/... object from displayname (without querying Synergy)
-sub folder_object                               # folder('id')
-{ 
-    $_[0]->_displayname2object($_[1], qw/folder %s probtrac/); 
+
+# get folder/task/... object from displayname
+sub baseline_object
+{
+    my $self = shift;
+    my ($baseline_name, @keywords) = @_;
+    return $self->_query_object_unique("baseline('$baseline_name')", @keywords);
 }
-sub task_object                                 # task('id')
-{ 
-    $_[0]->_displayname2object($_[1], qw/task task%s probtrac/); 
-}       
-sub cr_object                                   # cr('id')
-{ 
-    $_[0]->_displayname2object($_[1], qw/problem problem%s probtrac/); 
-}       
-sub baseline_object                             # baseline('id')
-{ 
-    $_[0]->_displayname2object($_[1], qw/baseline %s 1/); 
-}       
+
+sub cr_object
+{
+    my $self = shift;
+    my ($cr_id, @keywords) = @_;
+    return $self->_query_object_unique("cr('$cr_id)'", @keywords);
+}
+
+sub folder_object
+{
+    my $self = shift;
+    my ($folder_id, @keywords) = @_;
+    return $self->_query_object_unique("folder('$folder_id')", @keywords);
+}
+
 sub project_object
 {
     $_[0]->object($_[0]->_projspec2objectname($_[1]));
+}
+
+sub task_object
+{
+    my $self = shift;
+    my ($task_id, @keywords) = @_;
+    return $self->_query_object_unique("task('$task_id')", @keywords);
+}
+
+sub tset_object
+{
+    my $self = shift;
+    my ($tset_name, @keywords) = @_;
+    return $self->_query_object_unique([ type => "tset", tset_name => $tset_name ], @keywords);
 }
 
 

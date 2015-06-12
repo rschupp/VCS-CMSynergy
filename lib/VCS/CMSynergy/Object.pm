@@ -78,6 +78,7 @@ my %cvtype2subclass = qw(
     project	      Project
     project_grouping  ProjectGrouping
     process_rule      ProcessRule
+    tset              Tset
 );
 
 # no need to cache these attributes
@@ -384,39 +385,6 @@ sub show_object
     return $self->_show($what, $keywords, VCS::CMSynergy::ROW_OBJECT());
 }
 
-# helper method use by several _show() implementations
-sub _generic_show
-{
-    my ($self, $cmd, $valid_whats, $what, $keywords, $row_type) = @_;
-
-    croak(__PACKAGE__.'::show_{hashref,object} are only available in web mode')
-        unless $self->ccm->web_mode;
-    croak(__PACKAGE__.'::show_{hashref,object}($what, ...): $what must be one of '
-         .join(", ", @$valid_whats))
-        unless grep { $_ eq $what } @$valid_whats; 
-
-    my $want = VCS::CMSynergy::_want($row_type, $keywords);
-    my $format = $VCS::CMSynergy::RS . join($VCS::CMSynergy::FS, values %$want) . $VCS::CMSynergy::FS;
-
-    my ($rc, $out, $err) = $self->ccm->ccm( 
-            $cmd, qw/-u -ns -nch -nf/,
-            -show   => $what,
-            -format => $format, $self);
-    return $self->set_error($err || $out) unless $rc == 0;
-
-    # split $out at $RS and ignore the first element
-    # (which is either empty or a header like "Baseline...:")
-    my (undef, @records) = split(/\Q${VCS::CMSynergy::RS}\E/, $out);
-
-    my @result;
-    foreach (@records)
-    {
-        my @cols = split(/\Q${VCS::CMSynergy::FS}\E/, $_, -1);    # don't strip empty trailing fields
-        my $row = $self->ccm->_query_result($want, \@cols, $row_type);
-        push @result, $row;
-    }
-    return \@result;
-}
 
 1;
 

@@ -1090,8 +1090,8 @@ If there was an error, C<undef> is returned.
 If C<from_attributes> or C<to_attributes> are specified, these
 are used as hints to prime the attribute caches of the
 "from" or "to" C<VCS::CMSynergy::Object>s, resp., similar to
-the optional C<@keywords> argument for L</query_object>. T
-his is only useful when L</:cached_attributes> is in effect. 
+the optional C<@keywords> argument for L</query_object>.
+This is only useful when L</:cached_attributes> is in effect. 
 
 =head2 project_tree
 
@@ -1838,25 +1838,28 @@ to be specified as separate arguments.
 Note that no check is made whether the corresponding object really exists
 in the database, use L<VCS::CMSynergy::Object/exists> for that.
 
-=head2 folder_object, task_object, cr_object, baseline_object, project_object
+=head2 baseline_object, cr_object, folder_object, project_object, task_object, tset_object
 
-  $folder_obj = $ccm->folder_object("123");
-  $task_obj = $ccm->task_object("456#mydb");
-  $cr_obj = $ccm->cr_object("42");		# SYNERGY/Change
   $baseline_obj = $ccm->baseline_object("toolkit_2.0_INT_1");
+  $cr_obj = $ccm->cr_object("42");		# when using Rational Change
+  $folder_obj = $ccm->folder_object("123");
   $proj_obj = $ccm->project_object("toolkit-darcy");
+  $task_obj = $ccm->task_object("456#mydb");
+  $tset_obj = $ccm->tset_object("toolkit baselines");
 
-Create a C<VCS::CMSynergy::Object> (with cvtype "folder",
-"task", "problem" or "baseline" resp.) from the I<displayname>
-of a folder, task, problem (a.k.a. change request) or baseline,
-resp. (The displayname is typically a number or a number followed
-by the DCM database_id). 
+  # optional @keywords
+  $task_obj = $ccm->task_object("42", qw(status task_synopsis));
 
-C<project_object> similarly creates a C<VCS::CMSynergy::Project> from the
-displayname ("project spec") of a project; it also accepts the complete
-objectname of a project.
+Create a C<VCS::CMSynergy::Object> (with type "baseline",
+"probtrac", "folder", "project", "task" or "tset", resp.) from the I<displayname>
+of a baseline, change request (AKA problem), folder, project, task
+or transfer set, resp.
 
-Note: These methods work without querying the database.
+If C<@keywords> are specified, they
+are used as hints to prime the attribute cache of the
+returned C<VCS::CMSynergy::Object> similar to
+the optional C<@keywords> argument for L</query_object>.
+This is only useful when L</:cached_attributes> is in effect. 
 
 =head2 object_other_version
 

@@ -28,7 +28,6 @@ with additional methods for Synergy I<process_rules>.
 
 use base qw(VCS::CMSynergy::Object);
 
-use Carp;
 use File::Spec;
 use Cwd;
 
@@ -63,14 +62,18 @@ folder_templates
 
 =cut
 
-my @WHAT = qw( baseline_projects folders folder_templates );
+# don't blame errors from _check_one_of below on one of these
+use vars qw(@ISA);
+our @CARP_NOT = ("VCS::CMSynergy", @ISA);
 
 sub _show
 {
     my ($self, $what, $keywords, $row_type) = @_;
 
-    return $self->_generic_show(process_rule => \@WHAT,
-                                $what, $keywords, $row_type);
+    VCS::CMSynergy::_check_one_of($what, qw( baseline_projects folders folder_templates );
+
+    return $self->_generic_show(
+        [ process_rule => $self, -show => $what ], $keywords, $row_type);
 }
 
 1;

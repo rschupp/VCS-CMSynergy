@@ -273,17 +273,25 @@ sub _ccm
 	$$rerr =~ s/\n\z//;				# chomp
     }
 
-    my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
-    if (get_logger()->is_trace)
+    if (Log::Log4perl->initialized)
     {
-        TRACE "-> rc = $rc [$elapsed sec]";
-        TRACE "-> out = \"$$rout\"\n" unless exists $opts->{out};
-        TRACE "-> err = \"$$rerr\"\n" unless exists $opts->{err};
-    }
-    else
-    {
-        my $success = $rc == 0 ? "ok" : "failed";
-        DEBUG "ccm($this->{ccm_command}) = $success [$elapsed sec]\n";
+        # Note: Calling "easy" functions like TRACE() is always OK, even if
+        # Log::Log4perl has never been initialized or has already been
+        # cleaned up (e.g. during VCS::CMSynergy::DESTROY called in
+        # Perl's global cleanup). But get_logger() will fail in these 
+        # circumstances.
+        my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
+        if (get_logger()->is_trace)
+        {
+            TRACE "-> rc = $rc [$elapsed sec]";
+            TRACE "-> out = \"$$rout\"\n" unless exists $opts->{out};
+            TRACE "-> err = \"$$rerr\"\n" unless exists $opts->{err};
+        }
+        else
+        {
+            my $success = $rc == 0 ? "ok" : "failed";
+            DEBUG "ccm($this->{ccm_command}) = $success [$elapsed sec]\n";
+        }
     }
 
     $this->{out} = $$rout unless exists $opts->{out};

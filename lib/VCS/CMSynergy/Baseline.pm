@@ -12,7 +12,7 @@ VCS::CMSynergy::Baseline - convenience methods for C<VCS::CMSynergy::Object>s of
 
 =head1 SYNOPSIS
 
-C<VCS::CMSynergy::Baseline> is a subclass of 
+C<VCS::CMSynergy::Baseline> is a subclass of
 L<C<VCS::CMSynergy::Object>|VCS::CMSynergy::Object>
 with additional methods for Synergy I<baselines>.
 
@@ -24,7 +24,7 @@ with additional methods for Synergy I<baselines>.
   $projects = $bsl->show_object("projects");
   $tasks = $bsl->show_object(tasks => qw( task_synopsis completion_date ));
 
-=cut 
+=cut
 
 use base qw(VCS::CMSynergy::Object);
 
@@ -38,10 +38,10 @@ use Cwd;
   $aref = $pg->show_hashref($what, @keywords);
   $aref = $pg->show_object($what, @keywords);
 
-These two methods are convenience wrappers for 
+These two methods are convenience wrappers for
 B<ccm baseline -show $what>. For return values and the
 meaning of the optional C<@keywords> parameters see the descriptions
-of L<query_hashref|VCS::CMSynergy/"query_arrayref, query_hashref"> 
+of L<query_hashref|VCS::CMSynergy/"query_arrayref, query_hashref">
 and L<query_object|VCS::CMSynergy/query_object>.
 
 The following strings can be used for C<$what>, see the Synergy documentation

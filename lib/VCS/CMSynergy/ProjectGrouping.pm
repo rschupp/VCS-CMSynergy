@@ -12,7 +12,7 @@ VCS::CMSynergy::ProjectGrouping - convenience methods for C<VCS::CMSynergy::Obje
 
 =head1 SYNOPSIS
 
-C<VCS::CMSynergy::ProjectGrouping> is a subclass of 
+C<VCS::CMSynergy::ProjectGrouping> is a subclass of
 L<C<VCS::CMSynergy::Object>|VCS::CMSynergy::Object>
 with additional methods for Synergy I<project_groupings>.
 
@@ -26,7 +26,7 @@ with additional methods for Synergy I<project_groupings>.
   $tasks = $pg->show_object(
     tasks_on_top_of_baseline => qw( task_synopsis completion_date ));
 
-=cut 
+=cut
 
 use base qw(VCS::CMSynergy::Object);
 
@@ -40,10 +40,10 @@ use Cwd;
   $aref = $pg->show_hashref($what, @keywords);
   $aref = $pg->show_object($what, @keywords);
 
-These two methods are convenience wrappers for 
+These two methods are convenience wrappers for
 B<ccm project_grouping -show $what>. For return values and the
 meaning of the optional C<@keywords> parameters see the descriptions
-of L<query_hashref|VCS::CMSynergy/"query_arrayref, query_hashref"> 
+of L<query_hashref|VCS::CMSynergy/"query_arrayref, query_hashref">
 and L<query_object|VCS::CMSynergy/query_object>.
 
 The following strings can be used for C<$what>, see the Synergy documentation
@@ -90,7 +90,7 @@ sub _show
 {
     my ($self, $what, $keywords, $row_type) = @_;
 
-    VCS::CMSynergy::_check_one_of($what, 
+    VCS::CMSynergy::_check_one_of($what,
         qw( added_tasks all_tasks automatic_tasks
             baseline folders objects projects
             removed_tasks tasks_on_top_of_baseline );

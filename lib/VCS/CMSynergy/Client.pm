@@ -24,7 +24,7 @@ This synopsis only lists the major methods.
 
 =cut
 
-use 5.008_001;					# i.e. v5.8.1
+use 5.008_001;                                  # i.e. v5.8.1
 use strict;
 use warnings;
 
@@ -47,7 +47,7 @@ our ($Error, $Ccm_command, $Default);
 # not a method
 # emulates the old way to enable tracing by setting the environment
 # variable CMSYNERGY_TRACE
-sub _init_legacy_logging 
+sub _init_legacy_logging
 {
     # NOTE: Log::Log4perl can only be initialized once (i.e. the second
     # call to Log::Log4perl::init() overwrites the setting from the first).
@@ -58,16 +58,16 @@ sub _init_legacy_logging
     return unless defined $trace && length $trace;
 
     my %init;                           # default layout => "%d %m%n"
-    if ($trace =~ /^\d+$/) 		# CMSYNERGY_TRACE="digits"
-    { 
+    if ($trace =~ /^\d+$/)              # CMSYNERGY_TRACE="digits"
+    {
         $init{file} = "STDERR";
     }
-    elsif ($trace =~ /^(\d+)=(.*)/) 	# CMSYNERGY_TRACE="digits=filename"
+    elsif ($trace =~ /^(\d+)=(.*)/)     # CMSYNERGY_TRACE="digits=filename"
     {
         $trace = $1;
         $init{file} = ">>$2";
     }
-    else				# CMSYNERGY_TRACE="filename"
+    else                                # CMSYNERGY_TRACE="filename"
     {
         $trace = 2;
         $init{file} = ">>$trace";
@@ -80,12 +80,12 @@ sub _init_legacy_logging
     Log::Log4perl->easy_init(\%init);
 }
 
-our %opts = 
+our %opts =
 (
-    HandleError		=> undef,
-    PrintError		=> undef,
-    RaiseError		=> undef,
-    CCM_HOME		=> undef,
+    HandleError         => undef,
+    PrintError          => undef,
+    RaiseError          => undef,
+    CCM_HOME            => undef,
 );
 
 
@@ -93,34 +93,34 @@ sub new
 {
     my ($class, %args) = @_;
 
-    my $self = 
+    my $self =
     {
-	HandleError	=> undef,
-	PrintError	=> 1,
-	RaiseError	=> 0,
-	CCM_HOME	=> $ENV{CCM_HOME},
-	env		=> {},
-	ccm_command	=> undef,
-	error		=> undef,
-	out		=> undef,
-	err		=> undef,
-    };	
+        HandleError     => undef,
+        PrintError      => 1,
+        RaiseError      => 0,
+        CCM_HOME        => $ENV{CCM_HOME},
+        env             => {},
+        ccm_command     => undef,
+        error           => undef,
+        out             => undef,
+        err             => undef,
+    };  
     bless $self, $class;
 
     while (my ($arg, $value) = each %args)
     {
-	croak(__PACKAGE__."::new: unrecognized argument: $arg") 
-	    unless exists $opts{$arg};
+        croak(__PACKAGE__."::new: unrecognized argument: $arg")
+            unless exists $opts{$arg};
 
-	$self->{$arg} = $value;
+        $self->{$arg} = $value;
     }
 
     return $self->set_error("CCM_HOME is not set (neither as parameter to new() nor in environment")
-	unless defined $self->{CCM_HOME};
+        unless defined $self->{CCM_HOME};
     $self->{env}->{CCM_HOME} = delete $self->{CCM_HOME};
 
     my $ccm_exe = File::Spec->catfile(
-	$self->{env}->{CCM_HOME}, "bin", "ccm$Config{_exe}");
+        $self->{env}->{CCM_HOME}, "bin", "ccm$Config{_exe}");
     if ($^O eq 'cygwin')
     {
         # Cygwin: avoid potential "MS-DOS style path detected" warning
@@ -128,8 +128,8 @@ sub new
         $ccm_exe =~ s/\015?\012\z//g;                   # OS agnostic chomp
     }
     return $self->set_error("CCM_HOME = `$self->{env}->{CCM_HOME}' does not point to a valid Synergy installation")
-	unless -x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe);
-	# NOTE: -x $ccm_exe fails on cygwin
+        unless -x $ccm_exe || ($^O eq 'cygwin' && -e $ccm_exe);
+        # NOTE: -x $ccm_exe fails on cygwin
     $self->{ccm_exe} = $ccm_exe;
 
     _init_legacy_logging();
@@ -138,20 +138,20 @@ sub new
 }
 
 
-sub _memoize_method 
+sub _memoize_method
 {
-    my ($class, $method, $code) = @_; 
-    croak(__PACKAGE__.qq[::_memoize_method: "$code" must be a CODE ref]) 
-	unless ref $code eq "CODE";
+    my ($class, $method, $code) = @_;
+    croak(__PACKAGE__.qq[::_memoize_method: "$code" must be a CODE ref])
+        unless ref $code eq "CODE";
     my $slot = $method;
 
     no strict 'refs';
     no warnings 'redefine';
-    *{"${class}::${method}"} = sub 
+    *{"${class}::${method}"} = sub
     {
-	my $self = shift;
-	$self->{$slot} = &$code($self, @_) unless exists $self->{$slot};
-	return $self->{$slot};
+        my $self = shift;
+        $self->{$slot} = &$code($self, @_) unless exists $self->{$slot};
+        return $self->{$slot};
     };
 }
 
@@ -165,10 +165,10 @@ sub start
 }
 
 
-sub _default	{ $Default ||= shift->new(); }
+sub _default    { $Default ||= shift->new(); }
 
 
-sub ccm						# class/instance method
+sub ccm                                         # class/instance method
 {
     my $this = shift;
     $this = __PACKAGE__->_default unless ref $this;
@@ -176,14 +176,14 @@ sub ccm						# class/instance method
     my ($rc, $out, $err) = $this->_ccm(@_);
 
     # Note: "defined wantarray" checks if we're called in non-void context
-    return wantarray ? ($rc, $out, $err) : $rc == 0 
+    return wantarray ? ($rc, $out, $err) : $rc == 0
         if defined wantarray;
 
     $this->set_error($err || $out) unless $rc == 0;
 }
 
 
-my $ccm_prompt = qr/^ccm> /m;		# NOTE the trailing blank
+my $ccm_prompt = qr/^ccm> /m;           # NOTE the trailing blank
 
 sub _ccm
 {
@@ -202,75 +202,75 @@ sub _ccm
     my $t0 = [ Time::HiRes::gettimeofday() ];
 
     # NOTE: Trace the command _before_ executing it to help
-    # diagnose "hung" scripts (e.g. a ccm command waiting for 
+    # diagnose "hung" scripts (e.g. a ccm command waiting for
     # user confirmation)
     TRACE "<- ccm($this->{ccm_command})";
 
     CCM:
     {
-	if ($this->{coprocess})
-	{
-	    USE_COPROCESS:
-	    {
-		# don't use copress when using fancy run3() arguments
-		last USE_COPROCESS if %$opts;
+        if ($this->{coprocess})
+        {
+            USE_COPROCESS:
+            {
+                # don't use copress when using fancy run3() arguments
+                last USE_COPROCESS if %$opts;
 
-		# arguments cannot contain newlines in "interactive" ccm sessions
-		last USE_COPROCESS if grep { /\n/ } @_;
+                # arguments cannot contain newlines in "interactive" ccm sessions
+                last USE_COPROCESS if grep { /\n/ } @_;
 
-		my ($dev, $ino) = stat(".") or last USE_COPROCESS;
-		if ($this->{co_cwd_dev} != $dev || $this->{co_cwd_ino} != $ino)
-		{
-		    # working directory has changed since coprocess was spawned:
-		    # shut down coprocess and start a new one
-		    # NOTE: don't call _ccm here (infinite recursion)
-		    $this->_kill_coprocess;
-		    unless ($this->_spawn_coprocess)
-		    {
-			carp(__PACKAGE__ . " _ccm: can't re-establish coprocess (because cwd changed): $this->{error}\n" .
-			     "-- ignoring UseCoprocess from now on");
-			last USE_COPROCESS;
-		    }
-		    TRACE sprintf("spawned new coprocess because cwd changed (pid=%d)",
+                my ($dev, $ino) = stat(".") or last USE_COPROCESS;
+                if ($this->{co_cwd_dev} != $dev || $this->{co_cwd_ino} != $ino)
+                {
+                    # working directory has changed since coprocess was spawned:
+                    # shut down coprocess and start a new one
+                    # NOTE: don't call _ccm here (infinite recursion)
+                    $this->_kill_coprocess;
+                    unless ($this->_spawn_coprocess)
+                    {
+                        carp(__PACKAGE__ . " _ccm: can't re-establish coprocess (because cwd changed): $this->{error}\n" .
+                             "-- ignoring UseCoprocess from now on");
+                        last USE_COPROCESS;
+                    }
+                    TRACE sprintf("spawned new coprocess because cwd changed (pid=%d)",
                                   $this->{coprocess}->pid);
-		}
+                }
 
-		# NOTE: "interactive" command arguments that contain blanks must 
-		# be quoted with double quotes; AFAICT there is no way 
-		# to quote embedded quotes!
-		$this->{coprocess}->print(
-		    join(" ", map { qq["$_"] } @_), "\n");
+                # NOTE: "interactive" command arguments that contain blanks must
+                # be quoted with double quotes; AFAICT there is no way
+                # to quote embedded quotes!
+                $this->{coprocess}->print(
+                    join(" ", map { qq["$_"] } @_), "\n");
 
-		$this->{coprocess}->expect(undef, -re => $ccm_prompt)
-		    or return _error("expect error: ".$this->{coprocess}->error);
+                $this->{coprocess}->expect(undef, -re => $ccm_prompt)
+                    or return _error("expect error: ".$this->{coprocess}->error);
 
-		# on Windows, treat output as if read in "text" mode
-		$$rout = $this->{coprocess}->before;
+                # on Windows, treat output as if read in "text" mode
+                $$rout = $this->{coprocess}->before;
 
-		$this->{coprocess}->print("set error\n");
-		$this->{coprocess}->expect(undef, -re => $ccm_prompt)
-		    or return _error("expect error: ".$this->{coprocess}->error);
-		my $set = $this->{coprocess}->before;
-		($rc) = $set =~ /^(\d+)/
-		    or return _error("unrecognized result from `set error': $set");
-		($rc, $$rerr) = ($rc << 8, "");         # fake $?
-		last CCM;
-	    }
-	}
+                $this->{coprocess}->print("set error\n");
+                $this->{coprocess}->expect(undef, -re => $ccm_prompt)
+                    or return _error("expect error: ".$this->{coprocess}->error);
+                my $set = $this->{coprocess}->before;
+                ($rc) = $set =~ /^(\d+)/
+                    or return _error("unrecognized result from `set error': $set");
+                ($rc, $$rerr) = ($rc << 8, "");         # fake $?
+                last CCM;
+            }
+        }
 
-	# simple ccm sub process
-	$rc = $this->run([ $this->ccm_exe, @_ ], $rin, $rout, $rerr, \%ropts);
+        # simple ccm sub process
+        $rc = $this->run([ $this->ccm_exe, @_ ], $rin, $rout, $rerr, \%ropts);
     }
 
     unless (exists $opts->{out})
     {
-	$$rout =~ s/\015\012/\012/g if is_win32;	# as if read in :crlf mode
-	$$rout =~ s/\n\z//;				# chomp
+        $$rout =~ s/\015\012/\012/g if is_win32;        # as if read in :crlf mode
+        $$rout =~ s/\n\z//;                             # chomp
     }
     unless (exists $opts->{err})
     {
-	$$rerr =~ s/\015\012/\012/g if is_win32;	# as if read in :crlf mode
-	$$rerr =~ s/\n\z//;				# chomp
+        $$rerr =~ s/\015\012/\012/g if is_win32;        # as if read in :crlf mode
+        $$rerr =~ s/\n\z//;                             # chomp
     }
 
     if (Log::Log4perl->initialized)
@@ -278,7 +278,7 @@ sub _ccm
         # Note: Calling "easy" functions like TRACE() is always OK, even if
         # Log::Log4perl has never been initialized or has already been
         # cleaned up (e.g. during VCS::CMSynergy::DESTROY called in
-        # Perl's global cleanup). But get_logger() will fail in these 
+        # Perl's global cleanup). But get_logger() will fail in these
         # circumstances.
         my $elapsed = sprintf("%.2f", Time::HiRes::tv_interval($t0));
         if (get_logger()->is_trace)
@@ -309,9 +309,9 @@ sub run
     my $env = $this->{env};
     local @ENV{keys %$env} = values %$env if defined $env;
 
-    # don't screw up global $? (e.g. when being called 
+    # don't screw up global $? (e.g. when being called
     # in VCS::CMSynergy::DESTROY at program termination)
-    local $?;			
+    local $?;                   
     run3(@_);
     return $?;
 }
@@ -322,8 +322,8 @@ sub _spawn_coprocess
 
     unless (eval "use Expect 1.15; 1")
     {
-	$Error = $self->{error} = $@;
-	return;
+        $Error = $self->{error} = $@;
+        return;
     }
 
     # augment %ENV
@@ -331,15 +331,15 @@ sub _spawn_coprocess
     local @ENV{keys %$env} = values %$env if defined $env;
 
     my $exp = Expect->new
-	or $Error = $self->{error} = "Expect->new failed", return;
+        or $Error = $self->{error} = "Expect->new failed", return;
     ($exp->log_stdout(0) && $exp->slave->set_raw && $exp->set_raw)
-	or $Error = $self->{error} = $exp->exp_error, return;
+        or $Error = $self->{error} = $exp->exp_error, return;
     $exp->spawn($self->ccm_exe)
-	or $Error = $self->{error} = $exp->exp_error, return;
-    
+        or $Error = $self->{error} = $exp->exp_error, return;
+
     # look for initial "ccm> " prompt
     $exp->expect(undef, -re => $ccm_prompt)
-	or $Error = $self->{error} = $exp->exp_error, return;
+        or $Error = $self->{error} = $exp->exp_error, return;
 
     $self->{coprocess} = $exp;
 
@@ -360,7 +360,7 @@ sub _kill_coprocess
 }
 
 # helper: create a fake triple ($rc, $out, $err) as returned from _cmd()
-sub _error	{ return (255 << 8, "", $_[0]) }
+sub _error      { return (255 << 8, "", $_[0]) }
 
 # helper (only meaningful on Cygwin):
 # convert a potentially unixish path into its Windows equivalent (typically
@@ -387,28 +387,28 @@ sub ccm_command
     return ref $this ? $this->{ccm_command} : $Ccm_command;
 }
 
-sub ccm_home					# class/instance method
+sub ccm_home                                    # class/instance method
 {
     my $this = shift;
     $this = __PACKAGE__->_default unless ref $this;
     return $this->{env}->{CCM_HOME};
 }
 
-sub ccm_exe					# class/instance method
+sub ccm_exe                                     # class/instance method
 {
     my $this = shift;
     $this = __PACKAGE__->_default unless ref $this;
     return $this->{ccm_exe};
 }
 
-sub out 					# class/instance method
+sub out                                         # class/instance method
 {
     my $this = shift;
     $this = __PACKAGE__->_default unless ref $this;
     return wantarray ? split(/\n/, $this->{out}) : $this->{out};
 }
 
-sub err 					# class/instance method
+sub err                                         # class/instance method
 {
     my $this = shift;
     $this = __PACKAGE__->_default unless ref $this;
@@ -417,7 +417,7 @@ sub err 					# class/instance method
 
 # NOTE: we can't memoize "version", as the memoizing wrapper
 # assumes an object (not a class) as invocant
-sub version					# class/instance method
+sub version                                     # class/instance method
 {
     my $this = shift;
     $this = __PACKAGE__->_default unless ref $this;
@@ -440,18 +440,18 @@ __PACKAGE__->_memoize_method(_version => sub
     my %version;
     my $cmsynergy_rx = qr{(?:CM Synergy|SYNERGY/CM|Telelogic Synergy|IBM Rational Synergy)};
     ($version{cmsynergy}) = $out =~ /^$cmsynergy_rx Version\s+(\S*)$/imo
-	or return $self->set_error("can't recognize version from `$out'");
+        or return $self->set_error("can't recognize version from `$out'");
     ($version{short}) = $version{cmsynergy} =~ /^(\d+\.\d+)/;
-    
+
     ($version{schema}) = $out =~ /^$cmsynergy_rx Schema Version\s+(.*)$/imo;
     ($version{informix}) = $out =~ /^Informix.* Version\s+(.*)$/imo;
     $version{patches} = [ split(/\n/, $1) ]
-	if $out =~ /^$cmsynergy_rx Patch Version\s+(.*?)(?:\Z|^$cmsynergy_rx|^Informix)/imso; 
+        if $out =~ /^$cmsynergy_rx Patch Version\s+(.*?)(?:\Z|^$cmsynergy_rx|^Informix)/imso;
     return \%version;
 });
 
 
-sub ps	
+sub ps  
 {
     my ($this, @filter) = @_;
     $this = __PACKAGE__->_default unless ref $this;
@@ -466,7 +466,7 @@ sub ps
     # discard first item (the line "All Rfc processes..." or
     # "Processes with...")
     # NOTE: We do it this way (and not by splitting into lines
-    # first, then recognizing "rfc address..." lines as 
+    # first, then recognizing "rfc address..." lines as
     # record headers) to work around a Synergy glitch:
     # if the single line in $CCM_HOME/etc/.router.adr ends with
     # a newline, then the record for the router process
@@ -478,41 +478,41 @@ sub ps
     # i.e. the address contains an embedded newline. This
     # breaks line-based parsing.
     my @rfcs = split(/^rfc address \((.*?)\)/sm, $out);
-    shift @rfcs;	
+    shift @rfcs;        
 
     my @ps;
     while (@rfcs)
     {
-	my ($rfc_address, $rest) = splice @rfcs, 0, 2;
-	chomp ($rfc_address, $rest);
+        my ($rfc_address, $rest) = splice @rfcs, 0, 2;
+        chomp ($rfc_address, $rest);
 
-	my %fields = $rest =~ /^\t(\S+) \((.*?)\)/gm;
+        my %fields = $rest =~ /^\t(\S+) \((.*?)\)/gm;
 
-	# the ps entry for the objreg process contains lines of the form
-	#   db:/var/lib/telelogic/ccm65/tutorial_pre64sp1/db ()
-	# transform the (database) paths into a list 
-	# as the value of key "db"
-	my @dbs;
-	foreach my $key (keys %fields)
-	{
-	    if ($key =~ /^db:(.*)$/)
-	    {
-		push @dbs, $1;
-		delete $fields{$key};
-	    }
-	}
+        # the ps entry for the objreg process contains lines of the form
+        #   db:/var/lib/telelogic/ccm65/tutorial_pre64sp1/db ()
+        # transform the (database) paths into a list
+        # as the value of key "db"
+        my @dbs;
+        foreach my $key (keys %fields)
+        {
+            if ($key =~ /^db:(.*)$/)
+            {
+                push @dbs, $1;
+                delete $fields{$key};
+            }
+        }
 
-	$fields{rfc_address} = $rfc_address;
-	$fields{db} = \@dbs if @dbs;
+        $fields{rfc_address} = $rfc_address;
+        $fields{db} = \@dbs if @dbs;
 
-	push @ps, \%fields;
+        push @ps, \%fields;
     }
 
     return \@ps;
 }
 
 
-sub status	
+sub status      
 {
     my $this = shift;
     $this = __PACKAGE__->_default unless ref $this;
@@ -523,48 +523,48 @@ sub status
     my (@sessions, $session, $user);
     foreach (split(/\n/, $out))
     {
-	if (/sessions for user (\S+):/i)
-	{
-	    $user = $1;
-	    next;
-	}
-	if (my ($interface, $rfc_address) = /^(.*?) interface \@ (\S+)/i)
-	{
-	    # start of a session description;
-	    # convert interface to process name used by `ccm ps'
-	    $session = 
-	    {
-		process		=> $interface =~ /graphical/i ? 
-				     "gui_interface" : "cmd_interface",
-		rfc_address	=> $rfc_address,
-		user		=> $user,
-	    };
-	    push @sessions, $session;
-	    next;
-	}
-	if (/^database: (.*)/i && $session)
-	{
-	    # sanitize database path (all other Synergy information commands
-	    # show it with trailing "/db", so we standardize on that)
-	    # NOTE: careful here, because the database might reside on Windows
-	    ($session->{database} = $1) 		
-		=~ s{^(.)(.*?)(\1db)?$}{$1$2$1db};
-	    next;
-	}
+        if (/sessions for user (\S+):/i)
+        {
+            $user = $1;
+            next;
+        }
+        if (my ($interface, $rfc_address) = /^(.*?) interface \@ (\S+)/i)
+        {
+            # start of a session description;
+            # convert interface to process name used by `ccm ps'
+            $session =
+            {
+                process         => $interface =~ /graphical/i ?
+                                     "gui_interface" : "cmd_interface",
+                rfc_address     => $rfc_address,
+                user            => $user,
+            };
+            push @sessions, $session;
+            next;
+        }
+        if (/^database: (.*)/i && $session)
+        {
+            # sanitize database path (all other Synergy information commands
+            # show it with trailing "/db", so we standardize on that)
+            # NOTE: careful here, because the database might reside on Windows
+            ($session->{database} = $1)                 
+                =~ s{^(.)(.*?)(\1db)?$}{$1$2$1db};
+            next;
+        }
     }
     return \@sessions;
 }
 
 
-# FIXME does not work on Windows 
+# FIXME does not work on Windows
 # (in fact, it only works on the host where Synergy's Informix engine is running)
-sub databases	
+sub databases   
 {
     my ($this, $servername) = @_;
     $this = __PACKAGE__->_default unless ref $this;
 
-    my @server_status = 
-	(File::Spec->catfile($this->ccm_home, qw/bin ccmsrv/), qw/status/);
+    my @server_status =
+        (File::Spec->catfile($this->ccm_home, qw/bin ccmsrv/), qw/status/);
     push @server_status, -s => $servername if defined $servername;
 
     my ($out, $err);
@@ -575,34 +575,34 @@ sub databases
     # strip leading/trailing stuff
     my ($list) = $out =~ /^===.*?$(.*?)^There is a total/ms;
     return $this->set_error(qq[unrecognized output from "@server_status": $out])
-	unless defined $list;
+        unless defined $list;
     return grep { !/dbpath not available/ }
-           map  { (split(' ', $_, 3))[2]  } 
-	   split(/\n/, $list);
+           map  { (split(' ', $_, 3))[2]  }
+           split(/\n/, $list);
 }
 
-# FIXME does not work on windows 
+# FIXME does not work on windows
 sub hostname
 {
     my ($this, @filter) = @_;
     $this = __PACKAGE__->_default unless ref $this;
 
-    our %Hostname;				# cache by CCM_HOME
+    our %Hostname;                              # cache by CCM_HOME
     my $ccm_home = $this->ccm_home;
     unless (exists $Hostname{$ccm_home})
     {
-	my ($out, $err);
-	my $rc = $this->run([ File::Spec->catfile($ccm_home, qw/bin util ccm_hostname/) ], \undef, \$out, \$err);
-	chomp($out, $err);
+        my ($out, $err);
+        my $rc = $this->run([ File::Spec->catfile($ccm_home, qw/bin util ccm_hostname/) ], \undef, \$out, \$err);
+        chomp($out, $err);
         # ignore bogus exit code (seems to be length of output in bytes, arghh)
-	$Hostname{$ccm_home} = $out;
+        $Hostname{$ccm_home} = $out;
     }
 
     return $Hostname{$ccm_home};
 }
 
 
-sub set_error 
+sub set_error
 {
     my ($this, $error, $method, $rv, @rv) = @_;
 
@@ -613,22 +613,22 @@ sub set_error
     my $handler = $this->{HandleError};
     return wantarray ? @rv : $rv if $handler and &$handler($error, $this, $rv, @rv);
 
-    # unless $method was explicitly specified, use our caller 
+    # unless $method was explicitly specified, use our caller
     # except skip private methods of VCS::CMsynergy... packages
     unless (defined $method)
     {
-	$method = (caller(0))[3];
-	for (my $n = 1;; $n++)
-	{
-	    my $next = (caller($n))[3];
-	    last unless defined $next;
-	    $method = $next;
-	    last unless $method =~ /^VCS::CMSynergy.*::_\w*$/;
-	}
+        $method = (caller(0))[3];
+        for (my $n = 1;; $n++)
+        {
+            my $next = (caller($n))[3];
+            last unless defined $next;
+            $method = $next;
+            last unless $method =~ /^VCS::CMSynergy.*::_\w*$/;
+        }
     }
 
     my $msg = "$method: $error";
-    croak($msg) if $this->{RaiseError};	
+    croak($msg) if $this->{RaiseError}; 
     carp($msg)  if $this->{PrintError};
     return wantarray ? @rv : $rv;
 }
@@ -661,12 +661,12 @@ you have several installations of Synergy, i.e. several C<$CCM_HOME>s, I<and>
 
 =item *
 
-you want to switch between different C<$CCM_HOME>s in the same 
+you want to switch between different C<$CCM_HOME>s in the same
 invocation of your program.
 
 =back
 
-A typical example is an administrative program that iterates over all 
+A typical example is an administrative program that iterates over all
 your Synergy databases in all your installations:
 
   foreach my $ccm_home (qw(/usr/local/ccm51 /usr/local/ccm62 /usr/local/ccm63))
@@ -676,7 +676,7 @@ your Synergy databases in all your installations:
 
       foreach my $db ($client->databases)
       {
-	  ...
+          ...
       }
   }
 
@@ -704,11 +704,11 @@ the C<VCS::CMSynergy> class
 
 The former two always use the setting of C<CCM_HOME> given at their creation,
 while the latter two actually operate on a "default" instance of  C<VCS::CMSynergy::Client>.
-This instance is created the first time 
-any C<VCS::CMSynergy::Client> or C<VCS::CMSynergy> class method is invoked 
+This instance is created the first time
+any C<VCS::CMSynergy::Client> or C<VCS::CMSynergy> class method is invoked
 in the course of your program. Its C<CCM_HOME> uses
 the value of C<$ENV{CCM_HOME}> that was in effect at the time
-the default instance was created. 
+the default instance was created.
 
 =head1 METHODS
 
@@ -736,27 +736,27 @@ i.e. C<$ENV{CCM_HOME}>.
 =item C<PrintError> (boolean)
 
 This attribute can be used to force errors to generate warnings (using
-L<carp|Carp/carp>) in addition to returning error codes in the normal way.  
-When set to true, any method which results in an error occuring will cause
+L<carp|Carp/carp>) in addition to returning error codes in the normal way.
+When set to true, any method which results in an error occurring will cause
 the corresponding C<< $ccm->error >> to be printed to stderr.
 
 It defaults to "on".
 
 =item C<RaiseError> (boolean)
 
-This attribute can be used to force errors to raise exceptions 
-(using L<croak|Carp/croak>) rather than simply return error codes 
-in the normal way. 
+This attribute can be used to force errors to raise exceptions
+(using L<croak|Carp/croak>) rather than simply return error codes
+in the normal way.
 When set to true, any method which results in an error will cause
 effectively a C<die> with the actual C<< $ccm->error >>
-as the message. 
+as the message.
 
 It defaults to "off".
 
 =item C<HandleError> (code ref)
 
 This attribute can be used to provide your own
-alternative behaviour in case of errors. If set to a
+alternative behavior in case of errors. If set to a
 reference to a subroutine then that subroutine is called
 when an error is detected (at the same point that
 L</RaiseError> and L</PrintError> are handled).
@@ -775,7 +775,7 @@ Returns the setting of CCM_HOME as used by the client.
 
   $last_error = $client->error;
 
-Returns the last error that occured in this client.
+Returns the last error that occurred in this client.
 
 =head2 ccm_command
 
@@ -808,7 +808,7 @@ containing pairs of field names (e.g. C<host>, C<database>, C<pid>) and values
 for that particular process as listed by B<ccm ps>.
 
 The available keys vary with the type of the process
-(e.g. C<engine>, C<gui_interface>). The process type is listed 
+(e.g. C<engine>, C<gui_interface>). The process type is listed
 under key C<process>.  The key C<rfc_address> is always present.
 The object registrar (i.e. the unique process with key C<process>
 equal to "objreg") has a special key C<db>.
@@ -819,61 +819,61 @@ In the second form of invocation, you can pass pairs of field name
 and field value and C<ps> will only return processes whose fields
 match I<all> the corresponding values.
 
-Here's an example of the value returned by C<ps> 
+Here's an example of the value returned by C<ps>
 as formatted by L<Data::Dumper>:
 
   $ps = [
       {
-	'process' => 'router',
-	'host' => 'tiv01',
-	'rfc_address' => 'tiv01:5415:160.50.76.15',
-	'user' => 'ccm_root',
-	'host_addr' => '',
-	'pid' => '9428'
+        'process' => 'router',
+        'host' => 'tiv01',
+        'rfc_address' => 'tiv01:5415:160.50.76.15',
+        'user' => 'ccm_root',
+        'host_addr' => '',
+        'pid' => '9428'
       },
       {
-	'process' => 'gui_interface',
-	'database' => '/ccmdb/tbd/slc/db',
-	'engine_address' => 'tiv01:60682:160.50.76.15',
-	'host' => 'lapis',
-	'user' => 'q076273',
-	'msg_handler_1' => 'uissys:message_handler',
-	'display' => '',
-	'callback' => 'vistartup:cb_init',
-	'rfc_address' => 'lapis:1934:160.50.136.36',
-	'pid' => '224',
-	'host_addr' => ''
+        'process' => 'gui_interface',
+        'database' => '/ccmdb/tbd/slc/db',
+        'engine_address' => 'tiv01:60682:160.50.76.15',
+        'host' => 'lapis',
+        'user' => 'q076273',
+        'msg_handler_1' => 'uissys:message_handler',
+        'display' => '',
+        'callback' => 'vistartup:cb_init',
+        'rfc_address' => 'lapis:1934:160.50.136.36',
+        'pid' => '224',
+        'host_addr' => ''
       },
       {
-	'process' => 'engine',
-	'database' => '/ccmdb/tbd/nasa_ix/db',
-	'host' => 'nasaora',
-	'user' => 'qx06322',
-	'callback' => 'engine_startup:cb_init',
-	'rfc_address' => 'nasaora:1559:160.48.78.33',
-	'pid' => '24490',
-	'host_addr' => '',
-	'ui_address' => 'nasaora:1556:160.48.78.33'
+        'process' => 'engine',
+        'database' => '/ccmdb/tbd/nasa_ix/db',
+        'host' => 'nasaora',
+        'user' => 'qx06322',
+        'callback' => 'engine_startup:cb_init',
+        'rfc_address' => 'nasaora:1559:160.48.78.33',
+        'pid' => '24490',
+        'host_addr' => '',
+        'ui_address' => 'nasaora:1556:160.48.78.33'
       },
       {
-	'process' => 'objreg',
-	'db' => [
-		  '/ccmdb/tbd/slc/db',
-		  '/ccmdb/tbd/eai/db',
-		  ...
-		],
-	'max_conns' => '256',
-	'objreg_machine_addr' => '160.50.76.15',
-	'host' => 'tiv01',
-	'user' => 'ccm_root',
-	'callback' => 'objreg:cb_init',
-	'policy' => 'one_per_db',
-	'noblock' => 'true',
-	'rfc_address' => 'tiv01:60352:160.50.76.15',
-	'objreg_machine' => 'tiv01',
-	'host_addr' => '',
-	'pid' => '9896',
-	'objreg_machine_hostname' => 'tiv01'
+        'process' => 'objreg',
+        'db' => [
+                  '/ccmdb/tbd/slc/db',
+                  '/ccmdb/tbd/eai/db',
+                  ...
+                ],
+        'max_conns' => '256',
+        'objreg_machine_addr' => '160.50.76.15',
+        'host' => 'tiv01',
+        'user' => 'ccm_root',
+        'callback' => 'objreg:cb_init',
+        'policy' => 'one_per_db',
+        'noblock' => 'true',
+        'rfc_address' => 'tiv01:60352:160.50.76.15',
+        'objreg_machine' => 'tiv01',
+        'host_addr' => '',
+        'pid' => '9896',
+        'objreg_machine_hostname' => 'tiv01'
       },
       ...
   ];
@@ -894,34 +894,34 @@ Note: Unlike the output of the B<ccm status> command, the value
 for C<database> has a trailing C<"/db">. This makes it consistent
 with the session attribute C<database> and the return value of L</ps>.
 
-Here's an example of the value returned by C<status> 
+Here's an example of the value returned by C<status>
 as formatted by L<Data::Dumper>:
 
   $status = [
       {
-	'process' => 'gui_interface',
-	'database' => '/ccmdb/scm/support/db',
-	'rfc_address' => 'tiv01:53020:160.50.76.15',
-	'user' => 'rschupp'
+        'process' => 'gui_interface',
+        'database' => '/ccmdb/scm/support/db',
+        'rfc_address' => 'tiv01:53020:160.50.76.15',
+        'user' => 'rschupp'
       },
       {
-	'process' => 'gui_interface',
-	'database' => '/ccmdb/scm/support/db',
-	'rfc_address' => 'wmuc111931:4661:160.50.136.201',
-	'user' => 'rschupp'
+        'process' => 'gui_interface',
+        'database' => '/ccmdb/scm/support/db',
+        'rfc_address' => 'wmuc111931:4661:160.50.136.201',
+        'user' => 'rschupp'
       },
       {
-	'process' => 'cmd_interface',
-	'database' => '/ccmdb/test/tut51/db',
-	'rfc_address' => 'tiv01:53341:160.50.76.15',
-	'user' => 'rschupp'
+        'process' => 'cmd_interface',
+        'database' => '/ccmdb/test/tut51/db',
+        'rfc_address' => 'tiv01:53341:160.50.76.15',
+        'user' => 'rschupp'
       }
   ];
 
 =head2 version
 
   $short_version = $client->version;
-  ($full_version, $schema_version, 
+  ($full_version, $schema_version,
     $informix_version, @patches) = $client->version;
 
 Returns version info about the Synergy installation.
@@ -984,7 +984,7 @@ Returns the exit status (i.e. C<$?>) from executing C<@cmd>.
   @databases = $client->databases;
   @databases = $client->databases($servername);
 
-Returns an array containing the names of all known Synergy databases. 
+Returns an array containing the names of all known Synergy databases.
 
 Note: This method does not work on Windows.
 
@@ -998,7 +998,7 @@ from what L<POSIX/uname> returns).
 =head1 SEE ALSO
 
 L<VCS::CMSynergy>,
-L<VCS::CMSynergy::Object> 
+L<VCS::CMSynergy::Object>
 
 =head1 AUTHORS
 

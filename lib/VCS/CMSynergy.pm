@@ -332,7 +332,7 @@ sub DESTROY
     # is called. Any eval block encountered during processing of DESTROY()
     # will reset $@  - even if no excpetion is thrown. Hence $@
     # might be empty at "print...". 
-    # We localize $@ to avoid this unexpected behaviour.
+    # We localize $@ to avoid this unexpected behavior.
     # FIXME: might be more correct to push localization into the
     # offending methods.
     local $@;
@@ -1165,7 +1165,7 @@ sub finduse
     # the given objects do not exist (and exits with status 1 unless at least
     # one exists). But for `ccm finduse -query ...', if there are no hits, 
     # the command exits with an error status and produces no output on either 
-    # stdout and stderr. (This is the same behaviour as for `ccm query ...'.) 
+    # stdout and stderr. (This is the same behavior as for `ccm query ...'.) 
     # We will not produce an error in any case. However, the returned array
     # will contain undef in postions corresponding to non-existing objects.
     return [ ] if $rc != 0 and $out eq "" and $err eq "";

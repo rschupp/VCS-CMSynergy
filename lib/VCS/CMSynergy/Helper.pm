@@ -18,8 +18,8 @@ VCS::CMSynergy::Helper - ancillary convenience functions
 
 This function extracts a set of common options from C<@ARGV> and converts
 them to the corresponding options for L<VCS::CMSynergy/new>.
-All options and arguments in C<@ARGV> that it doesn't know about 
-are left untouched. 
+All options and arguments in C<@ARGV> that it doesn't know about
+are left untouched.
 
 It may be used to make all your Synergy scripts accept a
 uniform set of options:
@@ -69,27 +69,27 @@ for C<VCS::CMSynergy/start>
 
 =item C<--ui_database_dir>
 
-path name to which your database information is copied when you are 
-running a remote client session; this option corresponds to 
+path name to which your database information is copied when you are
+running a remote client session; this option corresponds to
 option C<ui_database_dir> for B<ccm start>, it implies C<remote_client>
 
 =back
 
 C<GetOptions> returns a reference to a hash of options suitable
-for passing to L<VCS::CMSynergy/new>.  If no C<--database> is specified 
+for passing to L<VCS::CMSynergy/new>.  If no C<--database> is specified
 
   CCM_ADDR => $ENV{CCM_ADDR}
 
 is added to the hash.
 
-If any error is encountered during option processing 
+If any error is encountered during option processing
 the error is signalled using C<warn()> and C<undef> is returned.
 
 Note that all recognized single letter options are in uppercase so that
 scripts using C<VCS::CMSynergy::Helper::GetOptions> still
 can use all lowercase letters for their own options.
 
-Here's the short description of recognized options that you 
+Here's the short description of recognized options that you
 can cut and paste into your script's POD:
 
   Synergy Options:
@@ -110,11 +110,11 @@ sub GetOptions
 
     my %opts;
     Getopt::Long::GetOptions(\%opts,
-	'database|D=s',
-	'host|H=s',
-	'user|U=s',
-	'password|P=s',
-	'ui_database_dir=s') or return;
+        'database|D=s',
+        'host|H=s',
+        'user|U=s',
+        'password|P=s',
+        'ui_database_dir=s') or return;
 
     Getopt::Long::Configure($saved_config);
 

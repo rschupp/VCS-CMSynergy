@@ -12,7 +12,7 @@ VCS::CMSynergy::Tset - convenience methods for C<VCS::CMSynergy::Object>s of typ
 
 =head1 SYNOPSIS
 
-C<VCS::CMSynergy::Tset> is a subclass of 
+C<VCS::CMSynergy::Tset> is a subclass of
 L<C<VCS::CMSynergy::Object>|VCS::CMSynergy::Object>
 with additional methods for Synergy I< DCM transfer sets>.
 
@@ -25,7 +25,7 @@ with additional methods for Synergy I< DCM transfer sets>.
   $ts->add(-history => @objs);
   $ts->generate(-dbid => "Any");
 
-=cut 
+=cut
 
 use base qw(VCS::CMSynergy::Object);
 
@@ -39,10 +39,10 @@ use Cwd;
   $aref = $ts->show_hashref($what, @keywords);
   $aref = $ts->show_object($what, @keywords);
 
-These two methods are convenience wrappers for 
+These two methods are convenience wrappers for
 B<ccm dcm -ts $ts -show $what>. For return values and the
 meaning of the optional C<@keywords> parameters see the descriptions
-of L<query_hashref|VCS::CMSynergy/"query_arrayref, query_hashref"> 
+of L<query_hashref|VCS::CMSynergy/"query_arrayref, query_hashref">
 and L<query_object|VCS::CMSynergy/query_object>.
 
 The following strings can be used for C<$what>, see the Synergy documentation

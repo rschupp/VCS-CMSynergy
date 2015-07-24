@@ -54,8 +54,8 @@ The keys are the user names and the values are array refs containing
 the user's roles, e.g.
 
   $hash_ref = {
-    'jluser'	=> [ qw(developer) ],
-    'psizzle'	=> [ qw(developer build_mgr) ],
+    'jluser'    => [ qw(developer) ],
+    'psizzle'   => [ qw(developer build_mgr) ],
     ...
     };
 
@@ -65,7 +65,7 @@ You need not be in the I<ccm_admin> role to use this form
 The second form replaces the existing table of users and their roles
 with the contents of C<$hashref>. Duplicate roles will be removed
 from C<$hashref>'s values before writing back the table.
-You must be in the B<ccm_admin> role to use this form. 
+You must be in the B<ccm_admin> role to use this form.
 
 All operations try to preserve the order of roles (L<add_roles> appends
 the roles that are actually new for the user). This mostly matters for
@@ -94,51 +94,51 @@ sub users
     my $self = shift;
     my ($users) = validate(\@_, Optional[HashRef]);
 
-    # NOTE: For getting the list of users we use 
+    # NOTE: For getting the list of users we use
     # "ccm attr -show users base-1:model:base" because every role can do that -
     # whereas "ccm users" requires the ccm_admin role.
-    # Apparently this is not necessary for Synergy >= 7.2 (web mode): 
+    # Apparently this is not necessary for Synergy >= 7.2 (web mode):
     # anybody can run "ccm users -export FILE".
     unless ($users)
     {
-	my $text = $self->get_attribute(users => $self->base_model);
-	return unless defined $text;
-	
-	$users = {};
-	tie %$users, 'Tie::CPHash';
+        my $text = $self->get_attribute(users => $self->base_model);
+        return unless defined $text;
+        
+        $users = {};
+        tie %$users, 'Tie::CPHash';
 
-	foreach (split(/\n/, $text))
-	{
+        foreach (split(/\n/, $text))
+        {
             next if /^#/;
-	    my ($user, $roles) = /^ \s* user \s+ (\S+) \s* = \s* (.*) ;/x;
-	    next unless defined $user;
-	    $users->{$user} = [ split(" ", $roles) ];
-	}
+            my ($user, $roles) = /^ \s* user \s+ (\S+) \s* = \s* (.*) ;/x;
+            next unless defined $user;
+            $users->{$user} = [ split(" ", $roles) ];
+        }
 
-	return $users;
+        return $users;
     }
 
     my $text = "";
     while (my ($user, $roles) = each %$users)
     {
-	return $self->set_error("illegal value for user `$user' (array ref expected)")
-	    unless ref $roles eq "ARRAY";
-	return $self->set_error("no roles defined for user `$user'")
-	    unless @$roles;
+        return $self->set_error("illegal value for user `$user' (array ref expected)")
+            unless ref $roles eq "ARRAY";
+        return $self->set_error("no roles defined for user `$user'")
+            unless @$roles;
 
-	# remove duplicates
-	my %seen;
-	$text .= "user $user = " . join(" ", grep { !$seen{$_}++ } @$roles) . ";\n";
+        # remove duplicates
+        my %seen;
+        $text .= "user $user = " . join(" ", grep { !$seen{$_}++ } @$roles) . ";\n";
     }
 
     my ($rc, $out, $err);
     if ($self->version >= 7.2)          # web mode
     {
-	my $tempfile = $self->_text_to_tempfile($text) or return;
+        my $tempfile = $self->_text_to_tempfile($text) or return;
 
         # NOTE: On Cygwin we must convert $tempfile to a native Windows
         # pathname as we are passing it to a native Windows program.
-	$tempfile = _fullwin32path($tempfile) if $^O eq 'cygwin';
+        $tempfile = _fullwin32path($tempfile) if $^O eq 'cygwin';
 
         ($rc, $out, $err) = $self->ccm(qw/users -import/, $tempfile);
     }
@@ -154,7 +154,7 @@ sub users
 
   $ccm->add_user($user, @roles);
 
-Adds the user with the given roles. 
+Adds the user with the given roles.
 If the user already exists her roles will be reset to the ones given.
 
 =cut
@@ -208,7 +208,7 @@ sub add_roles
     return unless $users;
 
     return $self->set_error("user `$user' doesn't exist")
-	unless $users->{$user};
+        unless $users->{$user};
 
     push @{ $users->{$user} }, @roles;
 
@@ -234,8 +234,8 @@ sub delete_roles
     return unless $users;
 
     return $self->set_error("user `$user' doesn't exist")
-	unless exists $users->{$user};
- 
+        unless exists $users->{$user};
+
     # NOTE: try to preserve the order of the remaining roles
     my %del;
     @del{@roles} = ();
@@ -274,8 +274,8 @@ sub get_roles
 
 =head1 SEE ALSO
 
-L<VCS::CMSynergy> 
-L<VCS::CMSynergy::Object>, 
+L<VCS::CMSynergy>
+L<VCS::CMSynergy::Object>,
 L<VCS::CMSynergy::Client>,
 
 =head1 AUTHORS

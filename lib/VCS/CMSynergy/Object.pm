@@ -17,7 +17,7 @@ VCS::CMSynergy::Object - convenience wrapper to treat objectnames as an object
   ...
   $obj = $ccm->object($name, $version, $cvtype, $instance);
   $obj = $ccm->object($objectname);
-  print ref $obj;			# "VCS::CMSynergy::Object"
+  print ref $obj;                       # "VCS::CMSynergy::Object"
 
   # objectname and its constituents
   print "...and the object is $obj";
@@ -27,24 +27,24 @@ VCS::CMSynergy::Object - convenience wrapper to treat objectnames as an object
   print "instance   = ", $obj->instance;
   print "objectname = ", $obj->objectname;
 
-  # attribute methods, optionally caching with 
+  # attribute methods, optionally caching with
   #   use VCS::CMSynergy ':cached_attributes'
   print $obj->get_attribute('comment');
   $obj->set_attribute(comment => "blurfl");
   $obj->create_attribute("foo", string => "some text");
   $obj->delete_attribute("foo");
-  $hashref = $obj->list_attributes;	# always caches result
+  $hashref = $obj->list_attributes;     # always caches result
 
   # property methods
   print $obj->property("bar");
-  print $obj->displayname;		# always caches result
+  print $obj->displayname;              # always caches result
 
   ## tiehash interface
   use VCS::CMSynergy ':tied_objects';
   $ccm = VCS::CMSynergy->new(%attr);
   ...
-  print $obj->{comment};	
-  $obj->{comment} = "blurfl";	
+  print $obj->{comment};        
+  $obj->{comment} = "blurfl";   
   # same as:
   #   print $ccm->get_attribute(comment => $obj);
   #   $ccm->set_attribute(comment => $obj, "blurfl");
@@ -52,7 +52,7 @@ VCS::CMSynergy::Object - convenience wrapper to treat objectnames as an object
 
 This synopsis only lists the major methods.
 
-=cut 
+=cut
 
 use base qw(Class::Accessor::Fast);
 __PACKAGE__->mk_ro_accessors(qw/objectname ccm/);
@@ -65,17 +65,17 @@ use Types::Standard qw( slurpy Str ArrayRef );
 # NOTE: We can't just alias string conversion to objectname()
 # as it is called (as overloaded operator) with three arguments
 # which Class::Accessor's ro accessors dont't like.
-use overload 
-    '""'	=> sub { $_[0]->objectname },
-    cmp		=> sub { $_[0]->objectname cmp $_[1]->objectname },
-    fallback	=> 1;
+use overload
+    '""'        => sub { $_[0]->objectname },
+    cmp         => sub { $_[0]->objectname cmp $_[1]->objectname },
+    fallback    => 1;
 
 my $have_weaken = eval "use Scalar::Util qw(weaken); 1";
 
 
 my %cvtype2subclass = qw(
     baseline          Baseline
-    project	      Project
+    project           Project
     project_grouping  ProjectGrouping
     process_rule      ProcessRule
     tset              Tset
@@ -89,15 +89,11 @@ my %dont_cache = map { $_ => 1 } qw( objectname name version cvtype instance );
 # factory method
 sub new
 {
-    unless (@_ == 3)
-    {
-	carp(__PACKAGE__ . "::new: illegal number of arguments");
-	return;
-    }
     my ($class, $ccm, $objectname) = @_;
+    croak(__PACKAGE__ . "::new: illegal number of arguments") unless @_ == 3;
 
     return $ccm->set_error("invalid objectname `$objectname'")
-	unless $objectname =~ /$ccm->{objectname_rx}/;
+        unless $objectname =~ /$ccm->{objectname_rx}/;
 
     # canonicalize delimiter to colon
     $objectname =~ s/$ccm->{delimiter_rx}/:/;
@@ -114,22 +110,22 @@ sub new
 
     if (my $subclass = $cvtype2subclass{ (split(":", $objectname))[2] })
     {
-	require "VCS/CMSynergy/$subclass.pm";
-	$class = "VCS::CMSynergy::$subclass";
+        require "VCS/CMSynergy/$subclass.pm";
+        $class = "VCS::CMSynergy::$subclass";
     }
 
     my $self;
     if (VCS::CMSynergy::use_tied_objects())
     {
-	$self = bless {}, $class;
-	tie %$self, 'VCS::CMSynergy::ObjectTieHash', \%fields;
+        $self = bless {}, $class;
+        tie %$self, 'VCS::CMSynergy::ObjectTieHash', \%fields;
     }
     else
     {
-	$self = bless \%fields, $class;
+        $self = bless \%fields, $class;
     }
 
-    # remember new object 
+    # remember new object
     $ccm->{objects}->{$objectname} = $self;
 
     return $self;
@@ -143,8 +139,8 @@ sub cvtype      { return (split(":", shift->objectname))[2] }
 sub instance    { return (split(":", shift->objectname))[3] }
 
 # convenience methods for frequently used tests
-sub is_dir	{ return shift->cvtype eq "dir"; }
-sub is_project	{ return shift->cvtype eq "project"; }
+sub is_dir      { return shift->cvtype eq "dir"; }
+sub is_project  { return shift->cvtype eq "project"; }
 
 
 # NOTE: All access to a VCS::CMSynergy::Objects data _must_ either use
@@ -156,7 +152,7 @@ sub is_project	{ return shift->cvtype eq "project"; }
 # redefined in ObjectTieHash.pm.
 
 # access to private parts
-sub _private 	{ return shift; }
+sub _private    { return shift; }
 
 sub mydata
 {
@@ -178,8 +174,8 @@ sub get_attribute
 
     if (VCS::CMSynergy::use_cached_attributes())
     {
-	my $acache = $self->_private->{acache};
-	return $acache->{$name} if exists $acache->{$name};
+        my $acache = $self->_private->{acache};
+        return $acache->{$name} if exists $acache->{$name};
     }
 
     my $value = $self->ccm->get_attribute($name, $self);
@@ -223,7 +219,7 @@ sub delete_attribute
 
     # update attribute cache if necessary
     # NOTE: the attribute may have reverted from local back to inherited
-    $self->_forget_acache($name) if $rc; 	
+    $self->_forget_acache($name) if $rc;        
 
     return $rc;
 }
@@ -231,7 +227,7 @@ sub delete_attribute
 sub copy_attribute
 {
     my $self = shift;
-    my ($names, $to_file_specs) = 
+    my ($names, $to_file_specs) =
         validate(\@_, (Str | ArrayRef[Str]), slurpy ArrayRef);
     $names = [ $names ] unless ref $names;
 
@@ -242,26 +238,26 @@ sub copy_attribute
 
     if (VCS::CMSynergy::use_cached_attributes())
     {
-	my @objects = grep { UNIVERSAL::isa($_, 'VCS::CMSynergy') } @$to_file_specs;
-	my $acache = $self->_private->{acache};
+        my @objects = grep { UNIVERSAL::isa($_, 'VCS::CMSynergy') } @$to_file_specs;
+        my $acache = $self->_private->{acache};
 
-	foreach my $name (@$names)
-	{
-	    if ($rc && exists $acache->{$name})
-	    {
-		# if we already know the value of the copied attribute(s)
-		# and the copy was successful, update the targets' caches
-		my $value = $acache->{$name};
-		$_->_update_acache($name => $value) foreach @objects;
-	    }
-	    else
-	    {
-		# in all other cases, invalidate the targets' caches
-		# (esp. in case of failure, since we can't know 
-		# which got actually updated)
-		$_->_forget_acache($name) foreach @objects;
-	    }
-	}
+        foreach my $name (@$names)
+        {
+            if ($rc && exists $acache->{$name})
+            {
+                # if we already know the value of the copied attribute(s)
+                # and the copy was successful, update the targets' caches
+                my $value = $acache->{$name};
+                $_->_update_acache($name => $value) foreach @objects;
+            }
+            else
+            {
+                # in all other cases, invalidate the targets' caches
+                # (esp. in case of failure, since we can't know
+                # which got actually updated)
+                $_->_forget_acache($name) foreach @objects;
+            }
+        }
     }
 
     return $rc;
@@ -341,7 +337,7 @@ sub cvid
 sub cat_object
 {
     my $self = shift;
-    # NOTE: careful here to correctly handle the case when 
+    # NOTE: careful here to correctly handle the case when
     # no destination was given
     return $self->ccm->cat_object($self, @_);
 }
@@ -356,15 +352,15 @@ sub AUTOLOAD
 
     # NOTE: the fully qualified name of the method has been placed in $AUTOLOAD
     my ($class, $method) = $AUTOLOAD =~ /^(.*)::([^:]*)$/;
-    return if $method eq 'DESTROY'; 
+    return if $method eq 'DESTROY';
 
     # we don't allow autoload of class methods
     croak("Can't locate class method \"$method\" via class \"$class\"")
-	unless ref $this;
+        unless ref $this;
 
     if ($method =~ /^(?:is_.*_of|has_.*)$/)
     {
-	return $this->ccm->query_object("$method('$this')", @_);
+        return $this->ccm->query_object("$method('$this')", @_);
     }
     croak("Can't locate object method \"$method\" via class \"$class\"");
 }
@@ -403,7 +399,7 @@ When L<VCS::CMSynergy/:cached_attributes> is in effect,
 a C<VCS::CMSynergy::Object> keeps a "demand loaded"
 cache of attribute names and values.
 
-There is also a L</TIEHASH INTERFACE> for 
+There is also a L</TIEHASH INTERFACE> for
 manipulating an object's attributes using the hash notation.
 
 =head1 BASIC METHODS
@@ -434,12 +430,12 @@ for any method that returns C<VCS::CMSynergy::Object>s
 (by calling C<new> implicitly), e.g. L<VCS::CMSynergy/object> or
 L<VCS::CMSynergy/query_object>.
 
-=head2 objectname 
+=head2 objectname
 
   print $obj->objectname;
 
 Returns the object's complete name in I<object reference form>,
-i.e. C<"name:version:cvtype:instance">. 
+i.e. C<"name:version:cvtype:instance">.
 Note that the delimiter between name and version is canonicalized to a colon,
 i.e. independent of the value of database delimiter.
 
@@ -457,7 +453,7 @@ Returns the object's I<name>, I<version>, I<type>, or I<instance>, resp.
 C<VCS::CMSynergy::Object> overloads string conversion with
 L</objectname>, i.e. the following expressions evaluate to the same string:
 
-  "$obj"  
+  "$obj"
   $obj->objectname
 
 This makes it possible to use a C<VCS::CMSynergy::Object> throughout
@@ -486,10 +482,10 @@ A convenience wrapper for L<VCS::CMSynergy/cat_object>.
 
 =head2 mydata
 
-Sometimes it is handy to be able to store some arbitrary data 
+Sometimes it is handy to be able to store some arbitrary data
 into a C<VCS::CMSynergy::Object>. This method returns a reference
 to a hash associated with the object. It is totally opaque
-w.r.t. Synergy operations. 
+w.r.t. Synergy operations.
 
 =head1 ATTRIBUTE METHODS
 
@@ -507,7 +503,7 @@ is syntactic sugar for
 
   print $ccm->get_attribute("comment", $obj);
 
-If you are C<use>ing L<VCS::CMSynergy/:cached_attributes>, 
+If you are C<use>ing L<VCS::CMSynergy/:cached_attributes>,
 these methods maintain a cache
 of attribute names and values in the object. Note that this cache
 is only consulted if you use C<VCS::CMSynergy::Object> methods
@@ -520,7 +516,7 @@ on the same object.
   $obj->create_attribute($attribute_name, $attribute_type, $value);
   $obj->delete_attribute($attribute_name);
 
-Convenience wrappers for L<VCS::CMSynergy/create_attribute> and  
+Convenience wrappers for L<VCS::CMSynergy/create_attribute> and
 L<VCS::CMSynergy/delete_attribute>, resp. Also update the cache
 when L<VCS::CMSynergy/:cached_attributes> is in effect.
 
@@ -541,10 +537,10 @@ to update or invalidate attribute caches.
 
   $hashref = $obj->list_attributes;
 
-Convenience wrapper for L<VCS::CMSynergy/list_attributes>. 
+Convenience wrapper for L<VCS::CMSynergy/list_attributes>.
 
 Note that the returned hash is always cached in the object
-(and updated for successful L</create_attribute> and 
+(and updated for successful L</create_attribute> and
 L</delete_attribute> calls).
 
 =head2 exists
@@ -574,7 +570,7 @@ Convenience wrapper for L<VCS::CMSynergy/property>, equivalent to
 Short hand for C<< $obj->property("displayname") >> or
 C<< $obj->property("cvid") >>, resp. However, these two methods
 cache their return value in the C<VCS::CMSynergy::Object>
-(because it is immutable). 
+(because it is immutable).
 If L<VCS::CMSynergy/:cached_attributes> is in effect, the cache
 may be primed using L<VCS::CMSynergy/query_object> or similar methods, e.g.
 
@@ -607,30 +603,30 @@ returns exactly the same as
 See the Synergy documentation for the built-in relations. Note that it's
 not considered an error to use a non-existing relation, the methods
 will simply return (a reference to) an empty list.
-This is consistent with the behaviour of B<ccm query> in this case.
+This is consistent with the behavior of B<ccm query> in this case.
 
 =head1 TIEHASH INTERFACE
 
   use VCS::CMSynergy ':tied_objects';
   ...
-  print $obj->{comment};	
-  $obj->{comment} = "blurfl";	
+  print $obj->{comment};        
+  $obj->{comment} = "blurfl";   
 
 When C<use>ing L<VCS::CMSynergy/:tied_objects>,
 you can use a C<VCS::CMSynergy::Object> in the same way you
 would use a hash reference. The available keys are the underlying
-Synergy object's attributes. 
+Synergy object's attributes.
 
-Note that contrary to the behaviour of real hashes, keys don't
+Note that contrary to the behavior of real hashes, keys don't
 spring into existence "on demand". Getting or setting the value
 of an attribute that does not exist for the underlying Synergy object
 will return C<undef> or throw an excpetion (depending on your sessions's
-setting of L<VCS::CMSynergy/RaiseError>). 
+setting of L<VCS::CMSynergy/RaiseError>).
 However, testing for the existence of an attribute
 with C<exists> works as expected.
 
 NOTE: When using L<VCS::CMSynergy/:tied_objects>, it is strongly recommended
-to have L<Scalar::Util|"the Scalar::Util module"> 
+to have L<Scalar::Util|"the Scalar::Util module">
 installed.  See L<Why is Scalar::Util recommended?> for an explanation.
 
 =head2 FETCH, STORE
@@ -655,7 +651,7 @@ of the key (attribute) given.
 
 These methods use L</list_attributes> to obtain a list of attributes and then
 iterate over this list. Hence C<keys>, C<values>, and C<each>
-all work as expected. 
+all work as expected.
 
 Warning: Enumerating the keys (i.e. attribute names) of a
 tied  C<VCS::CMSynergy::Object>
@@ -674,19 +670,19 @@ Every C<VCS::CMSynergy::Object> keeps a reference to the session
 (a C<VCS::CMSynergy>) where it was created in. It needs this "back pointer"
 so it can implement methods that invoke Synergy operations,
 e.g. L</get_attribute>. These references can
-prevent the timely garbage collection of a session (esp. 
-B<ccm stop> called from L<VCS::CMSynergy/DESTROY>) if a  
+prevent the timely garbage collection of a session (esp.
+B<ccm stop> called from L<VCS::CMSynergy/DESTROY>) if a
 C<VCS::CMSynergy::Object> has a longer lifetime than its session.
 (The latter is actually a programmer error, but there's no way
 to enforce the correct lifetime rule.)
 To work around this we need to make the session reference
-not count w.r.t. to garbage collection. We use L<Scalar::Util/weaken> 
-for that. If the C<VCS::CMSynergy> object goes away B<before> 
+not count w.r.t. to garbage collection. We use L<Scalar::Util/weaken>
+for that. If the C<VCS::CMSynergy> object goes away B<before>
 the C<VCS::CMSynergy::Object> gets destroyed, its session reference
-will become C<undef>. 
+will become C<undef>.
 Any method called on the C<VCS::CMSynergy::Object> after this point
-that tries to invoke a session method 
-will result in a (rightly deserved) error 
+that tries to invoke a session method
+will result in a (rightly deserved) error
 (C<Can't call method "..." on an undefined value>).
 
 =head1 SEE ALSO

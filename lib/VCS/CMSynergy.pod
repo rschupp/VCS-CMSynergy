@@ -55,7 +55,7 @@ described in L<VCS::CMSynergy::Users>.
     or die "checkout failed: ".$ccm->error;
 
   my $csrcs = $ccm->query_hashref("type = 'csrc'",
-				  qw(displayname modify_time));
+                                  qw(displayname modify_time));
   if ($csrcs)
   {
     print "$_->{displayname} $_->{modify_time}\n" foreach (@$csrcs);
@@ -230,7 +230,7 @@ to false.
 
 This attribute can be used to force errors to generate warnings (using
 L<carp|Carp/carp>) in addition to returning error codes in the normal way.  
-When set to true, any method which results in an error occuring will cause
+When set to true, any method which results in an error occurring will cause
 the corresponding C<< $ccm->error >> to be printed to stderr.
 
 It defaults to true.
@@ -270,7 +270,7 @@ The same logic applies to other attributes, including C<PrintError>.
 =item C<HandleError> (code ref)
 
 This attribute can be used to provide your own
-alternative behaviour in case of errors. If set to a
+alternative behavior in case of errors. If set to a
 reference to a subroutine then that subroutine is called
 when an error is detected (at the same point that
 L</RaiseError> and L</PrintError> are handled).
@@ -389,7 +389,7 @@ each session will be stopped as soon as one loop through the C<foreach>
 body is completed, i.e. there is at most one session in progress
 at any one time:
 
-  my @databases = ...;		# a list of Synergy databases
+  my @databases = ...;          # a list of Synergy databases
   foreach my $db (@databases)
   {
     my $ccm = VCS::CMSynergy->new( database => $db, ... );
@@ -569,11 +569,11 @@ returns (as formatted by L<Data::Dumper>):
 
   $result = [
     [
-      'main.c-1:csrc:3',	# objectname
-      {				# finduse
-	 'guilib-1.0'	=> 'guilib/sources/main.c',
-	 'guilib-int'	=> 'guilib/sources/main.c',
-	 'guilib-darcy'	=> 'guilib/sources/main.c'
+      'main.c-1:csrc:3',        # objectname
+      {                         # finduse
+         'guilib-1.0'   => 'guilib/sources/main.c',
+         'guilib-int'   => 'guilib/sources/main.c',
+         'guilib-darcy' => 'guilib/sources/main.c'
       }
     ],
     ...
@@ -674,7 +674,7 @@ using C<query_arrayref>:
   {
     my ($self, $query) = @_;
     my $ary = $self->query_arrayref($query, 'object') or return;
-    [ map { $_->[0] } @$ary ];	# project onto first (and only) column
+    [ map { $_->[0] } @$ary ];  # project onto first (and only) column
   }
 
 Calling C<query_object> with an optional list of C<@keywords> 
@@ -907,14 +907,14 @@ Example (recreate the output of the B<ccm finduse> command):
     print "$desc\n";
     if (keys %$uses)
     {
-	while (my ($proj_vers, $path) = each %$uses)
-	{
-	  print "\t$path\@$proj_vers\n"
-	}
+        while (my ($proj_vers, $path) = each %$uses)
+        {
+          print "\t$path\@$proj_vers\n"
+        }
     }
     else
     {
-	print "\tObject is not used in scope.\n";
+        print "\tObject is not used in scope.\n";
     }
   }
 
@@ -1276,13 +1276,13 @@ and ouput for identical objects is suppressed.
 
   {
     package SimpleDiffer;
-    sub new	{ my ($class) = @_; bless {}, $class; }
-    sub added	{ my ($self, $path, $new) = @_; 
+    sub new     { my ($class) = @_; bless {}, $class; }
+    sub added   { my ($self, $path, $new) = @_; 
                   print "+ $path $new\n"; }
-    sub deleted	{ my ($self, $path, $old) = @_; 
+    sub deleted { my ($self, $path, $old) = @_; 
                   print "- $path $old\n"; }
-    sub changed	{ my ($self, $path, $old, $new) = @_; 
-	          print "! $path $old $new\n"; }
+    sub changed { my ($self, $path, $old, $new) = @_; 
+                  print "! $path $old $new\n"; }
   }
   ...
   $ccm->project_diff({ hide_sub_trees => 1 }, 
@@ -1428,7 +1428,7 @@ a subset of the following strings: C<"append">, C<"subproj">,
 C<"suball">, e.g.
 
   $ccm->copy_attribute($attr_name, [ qw(subproj suball) ], 
-  	               "proja-1.0:project:1", "projb-1.0:project:1");
+                       "proja-1.0:project:1", "projb-1.0:project:1");
 
 Cf. the Synergy documentation on the I<attribute command>
 for the meaning of these flags.
@@ -1495,7 +1495,7 @@ primed for the attributes listed in C<@keywords>. You could also
 view it as a fancy form of C<properties_hashref> where we don't store
 the attributes values of C<@keywords> in some anonymous hash,
 but rather in the corresponding object.
-This is similar to the behaviour of L<query_object>.
+This is similar to the behavior of L<query_object>.
 
 For consistency, both C<property_hashref> 
 and C<properties_object> return a reference to an empty array
@@ -1841,7 +1841,7 @@ in the database, use L<VCS::CMSynergy::Object/exists> for that.
 =head2 baseline_object, cr_object, folder_object, project_object, task_object, tset_object
 
   $baseline_obj = $ccm->baseline_object("toolkit_2.0_INT_1");
-  $cr_obj = $ccm->cr_object("42");		# when using Rational Change
+  $cr_obj = $ccm->cr_object("42");              # when using Rational Change
   $folder_obj = $ccm->folder_object("123");
   $proj_obj = $ccm->project_object("toolkit-darcy");
   $task_obj = $ccm->task_object("456#mydb");
@@ -1927,7 +1927,7 @@ These return the C<VCS::CMSynergy::Object> corresponding to the model objects:
 
   base-1:admin:base
   base-1:model:base
-  cs-1:admin:1			# SYNERGY/Change enabled databases only
+  cs-1:admin:1                  # SYNERGY/Change enabled databases only
   dcm-1:admin:dcm
 
 =item C<cvtype>, C<attype>

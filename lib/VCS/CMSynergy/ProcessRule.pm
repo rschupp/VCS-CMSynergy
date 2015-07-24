@@ -12,7 +12,7 @@ VCS::CMSynergy::ProcessRule - convenience methods for C<VCS::CMSynergy::Object>s
 
 =head1 SYNOPSIS
 
-C<VCS::CMSynergy::ProcessRule> is a subclass of 
+C<VCS::CMSynergy::ProcessRule> is a subclass of
 L<C<VCS::CMSynergy::Object>|VCS::CMSynergy::Object>
 with additional methods for Synergy I<process_rules>.
 
@@ -24,7 +24,7 @@ with additional methods for Synergy I<process_rules>.
 
   $projects = $pr->show_object("baseline_projects");
 
-=cut 
+=cut
 
 use base qw(VCS::CMSynergy::Object);
 
@@ -38,10 +38,10 @@ use Cwd;
   $aref = $pr->show_hashref($what, @keywords);
   $aref = $pr->show_object($what, @keywords);
 
-These two methods are convenience wrappers for 
+These two methods are convenience wrappers for
 B<ccm process_rule -show $what>. For return values and the
 meaning of the optional C<@keywords> parameters see the descriptions
-of L<query_hashref|VCS::CMSynergy/"query_arrayref, query_hashref"> 
+of L<query_hashref|VCS::CMSynergy/"query_arrayref, query_hashref">
 and L<query_object|VCS::CMSynergy/query_object>.
 
 The following strings can be used for C<$what>, see the Synergy documentation

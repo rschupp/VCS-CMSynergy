@@ -3,11 +3,11 @@ package VCS::CMSynergy;
 # Copyright (c) 2001-2015 argumentum GmbH
 # See COPYRIGHT section in VCS/CMSynergy.pod for usage and distribution rights.
 
-our $VERSION = '1.50';
-
 use 5.008_001;                          # i.e. v5.8.1
 use strict;
 use warnings;
+
+our $VERSION = '1.50';
 
 use VCS::CMSynergy::Client qw(
     is_win32 _fullwin32path $Error $Ccm_command _error);
@@ -1912,7 +1912,7 @@ sub _text_to_tempfile
     my $fh;
     if ($self->{_tempfile})
     {
-        open $fh, "> $self->{_tempfile}"
+        open $fh, ">", $self->{_tempfile}
             or return $self->set_error(qq[can't open temp file "$self->{_tempfile}": $!]); #'
     }
     else

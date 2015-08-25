@@ -2029,15 +2029,7 @@ sub AUTOLOAD
 
     # create the new method on the fly
     no strict 'refs';
-    *{$method} = sub 
-    {
-        my $self = shift;
-
-        my ($rc, $out, $err) = $self->_ccm($method, @_);
-
-        return wantarray ? ($rc, $out, $err) : 1 if $rc == 0;
-        return $self->set_error($err || $out, undef, 0, $rc, $out, $err);
-    };
+    *{$method} = sub { return shift->ccm($method, @_) };
 
     # call it w/o pushing a new stack frame (with same parameters)
     goto &$method;

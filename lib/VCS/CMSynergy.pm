@@ -1715,15 +1715,27 @@ sub cat_object
 
     my $want_return = @_ == 1;
     my ($file_spec, $destination) = 
-        validate(\@_, _FILE_SPEC, Optional[Str | GlobRef | FileHandle | ScalarRef | ArrayRef | CodeRef]);
+        validate(\@_, _FILE_SPEC, Optional[Str | GlobRef | FileHandle | ScalarRef]);
 
     my $out;
     $destination = \$out if $want_return;
 
     my ($rc, undef, $err) = $self->_ccm(
-        cat => $file_spec, { out => $destination, binmode_stdout => 1 });
+        cat => $file_spec, 
+        { out => $destination, binmode_stdout => ':raw' });
 
-    return $self->set_error($err || "`ccm cat $file_spec' failed") unless $rc == 0;
+    if (get_logger()->is_trace)
+    {
+        TRACE 
+            ref $destination eq ""
+            ? sprintf("-> out written to file \"%s\"", $destination) :
+            ref $destination eq "SCALAR"
+            ? sprintf("-> out captured to string (%d bytes)", length($$destination)) 
+            : "-> out redirected to filehandle";
+    }
+
+    return $self->set_error($err || "`ccm cat $file_spec' failed") 
+        unless $rc == 0;
     return $want_return ? $out : 1;
 }
 

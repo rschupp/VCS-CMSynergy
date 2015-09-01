@@ -1549,15 +1549,6 @@ the contents will be written into a file named C<$destination>
 
 the contents will be written into the buffer (string) C<$$destination> 
 
-=item ARRAY reference
-
-the contents will be split into lines and assiged to C<@$destination> 
-
-=item CODE reference
-
-the contents will be split into lines and C<&$destination> will be
-called for each line (with the line as the single argument)
-
 =item file handle or GLOB reference
 
 the contents will be written (C<print>ed) onto the file handle

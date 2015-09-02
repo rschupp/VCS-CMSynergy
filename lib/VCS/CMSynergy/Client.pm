@@ -193,11 +193,22 @@ sub _ccm
     $Error = $this->{error} = undef;
     $Ccm_command = $this->{ccm_command} = join(" ", @_);
 
-    my %ropts = %$opts;
-    my $rin  = exists $ropts{in}  ? delete $ropts{in}  : \undef;
-    my $rout = exists $ropts{out} ? delete $ropts{out} : do { my $s; \$s };
-    my $rerr = exists $ropts{err} ? delete $ropts{err} : do { my $s; \$s };
-    my $rc;
+
+    my ($rc, $out, $err);
+    my %default_opts = 
+    (
+        in      => \undef,
+        out     => \$out,
+        err     => \$err,
+    );
+    if ($this->{utf8})
+    {
+        $default_opts{$_} = ":utf8" foreach qw( binmode_stdin binmode_stdout binmode_stderr );
+    }
+
+    # let settings in %$opts override those in %default_opts
+    my %run_opts = (%default_opts, %$opts);
+    my ($run_in, $run_out, $run_err) = delete @run_opts{qw(in out err)};
 
     my $t0 = [ Time::HiRes::gettimeofday() ];
 
@@ -245,7 +256,7 @@ sub _ccm
                     or return _error("expect error: ".$this->{coprocess}->error);
 
                 # on Windows, treat output as if read in "text" mode
-                $$rout = $this->{coprocess}->before;
+                $$run_out = $this->{coprocess}->before;
 
                 $this->{coprocess}->print("set error\n");
                 $this->{coprocess}->expect(undef, -re => $ccm_prompt)
@@ -253,24 +264,25 @@ sub _ccm
                 my $set = $this->{coprocess}->before;
                 ($rc) = $set =~ /^(\d+)/
                     or return _error("unrecognized result from `set error': $set");
-                ($rc, $$rerr) = ($rc << 8, "");         # fake $?
+                ($rc, $$run_err) = ($rc << 8, "");         # fake $?
                 last CCM;
             }
         }
 
         # simple ccm sub process
-        $rc = $this->run([ $this->ccm_exe, @_ ], $rin, $rout, $rerr, \%ropts);
+        $rc = $this->run([ $this->ccm_exe, @_ ], 
+                         $run_in, $run_out, $run_err, \%run_opts);
     }
 
     unless (exists $opts->{out})
     {
-        $$rout =~ s/\015\012/\012/g if is_win32;        # as if read in :crlf mode
-        $$rout =~ s/\n\z//;                             # chomp
+        $$run_out =~ s/\015\012/\012/g if is_win32;     # as if read in :crlf mode
+        $$run_out =~ s/\n\z//;                          # chomp
     }
     unless (exists $opts->{err})
     {
-        $$rerr =~ s/\015\012/\012/g if is_win32;        # as if read in :crlf mode
-        $$rerr =~ s/\n\z//;                             # chomp
+        $$run_err =~ s/\015\012/\012/g if is_win32;     # as if read in :crlf mode
+        $$run_err =~ s/\n\z//;                          # chomp
     }
 
     if (Log::Log4perl->initialized)
@@ -284,8 +296,8 @@ sub _ccm
         if (get_logger()->is_trace)
         {
             TRACE "-> rc = $rc [$elapsed sec]";
-            TRACE "-> out = \"$$rout\"\n" unless exists $opts->{out};
-            TRACE "-> err = \"$$rerr\"\n" unless exists $opts->{err};
+            TRACE "-> out = \"$$run_out\"\n" unless exists $opts->{out};
+            TRACE "-> err = \"$$run_err\"\n" unless exists $opts->{err};
         }
         else
         {
@@ -294,10 +306,12 @@ sub _ccm
         }
     }
 
-    $this->{out} = $$rout unless exists $opts->{out};
-    $this->{err} = $$rerr unless exists $opts->{err};
+    $this->{out} = $$run_out unless exists $opts->{out};
+    $this->{err} = $$run_err unless exists $opts->{err};
 
-    return ($rc, exists $opts->{out} ? undef : $$rout, exists $opts->{err} ? undef : $$rerr);
+    return ($rc, 
+            exists $opts->{out} ? undef : $$run_out, 
+            exists $opts->{err} ? undef : $$run_err);
 }
 
 sub run

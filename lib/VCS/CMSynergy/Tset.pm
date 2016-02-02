@@ -60,7 +60,7 @@ Equivalent to "-members all".
 
 =cut
 
-# don't blame errors from _check_one_of below on one of these
+# don't blame errors from _must_be_one_of below on one of these
 use vars qw(@ISA);
 our @CARP_NOT = ("VCS::CMSynergy", @ISA);
 
@@ -68,7 +68,7 @@ sub _show
 {
     my ($self, $what, $keywords, $row_type) = @_;
 
-    VCS::CMSynergy::_check_one_of($what, qw( direct_members all_members ));
+    VCS::CMSynergy::_must_be_one_of($what, qw( direct_members all_members ));
     $what =~ s/_members$//;
 
     return $self->ccm->_generic_show(

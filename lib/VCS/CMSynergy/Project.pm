@@ -39,7 +39,7 @@ use Types::Standard qw( Str Optional InstanceOf Maybe
 use File::Spec;
 use Cwd;
 
-# don't blame errors from _check_one_of below on one of these
+# don't blame errors from _must_be_one_of below on one of these
 use vars qw(@ISA);
 our @CARP_NOT = ("VCS::CMSynergy", @ISA);
 
@@ -558,6 +558,8 @@ sub project_grouping
 sub process_rule
 {
     my $self = shift;
+    # NOTE: The relation from project to process rule is still called
+    # "reconfigure_template".
     return $self->is_reconfigure_template_of(@_)->[0];
 }
 
@@ -626,6 +628,11 @@ sub top_dir
 =head1 MISCELLANEOUS
 
 =head2 show_reconfigure_properties
+
+Note: This method is obsolete in Synergy 7.2 and up, as the underlying
+command C<ccm reconfigure_properties> doesn't exist anymore.
+Use L<show_object|VCS::CMSynergy::ProjectGrouping/"show">
+on the project's I<project grouping> to obtain similar information.
 
   $objects = $proj->show_reconfigure_properties($what, @keywords, \%options);
 
@@ -699,7 +706,7 @@ sub show_reconfigure_properties
     my $opts = @_ && ref $_[-1] eq "HASH" ? pop : {};
     my ($what, $keywords) = validate(\@_, Str, VCS::CMSynergy::_KEYWORDS());
 
-    VCS::CMSynerygy::_check_one_of($what, qw( tasks folders tasks_and_folders all_tasks objects );
+    VCS::CMSynergy::_must_be_one_of($what, qw( tasks folders tasks_and_folders all_tasks objects ));
 
     my $want = VCS::CMSynergy::_want(1, $keywords);
     my $format = $VCS::CMSynergy::RS . join($VCS::CMSynergy::FS, values %$want) . $VCS::CMSynergy::FS;

@@ -74,7 +74,7 @@ tasks
 
 =cut
 
-# don't blame errors from _check_one_of below on one of these
+# don't blame errors from _must_be_one_of below on one of these
 use vars qw(@ISA);
 our @CARP_NOT = ("VCS::CMSynergy", @ISA);
 
@@ -82,7 +82,7 @@ sub _show
 {
     my ($self, $what, $keywords, $row_type) = @_;
 
-    VCS::CMSynergy::_check_one_of($what,
+    VCS::CMSynergy::_must_be_one_of($what,
         qw( change_requests component_tasks
             fully_included_change_requests partially_included_change_requests
             projects objects tasks ));

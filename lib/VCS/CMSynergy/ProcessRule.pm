@@ -62,7 +62,7 @@ folder_templates
 
 =cut
 
-# don't blame errors from _check_one_of below on one of these
+# don't blame errors from _must_be_one_of below on one of these
 use vars qw(@ISA);
 our @CARP_NOT = ("VCS::CMSynergy", @ISA);
 
@@ -70,7 +70,7 @@ sub _show
 {
     my ($self, $what, $keywords, $row_type) = @_;
 
-    VCS::CMSynergy::_check_one_of($what, qw( baseline_projects folders folder_templates );
+    VCS::CMSynergy::_must_be_one_of($what, qw( baseline_projects folders folder_templates );
 
     return $self->_generic_show(
         [ process_rule => $self, -show => $what ], $keywords, $row_type);

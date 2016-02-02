@@ -2011,7 +2011,7 @@ sub _projspec2objectname
     return $project;
 }
 
-sub _check_one_of
+sub _must_be_one_of
 {
     my ($what, @choices) = @_;
     croak(qq["$what" must be one of ].join(", ", @choices))

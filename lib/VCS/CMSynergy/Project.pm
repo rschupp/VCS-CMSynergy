@@ -348,7 +348,7 @@ sub traverse
     local @VCS::CMSynergy::Traversal::_projects = ($self);
     local @VCS::CMSynergy::Traversal::_dirs = ();
     local $VCS::CMSynergy::Traversal::_pathsep =
-        (delete $wanted{pathsep}) || VCS::CMSynergy::Client::_pathsep;
+        (delete $wanted{pathsep}) || VCS::CMSynergy::Client::_pathsep();
 
     $self->_traverse(\%wanted, $dir);
 }

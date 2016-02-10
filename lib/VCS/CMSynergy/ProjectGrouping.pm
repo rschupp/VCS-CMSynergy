@@ -93,7 +93,7 @@ sub _show
     VCS::CMSynergy::_must_be_one_of($what,
         qw( added_tasks all_tasks automatic_tasks
             baseline folders objects projects
-            removed_tasks tasks_on_top_of_baseline );
+            removed_tasks tasks_on_top_of_baseline ));
 
     return $self->_generic_show(
         [ project_grouping => $self, -show => $what ], $keywords, $row_type);

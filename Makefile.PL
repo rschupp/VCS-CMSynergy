@@ -79,6 +79,7 @@ no_index        package =>
 
 # --- Dependencies
 
+dynamic_config  0;
 requires	'perl'			=> '5.008001';
 requires	'Class::Accessor::Fast' => 0;
 requires        'Tie::CPHash'           => 0;
@@ -93,7 +94,6 @@ requires	'Scalar::Util'		=> '1.09';
 requires	'Time::HiRes'		=> 0;
 requires	'Type::Params'		=> 0;
 requires	'Types::Standard'	=> 0;
-
 test_requires	'Test::More'		=> 0;
 
 # --- Build data
@@ -143,16 +143,6 @@ ZZ
 	    close $zz or warn "Error writing $zz_test: $!";
 	}
     }
-
-    return "";
-}
-
-sub post_initialize
-{
-    my $self = shift;
-
-    # don't install Changes.pod as man page
-    delete $self->{MAN3PODS}->{'lib/VCS/CMSynergy/Changes.pod'};
 
     return "";
 }

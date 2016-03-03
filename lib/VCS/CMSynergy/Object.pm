@@ -338,7 +338,7 @@ sub cat_object
 {
     my $self = shift;
     # NOTE: careful here to correctly handle the case when
-    # no destination was given
+    # no destination was given and to preserve the calling context
     return $self->ccm->cat_object($self, @_);
 }
 
@@ -362,6 +362,13 @@ sub AUTOLOAD
     {
         return $this->ccm->query_object("$method('$this')", @_);
     }
+
+    if ($method =~ /^recursive_(?:is_.*_of|has_.*)$/)
+    {
+        my $inclusive = shift ? "TRUE" : "FALSE";
+        return $this->ccm->query_object("$method('$this',$inclusive)", @_);
+    }
+
     croak("Can't locate object method \"$method\" via class \"$class\"");
 }
 

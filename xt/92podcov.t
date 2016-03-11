@@ -8,9 +8,8 @@ plan $@ ?
     (skip_all => "Test::Pod::Coverage 1.00 required for testing pod coverage") :
     (tests => 9);
 
-pod_coverage_ok("VCS::CMSynergy",                   # TODO, obsolete
-    { trustme => [qw(full_history_arrayref full_history_hashref
-                     query_object_with_attributes)] });
+pod_coverage_ok("VCS::CMSynergy",                   
+    { trustme => [qw(query_object_with_attributes)] }); # obsolete
 pod_coverage_ok("VCS::CMSynergy::Client",
     { also_private => [ qr/^ccm$/, qr/^start$/ ] });
 pod_coverage_ok("VCS::CMSynergy::Helper");

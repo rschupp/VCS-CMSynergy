@@ -1,3 +1,9 @@
+1.51  2016-04-02 
+  
+  [Bug fixes]
+  - fix a syntax error with all perl versions < 5.22
+  - fix calls to _generic_show()
+
 1.50  2016-04-02
 
   [Bug fixes]

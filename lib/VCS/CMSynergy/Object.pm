@@ -365,7 +365,7 @@ sub AUTOLOAD
 
     if ($method =~ /^recursive_(?:is_.*_of|has_.*)$/)
     {
-        my $inclusive = shift ? "TRUE" : "FALSE";
+        my $inclusive = (shift) ? "TRUE" : "FALSE";
         return $this->ccm->query_object("$method('$this',$inclusive)", @_);
     }
 

@@ -1,6 +1,6 @@
 #!/usr/bin/perl -w
 
-use Test::More tests => 55;
+use Test::More tests => 47;     # 11 + (10 + 8) * %objects
 use xt::util;
 use strict;
 
@@ -146,24 +146,6 @@ foreach my $name (keys %objects)
     ok($ccm->cat_object($obj, $fh), q[cat_object to filehandle]);
     close $fh;
     is(md5_file($tmpfile2), $md5_exp, qq[compare MD5 for $obj]);
-
-    # test second argument of CODE or ARRAY for ascii objects only 
-    # (because these operate by lines)
-    SKIP: 
-    {
-	skip "cat_object to CODE or ARRAY on non-ascii object", 4
-	    unless $obj->get_attribute("super_type") eq "ascii";
-
-	$md5->reset;
-	my @lines;
-	ok($ccm->cat_object($obj, \@lines), q[cat_object to ARRAY]);
-	$md5->add($_) foreach @lines;
-	is($md5->hexdigest, $md5_exp, qq[compare MD5 for $obj]);
-
-	$md5->reset;
-	ok($ccm->cat_object($obj, sub { $md5->add($_); }), q[cat_object to CODE]);
-	is($md5->hexdigest, $md5_exp, qq[compare MD5 for $obj]);
-    }
 }
 
     

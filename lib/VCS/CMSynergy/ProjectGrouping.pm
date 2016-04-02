@@ -95,7 +95,7 @@ sub _show
             baseline folders objects projects
             removed_tasks tasks_on_top_of_baseline ));
 
-    return $self->_generic_show(
+    return $self->ccm->_generic_show(
         [ project_grouping => $self, -show => $what ], $keywords, $row_type);
 }
 

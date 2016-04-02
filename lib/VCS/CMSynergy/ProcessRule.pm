@@ -72,7 +72,7 @@ sub _show
 
     VCS::CMSynergy::_must_be_one_of($what, qw( baseline_projects folders folder_templates ));
 
-    return $self->_generic_show(
+    return $self->ccm->_generic_show(
         [ process_rule => $self, -show => $what ], $keywords, $row_type);
 }
 

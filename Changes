@@ -1,3 +1,46 @@
+1.50  2016-04-02
+
+  [Bug fixes]
+  - avoid problems with Log4perl calls in Perl global destruction phase;
+    symptoms are error messages like this:
+    
+      (in cleanup) Internal error: Root Logger not initialized. at /opt/perl5/perls/perl-5.20.2/lib/site_perl/5.20.2/VCS/CMSynergy/Client.pm line 277.
+      VCS::CMSynergy::Client::_ccm(VCS::CMSynergy=HASH(0x499b148), "stop") called at /opt/perl5/perls/perl-5.20.2/lib/site_perl/5.20.2/VCS/CMSynergy.pm line 346
+      VCS::CMSynergy::DESTROY(VCS::CMSynergy=HASH(0x499b148)) called at ./smint.pl line 0
+
+  [BEWARE - USER VISIBLE CHANGE]
+  - cat_object(): drop array ref and code ref as possible destinations
+
+  [Other changes]
+  - implement Object methods recursive_is_FOO_of() and recursive_has_FOO()
+    (the corresponding query functions appeared in Synergy 7.2)
+
+  - _ccm(): make it possible to read "ccm" stdout/stderr as UTF-8
+    
+  - use ccm() instead of _ccm() for AUTOLOADed methods so that we have 
+    the same behavior wrt exceptions: if you check the return values(s), 
+    no exception will be thrown
+
+  - add a new sub class of VCS::CMSynergy::Object for transfer sets
+
+  - modify *_object() methods to use corresponding query functions
+    - supported Synergy versions now start at 7.x
+    - add optional @keywords parameter
+    - add tset_object(): tset object from transferset name
+
+  - remove full_history* methods: they were never documented and are
+    unnecessary as of Synergy >= 7.2 (where "ccm history" already returns
+    the "full" history
+
+  - update Module::Install to 1.16
+
+  - add a note that show_reconfigure_properties() is obsolete
+    in Synergy 7.2 and up
+
+  - cat_object(): add TRACE message describing the destination
+
+  - fix some warnings from perlcritic
+
 1.49  2015-04-14
 
   [Bug fixes]

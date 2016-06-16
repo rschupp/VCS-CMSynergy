@@ -270,7 +270,7 @@ sub _ccm
 
         # simple ccm sub process
         $rc = $this->run([ $this->ccm_exe, @_ ], 
-                         \undef, $run_out, $run_err, \%run_opts);
+                         $run_out, $run_err, \%run_opts);
     }
 
     unless (exists $opts->{out})
@@ -581,7 +581,7 @@ sub databases
     push @server_status, -s => $servername if defined $servername;
 
     my ($out, $err);
-    my $rc = $this->run(\@server_status, \undef, \$out, \$err);
+    my $rc = $this->run(\@server_status, \$out, \$err);
     chomp ($out, $err);
     return $this->set_error($err || $out) unless $rc == 0;
 
@@ -605,7 +605,9 @@ sub hostname
     unless (exists $Hostname{$ccm_home})
     {
         my ($out, $err);
-        my $rc = $this->run([ File::Spec->catfile($ccm_home, qw/bin util ccm_hostname/) ], \undef, \$out, \$err);
+        my $rc = $this->run(
+            [ File::Spec->catfile($ccm_home, qw/bin util ccm_hostname/) ], 
+            \$out, \$err);
         chomp($out, $err);
         # ignore bogus exit code (seems to be length of output in bytes, arghh)
         $Hostname{$ccm_home} = $out;
@@ -986,7 +988,7 @@ called in scalar or in list context, resp.
 
 =head2 run
 
-  $client->run(\@cmd, $in, $out, $err);
+  $client->run(\@cmd, $out, $err);
 
 Runs C<run3> from L<IPC::Run3> with the given arguments in an
 environment (C<$ENV{CCM_HOME}>, C<$ENV{PATH> etc) set up for C<$client>.

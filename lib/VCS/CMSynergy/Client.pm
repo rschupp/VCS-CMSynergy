@@ -197,7 +197,6 @@ sub _ccm
     my ($rc, $out, $err);
     my %default_opts = 
     (
-        in      => \undef,
         out     => \$out,
         err     => \$err,
     );
@@ -208,7 +207,7 @@ sub _ccm
 
     # let settings in %$opts override those in %default_opts
     my %run_opts = (%default_opts, %$opts);
-    my ($run_in, $run_out, $run_err) = delete @run_opts{qw(in out err)};
+    my ($run_out, $run_err) = delete @run_opts{qw(out err)};
 
     my $t0 = [ Time::HiRes::gettimeofday() ];
 
@@ -271,7 +270,7 @@ sub _ccm
 
         # simple ccm sub process
         $rc = $this->run([ $this->ccm_exe, @_ ], 
-                         $run_in, $run_out, $run_err, \%run_opts);
+                         \undef, $run_out, $run_err, \%run_opts);
     }
 
     unless (exists $opts->{out})

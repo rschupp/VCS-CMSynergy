@@ -1421,25 +1421,11 @@ sub _ccm_attribute
         unless defined $value;
 
     my @cmd = ("attribute", @args);
-    if ($value eq "")
+    if ($value eq "" && !$self->web_mode)
     {
-        # Setting a text attribute to an empty string is a real PITA:
-        # - Synergy will launch text_editor, even if "-v ''" was specified
-        # - if the temporary file containing the attribute's value is empty 
-        #   after the editor exits, Synergy prompts with:
-        #       Result of edit is an empty attribute.
-        #       Confirm: (y/n) [n] 
-        
-        # the following doesn't work on Windows (CCM seems to read 
-        # the confirmation answer directly from CON:, _not_ from stdin)
-        croak(__PACKAGE__."::_ccm_attribute: setting a text attribute to an empty string is not supported on Windows")
-            if is_win32;
-
-        return $self->_ccm_with_option(
-            text_editor => $^O eq 'MSWin32' ?
-                qq[cmd /c echo off > $self->{"%filename"}] :    #/
-                qq[$Config{cp} /dev/null $self->{"%filename"}],
-            @cmd, { in =>  \"y\n" });
+        # Setting a text attribute to an empty string used to be a real PITA
+        # before web mode. Just punt, it's not worth the trouble.
+        croak(__PACKAGE__."::_ccm_attribute: setting a text attribute to an empty string is not supported in classic mode");
     }
 
     if (($self->{coprocess} && (length($value) > 1600 || $value =~ /["\r\n]/))

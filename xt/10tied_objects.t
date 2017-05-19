@@ -2,6 +2,7 @@
 
 use Test::More tests => 49;
 use End;
+use lib '.';
 use xt::util;
 use strict;
 

@@ -4,6 +4,7 @@
 use strict;
 use warnings;
 
+use lib '.';
 use t::util;
 
 use Test::Deep 0.093;

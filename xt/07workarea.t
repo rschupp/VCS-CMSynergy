@@ -1,6 +1,7 @@
 #!/usr/bin/perl -w
 
 use Test::More tests => 47;     # 11 + (10 + 8) * %objects
+use lib '.';
 use xt::util;
 use strict;
 

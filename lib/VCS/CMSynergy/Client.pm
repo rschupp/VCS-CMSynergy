@@ -325,7 +325,8 @@ sub run
     # don't screw up global $? (e.g. when being called
     # in VCS::CMSynergy::DESTROY at program termination)
     local $?;                   
-    run3(@_);
+    my $cmd = shift;
+    run3($cmd, \undef, @_);     # STDIN redirected to /dev/null
     return $?;
 }
 
@@ -991,7 +992,8 @@ called in scalar or in list context, resp.
   $client->run(\@cmd, $out, $err);
 
 Runs C<run3> from L<IPC::Run3> with the given arguments in an
-environment (C<$ENV{CCM_HOME}>, C<$ENV{PATH> etc) set up for C<$client>.
+environment (C<$ENV{CCM_HOME}>, C<$ENV{PATH> etc) set up for C<$client>
+and C<STDIN> redirected to C</dev/null>.
 Returns the exit status (i.e. C<$?>) from executing C<@cmd>.
 
 =head2 databases

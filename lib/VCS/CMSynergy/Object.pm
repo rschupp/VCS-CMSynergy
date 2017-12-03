@@ -127,6 +127,7 @@ sub new
 
     # remember new object
     $ccm->{objects}->{$objectname} = $self;
+    Scalar::Util::weaken($ccm->{objects}->{$objectname}) if $have_weaken;
 
     return $self;
 }
@@ -147,8 +148,8 @@ sub is_project  { return shift->cvtype eq "project"; }
 # methods, e.g. "$self->foo", or use _private(), e.g. "$self->_private->{foo}".
 # _Don't_ access its member directly, e.g. "$self->{foo}", because this
 # doesn't work when :tied_objects are enabled.
-# The only exception to this rule are the primary getter methods (objectname,
-# version etc) which use direct access for speed. Hence they need to be
+# The only exception to this rule are the primary getter methods
+# (objectname, ccm) which use direct access for speed. Hence they need to be
 # redefined in ObjectTieHash.pm.
 
 # access to private parts

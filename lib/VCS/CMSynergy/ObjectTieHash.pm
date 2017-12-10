@@ -12,11 +12,11 @@ use Carp;
 
 my %builtin = map { $_ => 1 } qw( objectname name version cvtype instance );
 
-# TIEHASH(class, { ccm => ..., objectname => ..., ...})
+# TIEHASH(class, [ $ccm, $objectname ...])
 sub TIEHASH
 {
-    my ($class, $href) = @_;
-    return bless $href, $class;
+    my ($class, $aref) = @_;
+    return bless $aref, $class;
 }
 
 sub FETCH
@@ -43,14 +43,16 @@ sub FIRSTKEY
     my ($self) = @_;
     my $attrs = $self->list_attributes;
     # FIXME are %builtin pseudo attrs shown by "ccm attr -la"? esp. objectname
-    $self->_private->{_attrs} = [ keys %$attrs ];
-    return pop @{ $self->_private->{_attrs} };
+    $self->_private->[VCS::CMSynergy::Object::ALIST()] = [ keys %$attrs ];
+    return pop @{ $self->_private->[VCS::CMSynergy::Object::ALIST()] };
+    # FIXME should return (key, value) in list context
 }
 
 sub NEXTKEY
 {
     my ($self, $lastkey) = @_;
-    return pop @{ $self->_private->{_attrs} };
+    return pop @{ $self->_private->[VCS::CMSynergy::Object::ALIST()] };
+    # FIXME should return (key, value) in list context
 }
 
 
@@ -63,8 +65,9 @@ sub NEXTKEY
     # access private parts and the only "real" fields via the tied object
     # NOTE why the || below? because in FETCH etc we are NOT tied
     # but otherwise we ARE
-    sub ccm        { my $self = shift; (tied %$self || $self)->{ccm}; };
-    sub objectname { my $self = shift; (tied %$self || $self)->{objectname}; };
+    # FIXME  tied @$self ???
+    sub ccm        { my $self = shift; (tied %$self || $self)->[CCM]; };
+    sub objectname { my $self = shift; (tied %$self || $self)->[OBJECTNAME]; };
     sub _private   { my $self = shift; tied %$self || $self; }
 }
 

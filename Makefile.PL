@@ -101,7 +101,6 @@ WriteMakefile1(
     MIN_PERL_VERSION            => '5.008009',
 
     PREREQ_PM => {
-      'Class::Accessor::Fast'   => 0,
       'Tie::CPHash'             => 0,
       'Digest::MD5'		=> 0,
       'File::Spec'		=> 0,

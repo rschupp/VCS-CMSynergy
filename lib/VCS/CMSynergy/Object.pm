@@ -54,13 +54,19 @@ This synopsis only lists the major methods.
 
 =cut
 
-use base qw(Class::Accessor::Fast);
-__PACKAGE__->mk_ro_accessors(qw/objectname ccm/);
-
 use Carp;
 
 use Type::Params qw( validate );
 use Types::Standard qw( slurpy Str ArrayRef );
+
+use constant 
+{
+    CCM         => 0,
+    OBJECTNAME  => 1,
+    ACACHE      => 2,
+    MYDATA      => 3,
+    ALIST       => 4,           # used in VCS::CMSynergy::ObjectTieHash
+};
 
 # NOTE: We can't just alias string conversion to objectname()
 # as it is called (as overloaded operator) with three arguments
@@ -99,14 +105,10 @@ sub new
     $objectname =~ s/$ccm->{delimiter_rx}/:/;
 
     # return "unique" object if we already "know" it
-    return $ccm->{objects}->{$objectname} if $ccm->{objects}->{$objectname};
+    return $ccm->{objects}{$objectname} if $ccm->{objects}{$objectname};
 
-    my %fields = (
-        objectname => $objectname,
-        ccm        => $ccm,
-    );
-    Scalar::Util::weaken($fields{ccm}) if $have_weaken;
-    $fields{acache} = {} if VCS::CMSynergy::use_cached_attributes();
+    my @fields = ( $ccm, $objectname );  # at indexes CCM, OBJECTNAME
+    Scalar::Util::weaken($fields[CCM]) if $have_weaken;
 
     if (my $subclass = $cvtype2subclass{ (split(":", $objectname))[2] })
     {
@@ -118,19 +120,26 @@ sub new
     if (VCS::CMSynergy::use_tied_objects())
     {
         $self = bless {}, $class;
-        tie %$self, 'VCS::CMSynergy::ObjectTieHash', \%fields;
+        tie %$self, 'VCS::CMSynergy::ObjectTieHash', bless \@fields, $class;
+        # FIXME what if it's one of the %cvtype2subclass
     }
     else
     {
-        $self = bless \%fields, $class;
+        $self = bless \@fields, $class;
     }
 
     # remember new object
-    $ccm->{objects}->{$objectname} = $self;
-    Scalar::Util::weaken($ccm->{objects}->{$objectname}) if $have_weaken;
+    $ccm->{objects}{$objectname} = $self;
+    Scalar::Util::weaken($ccm->{objects}{$objectname}) if $have_weaken;
 
     return $self;
 }
+
+# NOTE: these need to be redefined for :tied_objects
+sub ccm         { return shift->[CCM] }
+sub objectname  { return shift->[OBJECTNAME] }
+sub _private    { return shift; }
+
 
 # access to the parts of the objectname
 # NOTE: DON'T use "shift->{objectname}" as it won't work for :tied_objects
@@ -152,13 +161,10 @@ sub is_project  { return shift->cvtype eq "project"; }
 # (objectname, ccm) which use direct access for speed. Hence they need to be
 # redefined in ObjectTieHash.pm.
 
-# access to private parts
-sub _private    { return shift; }
-
 sub mydata
 {
     my $self = shift;
-    return $self->_private->{mydata} ||= {};
+    return $self->_private->[MYDATA] ||= {};
 }
 
 
@@ -175,7 +181,7 @@ sub get_attribute
 
     if (VCS::CMSynergy::use_cached_attributes())
     {
-        my $acache = $self->_private->{acache};
+        my $acache = $self->_private->[ACACHE];
         return $acache->{$name} if exists $acache->{$name};
     }
 
@@ -240,7 +246,7 @@ sub copy_attribute
     if (VCS::CMSynergy::use_cached_attributes())
     {
         my @objects = grep { UNIVERSAL::isa($_, 'VCS::CMSynergy') } @$to_file_specs;
-        my $acache = $self->_private->{acache};
+        my $acache = $self->_private->[ACACHE];
 
         foreach my $name (@$names)
         {
@@ -275,7 +281,7 @@ sub _update_acache
 
     while (my ($k, $v) = each %$attrs)
     {
-        $self->_private->{acache}{$k} = $v unless $dont_cache{$k};
+        $self->_private->[ACACHE]{$k} = $v unless $dont_cache{$k};
     }
 }
 
@@ -285,7 +291,7 @@ sub _forget_acache
     return unless VCS::CMSynergy::use_cached_attributes();
 
     my $self = shift;
-    delete $self->_private->{acache}{$_} foreach @_;
+    delete $self->_private->[ACACHE]{$_} foreach @_;
 }
 
 
@@ -318,7 +324,7 @@ sub displayname
     #    foreach (@$result) {
     #      ... $_->displayname ...      # cached, no "ccm property ..." called
     #    }
-    return $self->_private->{acache}{displayname} ||= $self->property('displayname');
+    return $self->_private->[ACACHE]{displayname} ||= $self->property('displayname');
 }
 
 sub cvid
@@ -332,7 +338,7 @@ sub cvid
     #    foreach (@$result) {
     #      ... $_->cvid ...             # cached, no "ccm property ..." called
     #    }
-    return $self->_private->{acache}{cvid} ||= $self->property('cvid');
+    return $self->_private->[ACACHE]{cvid} ||= $self->property('cvid');
 }
 
 sub cat_object

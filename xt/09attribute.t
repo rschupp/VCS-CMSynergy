@@ -125,7 +125,8 @@ is($ppl_a, $ppl_q, "attribute value with trailing newline via attribute/query");
     {
 	skip "not using :cached_attributes", 1 
 	    unless VCS::CMSynergy::use_cached_attributes();
-	ok(exists $folder->_private->{acache}->{blurfl}, q[attribute was cached]);
+	ok(exists $folder->_private->[VCS::CMSynergy::Object::ACACHE()]{blurfl}, 
+           q[attribute was cached]);
     }
 
     # NOTE: 4 tests per $value 
@@ -146,7 +147,7 @@ is($ppl_a, $ppl_q, "attribute value with trailing newline via attribute/query");
 	    {
 		skip "not using :cached_attributes", 1 
 		    unless VCS::CMSynergy::use_cached_attributes();
-		is($folder->_private->{acache}->{blurfl}, $value,
+		is($folder->_private->[VCS::CMSynergy::Object::ACACHE()]{blurfl}, $value,
 		    qq[check cached attribute value: $desc]);
 	    }
 	}
@@ -159,7 +160,7 @@ is($ppl_a, $ppl_q, "attribute value with trailing newline via attribute/query");
     {
 	skip "not using :cached_attributes", 1 
 	    unless VCS::CMSynergy::use_cached_attributes();
-	ok(!defined $folder->_private->{acache}->{blurfl}, q[attribute no longer cached]);
+	ok(!defined $folder->_private->[VCS::CMSynergy::Object::ACACHE()]{blurfl}, q[attribute no longer cached]);
     }
 
     # check that $obj->set_attribute implicitly does "ccm attr -create -force"
@@ -205,7 +206,7 @@ is($ppl_a, $ppl_q, "attribute value with trailing newline via attribute/query");
 	skip "not using :cached_attributes", 1 
 	    unless $ENV{CCM_USE_CACHED_ATTRIBUTES};
         $_->_forget_acache foreach @objs;
-        cmp_deeply([ map { hash_slice($_->_private->{acache}, @keywords) } @$props_got ],
+        cmp_deeply([ map { hash_slice($_->_private->[VCS::CMSynergy::Object::ACACHE()], @keywords) } @$props_got ],
                    [ values %props_exp ], "properties_object: cached attributes");
     }
 }

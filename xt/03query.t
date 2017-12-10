@@ -12,7 +12,6 @@ BEGIN
     ok(VCS::CMSynergy::use_cached_attributes(), q[using :cached_attributes]);
 }
 
-
 my $ccm = VCS::CMSynergy->new(%::test_session);
 isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
@@ -207,7 +206,7 @@ cmp_deeply($bc_got, array_each(code(
     sub
     {
 	my $got = shift;
-	my $acache = $got->_private->{acache};
+	my $acache = $got->_private->[VCS::CMSynergy::Object::ACACHE()];
 	my $list = $got->list_attributes;
 	foreach my $attr (@bc_attrs)
 	{

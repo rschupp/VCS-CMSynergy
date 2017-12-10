@@ -60,7 +60,7 @@ diag("using cached_attributes") if VCS::CMSynergy::use_cached_attributes();
 	{
 	    skip "not using :cached_attributes", 1 
 		unless VCS::CMSynergy::use_cached_attributes();
-	    is($folder->_private->{acache}->{blurfl}, $value,
+	    is($folder->_private->[VCS::CMSynergy::Object::ACACHE()]{blurfl}, $value,
 		q[check cached attribute value]);
 	}
     }
@@ -76,7 +76,7 @@ diag("using cached_attributes") if VCS::CMSynergy::use_cached_attributes();
     {
 	skip "not using :cached_attributes", 1 
 	    unless VCS::CMSynergy::use_cached_attributes();
-	ok(!defined $folder->_private->{acache}->{blurfl}, q[attribute no longer cached]);
+	ok(!defined $folder->_private->[VCS::CMSynergy::Object::ACACHE()]{blurfl}, q[attribute no longer cached]);
     }
 
     # retest with tied object methods

@@ -117,7 +117,7 @@ EOM
 		local $Test::Deep::CompareCache = Test::Deep::Cache->new;
 
 		unless (Test::Deep::superhashof($attrs)->descend(
-		    $obj->_private->{acache}))
+		            $obj->_private->[VCS::CMSynergy::Object::ACACHE()]))
 		{
 		    my $message = Test::Deep::deep_diag($Test::Deep::Stack);
 		    $diag .= <<EOM;

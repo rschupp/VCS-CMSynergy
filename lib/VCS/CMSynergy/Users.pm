@@ -41,7 +41,7 @@ use strict;
 use warnings;
 use File::Temp qw(tempfile);
 
-use Type::Params qw( validate );
+use Type::Params qw( compile );
 use Types::Standard qw( Optional HashRef );
 use Tie::CPHash;
 
@@ -93,7 +93,8 @@ it is usually more convenient to use one of the methods below.
 sub users
 {
     my $self = shift;
-    my ($users) = validate(\@_, Optional[HashRef]);
+    state $check = compile( Optional[HashRef] );
+    my ($users) = $check->(@_);
 
     # NOTE: For getting the list of users we use
     # "ccm attr -show users base-1:model:base" because every role can do that -

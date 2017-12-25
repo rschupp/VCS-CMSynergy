@@ -57,7 +57,7 @@ This synopsis only lists the major methods.
 
 use Carp;
 
-use Type::Params qw( validate );
+use Type::Params qw( compile );
 use Types::Standard qw( slurpy Str ArrayRef );
 
 use constant 
@@ -178,7 +178,8 @@ sub list_attributes
 sub get_attribute
 {
     my $self = shift;
-    my ($name) = validate(\@_, Str);
+    state $check = compile( Str );
+    my ($name) = $check->(@_);
 
     if (VCS::CMSynergy::use_cached_attributes())
     {
@@ -195,7 +196,8 @@ sub get_attribute
 sub set_attribute
 {
     my $self = shift;
-    my ($name, $value) = validate(\@_, Str, Str);
+    state $check = compile( Str, Str );
+    my ($name, $value) = $check->(@_);
 
     my $rc = $self->ccm->set_attribute($name, $self, $value);
 
@@ -208,7 +210,8 @@ sub set_attribute
 sub create_attribute
 {
     my $self = shift;
-    my ($name, $type, $value) = validate(\@_, Str, Str, Str);
+    state $check = compile( Str, Str, Str );
+    my ($name, $type, $value) = $check->(@_);
 
     my $rc = $self->ccm->create_attribute($name, $type, $value, $self);
 
@@ -221,7 +224,8 @@ sub create_attribute
 sub delete_attribute
 {
     my $self = shift;
-    my ($name) = validate(\@_, Str);
+    state $check = compile( Str );
+    my ($name) = $check->(@_);
 
     my $rc = $self->ccm->delete_attribute($name, $self);
 
@@ -235,8 +239,8 @@ sub delete_attribute
 sub copy_attribute
 {
     my $self = shift;
-    my ($names, $to_file_specs) =
-        validate(\@_, (Str | ArrayRef[Str]), slurpy ArrayRef);
+    state $check = compile( (Str | ArrayRef[Str]), slurpy ArrayRef );
+    my ($names, $to_file_specs) = $check->(@_);
     $names = [ $names ] unless ref $names;
 
     # NOTE: no $flags allowed, because honouring them would need
@@ -307,7 +311,8 @@ sub exists
 sub property
 {
     my $self = shift;
-    my ($keyword_s) = validate(\@_, Str | ArrayRef[Str]);
+    state $check = compile( Str | ArrayRef[Str] );
+    my ($keyword_s) = $check->(@_);
 
     my $props = $self->ccm->property($keyword_s, $self);
     $self->_update_acache(ref $keyword_s ? $props : { $keyword_s => $props });
@@ -384,7 +389,8 @@ sub AUTOLOAD
 sub show_hashref
 {
     my $self = shift;
-    my ($what, $keywords) = validate(\@_, Str, VCS::CMSynergy::_KEYWORDS());
+    state $check = compile( Str, VCS::CMSynergy::_KEYWORDS() );
+    my ($what, $keywords) = $check->(@_);
     return $self->_show($what, $keywords, VCS::CMSynergy::ROW_HASH());
 }
 
@@ -392,7 +398,8 @@ sub show_hashref
 sub show_object
 {
     my $self = shift;
-    my ($what, $keywords) = validate(\@_, Str, VCS::CMSynergy::_KEYWORDS());
+    state $check = compile( Str, VCS::CMSynergy::_KEYWORDS() );
+    my ($what, $keywords) = $check->(@_);
     return $self->_show($what, $keywords, VCS::CMSynergy::ROW_OBJECT());
 }
 

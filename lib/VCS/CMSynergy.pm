@@ -21,7 +21,7 @@ use File::Spec;
 use File::Temp qw(tempfile);            # in Perl core v5.6.1 and later
 use Log::Log4perl qw(:easy);
 
-use Type::Params qw( validate );
+use Type::Params qw( compile );
 use Types::Standard qw( slurpy Optional Str InstanceOf HasMethods Undef
     ArrayRef CodeRef GlobRef HashRef ScalarRef FileHandle Dict );
 
@@ -408,7 +408,8 @@ sub query
 sub query_arrayref
 {
     my $self = shift;
-    my ($query, $keywords) = validate(\@_, _QUERY, _KEYWORDS);
+    state $check = compile( _QUERY, _KEYWORDS );
+    my ($query, $keywords) = $check->(@_);
 
     return _flatten_rows($self->_query($query, $keywords, ROW_HASH), $keywords);
 }
@@ -417,7 +418,8 @@ sub query_arrayref
 sub query_hashref
 {
     my $self = shift;
-    my ($query, $keywords) = validate(\@_, _QUERY, _KEYWORDS);
+    state $check = compile( _QUERY, _KEYWORDS );
+    my ($query, $keywords) = $check->(@_);
 
     return $self->_query($query, $keywords, ROW_HASH);
 }
@@ -426,7 +428,8 @@ sub query_hashref
 sub query_object
 {
     my $self = shift;
-    my ($query, $keywords) = validate(\@_, _QUERY, _KEYWORDS);
+    state $check = compile( _QUERY, _KEYWORDS );
+    my ($query, $keywords) = $check->(@_);
 
     return $self->_query($query, $keywords, ROW_OBJECT);
 }
@@ -436,7 +439,8 @@ sub query_object
 sub query_count
 {
     my $self = shift;
-    my ($query) = validate(\@_, _QUERY);
+    state $check = compile( _QUERY );
+    my ($query) = $check->(@_);
 
     my ($rc, $out, $err) = $self->_ccm(
         qw/query -u -ns -nf -format X/, $self->_expand_query($query));
@@ -885,7 +889,8 @@ sub history
 sub history_arrayref
 {
     my $self = shift;
-    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
+    state $check = compile( _FILE_SPEC, _KEYWORDS );
+    my ($file_spec, $keywords) = $check->(@_);
 
     return _flatten_rows($self->_history($file_spec, $keywords), $keywords);
 }
@@ -894,7 +899,8 @@ sub history_arrayref
 sub history_hashref
 {
     my $self = shift;
-    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
+    state $check = compile( _FILE_SPEC, _KEYWORDS );
+    my ($file_spec, $keywords) = $check->(@_);
 
     return $self->_history($file_spec, $keywords);
 }
@@ -1033,7 +1039,8 @@ sub _uniq_objects
 sub finduse
 {
     my $self = shift;
-    my ($file_specs) = validate(\@_, slurpy ArrayRef[_FILE_SPEC]);
+    state $check = compile( slurpy ArrayRef[_FILE_SPEC] );
+    my ($file_specs) = $check->(@_);
 
     my ($rc, $out, $err) = $self->_ccm(qw/finduse/, @$file_specs);
 
@@ -1087,7 +1094,8 @@ sub finduse
 sub findpath
 {
     my $self = shift;
-    my ($file_spec, $proj_spec) = validate(\@_, _FILE_SPEC, Str);
+    state $check = compile( _FILE_SPEC, Str );
+    my ($file_spec, $proj_spec) = $check->(@_);
     my $finduse = $self->finduse($file_spec);
     return unless defined $finduse;
     return $self->set_error("`$file_spec' matches more than one object") 
@@ -1103,8 +1111,10 @@ use constant _FROM_TO_NAME =>
 
 sub relations_arrayref
 {
-    my ($self, %args) = @_;
-    validate([\%args], Dict[ _FROM_TO_NAME ]);
+    my $self = shift;
+    my %args = @_;
+    state $check = compile( Dict[ _FROM_TO_NAME ] );
+    $check->(\%args);
 
     return _flatten_rows($self->relations_hashref(%args), [qw/ from name to create_time /]);
 }
@@ -1112,10 +1122,12 @@ sub relations_arrayref
 
 sub relations_hashref
 {
-    my ($self, %args) = @_;
-    validate([\%args], Dict[ _FROM_TO_NAME,
-                             from_attributes => Optional[ArrayRef[Str]],
-                             to_attributes   => Optional[ArrayRef[Str]] ]);
+    my $self = shift;
+    my %args = @_;
+    state $check = compile( Dict[ _FROM_TO_NAME,
+                                  from_attributes => Optional[ArrayRef[Str]],
+                                  to_attributes   => Optional[ArrayRef[Str]] ] );
+    $check->(\%args);
 
     my %defaulted;
     foreach my $arg (qw/from to/)
@@ -1146,10 +1158,12 @@ sub relations_hashref
 
 sub relations_object
 {
-    my ($self, %args) = @_;
-    validate([\%args], Dict[ _FROM_TO_NAME,
-                             from_attributes => Optional[ArrayRef[Str]],
-                             to_attributes   => Optional[ArrayRef[Str]] ]);
+    my $self = shift;
+    my %args = @_;
+    state $check = compile( Dict[ _FROM_TO_NAME,
+                                  from_attributes => Optional[ArrayRef[Str]],
+                                  to_attributes   => Optional[ArrayRef[Str]] ] );
+    $check->(\%args);
 
     $args{$_} ||= [] foreach qw/from_attributes to_attributes/;
                                 # coz _relations() likes 'em defined
@@ -1257,8 +1271,8 @@ sub _relations
 sub project_tree
 {
     my $self = shift;
-    my ($options, $projects) = 
-        validate(\@_, (Undef | HashRef), slurpy ArrayRef[_PROJECT_SPEC]);
+    state $check = compile( (Undef | HashRef), slurpy ArrayRef[_PROJECT_SPEC] );
+    my ($options, $projects) = $check->(@_);
 
     # make a copy of $options, because we're modifying it below
     my %wanted = %{ $options || {} };           # Note: $options may be undef
@@ -1305,8 +1319,8 @@ sub project_tree
 sub project_diff
 {
     my $self = shift;
-    my ($options, $old_project, $new_project, $differ) = 
-        validate(\@_, (Undef | HashRef), _PROJECT_SPEC, _PROJECT_SPEC, HasMethods[qw( added deleted changed )]);
+    state $check = compile( (Undef | HashRef), _PROJECT_SPEC, _PROJECT_SPEC, HasMethods[qw( added deleted changed )] );
+    my ($options, $old_project, $new_project, $differ) = $check->(@_);
 
     # make a copy of $options, because we're modifying it below
     my %opts = %{ $options || {} };     # Note: $options may be undef
@@ -1367,7 +1381,8 @@ sub project_diff
 sub get_attribute
 {
     my $self = shift;
-    my ($name, $file_spec) = validate(\@_, Str, _FILE_SPEC);
+    state $check = compile( Str, _FILE_SPEC );
+    my ($name, $file_spec) = $check->(@_);
 
     my ($rc, $out, $err) = $self->_ccm(qw/attribute -show/, $name, $file_spec);
     return $out if $rc == 0;
@@ -1379,7 +1394,8 @@ sub get_attribute
 sub set_attribute
 {
     my $self = shift;
-    my ($name, $file_spec, $value) = validate(\@_, Str, _FILE_SPEC, Str);
+    state $check = compile( Str, _FILE_SPEC, Str );
+    my ($name, $file_spec, $value) = $check->(@_);
 
 
     # try "ccm attribute -modify ..." first
@@ -1444,8 +1460,8 @@ sub _ccm_attribute
 sub create_attribute
 {
     my $self = shift;
-    my ($name, $type, $value, $file_specs) = 
-        validate(\@_, Str, Str, Str, slurpy ArrayRef[_FILE_SPEC]);
+    state $check = compile( Str, Str, Str, slurpy ArrayRef[_FILE_SPEC] );
+    my ($name, $type, $value, $file_specs) = $check->(@_);
 
     my ($rc, $out, $err) = $self->_ccm_attribute(
             -create => $name, -value => $value, -type => $type, @$file_specs);
@@ -1457,7 +1473,8 @@ sub create_attribute
 sub delete_attribute
 {
     my $self = shift;
-    my ($name, $file_specs) = validate(\@_, Str, slurpy ArrayRef[_FILE_SPEC]);
+    state $check = compile( Str, slurpy ArrayRef[_FILE_SPEC] );
+    my ($name, $file_specs) = $check->(@_);
 
     return scalar $self->ccm(qw/attribute -delete/, $name, @$file_specs);
 }
@@ -1471,7 +1488,8 @@ sub copy_attribute
     my @flags;
     @flags = map { "-$_" } @{ splice(@_, 1, 1) } if defined $_[1] && ref $_[1] eq "ARRAY";
     
-    my ($names, $file_specs) = validate(\@_, (Str | ArrayRef[Str]), slurpy ArrayRef[_FILE_SPEC]);
+    state $check = compile( (Str | ArrayRef[Str]), slurpy ArrayRef[_FILE_SPEC] );
+    my ($names, $file_specs) = $check->(@_);
     $names = join(':', @$names) if ref $names eq "ARRAY";
 
     return scalar $self->ccm(qw/attribute -copy/, $names, @flags, @$file_specs);
@@ -1481,7 +1499,8 @@ sub copy_attribute
 sub list_attributes
 {
     my $self = shift;
-    my ($file_spec) = validate(\@_, _FILE_SPEC);
+    state $check = compile( _FILE_SPEC );
+    my ($file_spec) = $check->(@_);
 
     my ($rc, $out, $err) = $self->_ccm(qw/attribute -la/, $file_spec);
     return $self->set_error($err || $out) unless $rc == 0;
@@ -1495,7 +1514,8 @@ sub list_attributes
 sub properties_hashref
 {
     my $self = shift;
-    my ($file_specs, $keywords) = validate(\@_, ArrayRef[_FILE_SPEC], _KEYWORDS);
+    state $check = compile( ArrayRef[_FILE_SPEC], _KEYWORDS );
+    my ($file_specs, $keywords) = $check->(@_);
 
     return $self->_properties($file_specs, $keywords, ROW_HASH);
 }
@@ -1503,7 +1523,8 @@ sub properties_hashref
 sub properties_object
 {
     my $self = shift;
-    my ($file_specs, $keywords) = validate(\@_, ArrayRef[_FILE_SPEC], _KEYWORDS);
+    state $check = compile( ArrayRef[_FILE_SPEC], _KEYWORDS );
+    my ($file_specs, $keywords) = $check->(@_);
 
     return $self->_properties($file_specs, $keywords, ROW_OBJECT);
 }
@@ -1537,8 +1558,8 @@ sub _properties
 sub property
 {
     my $self = shift;
-    my ($keyword_s, $file_spec) = 
-        validate(\@_, (Str | ArrayRef[Str]), _FILE_SPEC);
+    state $check = compile( (Str | ArrayRef[Str]), _FILE_SPEC );
+    my ($keyword_s, $file_spec) = $check->(@_);
 
     if (ref $keyword_s)
     {
@@ -1576,8 +1597,8 @@ sub cat_object
     my $self = shift;
 
     my $want_return = @_ == 1;
-    my ($file_spec, $destination) = 
-        validate(\@_, _FILE_SPEC, Optional[Str | GlobRef | FileHandle | ScalarRef]);
+    state $check = compile( _FILE_SPEC, Optional[Str | GlobRef | FileHandle | ScalarRef] );
+    my ($file_spec, $destination) = $check->(@_);
 
     my $out;
     $destination = \$out if $want_return;
@@ -1635,7 +1656,8 @@ sub ls
 sub ls_arrayref
 {
     my $self = shift;
-    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
+    state $check = compile( _FILE_SPEC, _KEYWORDS );
+    my ($file_spec, $keywords) = $check->(@_);
 
     return _flatten_rows($self->_ls($file_spec, $keywords, ROW_HASH), $keywords);
 }
@@ -1644,7 +1666,8 @@ sub ls_arrayref
 sub ls_hashref
 {
     my $self = shift;
-    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
+    state $check = compile( _FILE_SPEC, _KEYWORDS );
+    my ($file_spec, $keywords) = $check->(@_);
 
     return $self->_ls($file_spec, $keywords, ROW_HASH);
 }
@@ -1653,7 +1676,8 @@ sub ls_hashref
 sub ls_object
 {
     my $self = shift;
-    my ($file_spec, $keywords) = validate(\@_, _FILE_SPEC, _KEYWORDS);
+    state $check = compile( _FILE_SPEC, _KEYWORDS );
+    my ($file_spec, $keywords) = $check->(@_);
 
     return $self->_ls($file_spec, $keywords, ROW_OBJECT);
 }
@@ -1689,7 +1713,8 @@ sub _ls
 sub set
 {
     my $self = shift;
-    my ($option, $value) = validate(\@_, Optional[Str], Optional[Str]);
+    state $check = compile( Optional[Str], Optional[Str] );
+    my ($option, $value) = $check->(@_);
 
     if (@_ == 0)
     {
@@ -1809,7 +1834,8 @@ sub _text_to_tempfile
 sub ccm_with_text_editor
 {
     my $self = shift;
-    my ($text, $args) = validate(\@_, Str, slurpy ArrayRef);
+    state $check = compile( Str, slurpy ArrayRef );
+    my ($text, $args) = $check->(@_);
 
     my $tempfile = $self->_text_to_tempfile($text) or return;
 
@@ -2006,8 +2032,8 @@ sub tset_object
 sub object_other_version
 {
     my $self = shift;
-    my ($object, $other_version) = 
-        validate(\@_, InstanceOf["VCS::CMSynergy::Object"], Str);
+    state $check = compile( InstanceOf["VCS::CMSynergy::Object"], Str );
+    my ($object, $other_version) = $check->(@_);
 
     return $self->object($object->name, $other_version, $object->cvtype, $object->instance);
 }
@@ -2017,7 +2043,8 @@ sub object_other_version
 sub object_from_cvid
 {
     my $self = shift;
-    my ($cvid, $keywords) = validate(\@_, Str, _KEYWORDS);
+    state $check = compile( Str, _KEYWORDS );
+    my ($cvid, $keywords) = $check->(@_);
 
     return $self->_property("\@=$cvid", $keywords, ROW_OBJECT);
     # NOTE: if the cvid doesn't exist, "ccm property ..." has exit code 0, but 
@@ -2029,8 +2056,8 @@ sub object_from_cvid
 sub object_from_proj_ref
 {
     my $self = shift;
-    my ($path, $proj_spec, $keywords) =
-        validate(\@_, (Str | ArrayRef[Str]), _PROJECT_SPEC, _KEYWORDS);
+    state $check = compile( (Str | ArrayRef[Str]), _PROJECT_SPEC, _KEYWORDS );
+    my ($path, $proj_spec, $keywords) = $check->(@_);
 
     $path = join(VCS::CMSynergy::Client::_pathsep, @$path) if ref $path; 
     $proj_spec = $proj_spec->displayname if ref $proj_spec;

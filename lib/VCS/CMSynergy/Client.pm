@@ -165,7 +165,7 @@ sub start
 }
 
 
-sub _default    { $Default ||= shift->new(); }
+sub _default    { $Default //= shift->new(); }
 
 
 sub ccm                                         # class/instance method

@@ -165,7 +165,7 @@ sub is_project  { return shift->cvtype eq "project"; }
 sub mydata
 {
     my $self = shift;
-    return $self->_private->[MYDATA] ||= {};
+    return $self->_private->[MYDATA] //= {};
 }
 
 
@@ -330,7 +330,7 @@ sub displayname
     #    foreach (@$result) {
     #      ... $_->displayname ...      # cached, no "ccm property ..." called
     #    }
-    return $self->_private->[ACACHE]{displayname} ||= $self->property('displayname');
+    return $self->_private->[ACACHE]{displayname} //= $self->property('displayname');
 }
 
 sub cvid
@@ -344,7 +344,7 @@ sub cvid
     #    foreach (@$result) {
     #      ... $_->cvid ...             # cached, no "ccm property ..." called
     #    }
-    return $self->_private->[ACACHE]{cvid} ||= $self->property('cvid');
+    return $self->_private->[ACACHE]{cvid} //= $self->property('cvid');
 }
 
 sub cat_object

@@ -149,7 +149,7 @@ sub _start
     {
         # NOTE: Web mode in Synergy version prior to 7.2 must be explicitly
         # requested with option "-s".
-        $self->{web_mode} ||= defined $args{server};
+        $self->{web_mode} //= defined $args{server};
 
         if ($^O eq 'cygwin')
         {
@@ -1165,7 +1165,7 @@ sub relations_object
                                   to_attributes   => Optional[ArrayRef[Str]] ] );
     $check->(\%args);
 
-    $args{$_} ||= [] foreach qw/from_attributes to_attributes/;
+    $args{$_} //= [] foreach qw/from_attributes to_attributes/;
                                 # coz _relations() likes 'em defined
 
     return $self->_relations(\%args, ROW_OBJECT);
@@ -1278,7 +1278,7 @@ sub project_tree
     my %wanted = %{ $options || {} };           # Note: $options may be undef
 
     my $mark_projects = delete $wanted{mark_projects};
-    $wanted{pathsep} ||= VCS::CMSynergy::Client::_pathsep;
+    $wanted{pathsep} //= VCS::CMSynergy::Client::_pathsep;
     my $omit_rx = (delete $wanted{omit_top_dir}) 
                   && qr/^.*?\Q$wanted{pathsep}\E/; # everything up to the first pathsep
     # NOTE: all other options are passed thru to traverse() 
@@ -1293,14 +1293,14 @@ sub project_tree
         # store into %tree with relative workarea pathname as the key
         # NOTE: VCS::CMSynergy::Traversal::path() has the same
         # value when invoked for a project and its top level
-        # directory; the "||=" below makes sure we dont't overwrite
+        # directory; the "//=" below makes sure we dont't overwrite
         # the project entry when "mark_projects" is in effect
         my $path = VCS::CMSynergy::Traversal::path();
         if ($omit_rx)
         {
             $path =~ s/$omit_rx// or return; # drop top level entirely
         }
-        @$projects == 1 ? $tree{$path} : $tree{$path}->[$idx] ||= $_;
+        @$projects == 1 ? $tree{$path} : $tree{$path}->[$idx] //= $_;
     };
 
     $idx = 0;

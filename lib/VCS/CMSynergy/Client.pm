@@ -192,6 +192,7 @@ sub _ccm
 
     $Error = $this->{error} = undef;
     $Ccm_command = $this->{ccm_command} = join(" ", @_);
+    $this->{ccm_calls}++;
 
 
     my ($rc, $out, $err);

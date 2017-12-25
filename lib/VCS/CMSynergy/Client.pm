@@ -24,7 +24,7 @@ This synopsis only lists the major methods.
 
 =cut
 
-use 5.008_001;                                  # i.e. v5.8.1
+use feature 'state';
 use strict;
 use warnings;
 

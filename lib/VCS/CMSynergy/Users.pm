@@ -36,6 +36,7 @@ NOTE: This interface is subject to change.
 
 package VCS::CMSynergy;
 
+use feature 'state';
 use strict;
 use warnings;
 use File::Temp qw(tempfile);

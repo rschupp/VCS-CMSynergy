@@ -98,7 +98,7 @@ WriteMakefile1(
     AUTHOR                      => 'Roderich Schupp <schupp@argumentum.de>',
     LICENSE                     => 'perl_5',
 
-    MIN_PERL_VERSION            => '5.008009',
+    MIN_PERL_VERSION            => '5.010000',  # for feature "stat"
 
     PREREQ_PM => {
       'Tie::CPHash'             => 0,

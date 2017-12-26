@@ -14,7 +14,8 @@ use Test::Deep 0.093;
 sub vco		
 { 
     (my $objectname = shift) =~ s/-/:/;         # normalize delim to ":"
-    return isa("VCS::CMSynergy::Object") & methods(objectname => $objectname);
+    return (isa("VCS::CMSynergy::Object") || isa("VCS::CMSynergy::Object::TI"))
+           && methods(objectname => $objectname);
 }
 
 # compare sets of objects (with useful diagnostics)
@@ -73,7 +74,7 @@ sub descend
 	my $val = Test::Deep::render_val($d1);
 	$diag = <<EOM;
 got    : $val
-expect : an array of VCS::CMSynergy::Objects
+expect : an array of VCS::CMSynergy::Object or VCS::CMSynergy::Object::TI
 EOM
     }
 
@@ -84,7 +85,8 @@ EOM
 	for (my $i = 0; $i < @$d1; $i++)
 	{
 	    my $obj = $d1->[$i];
-	    unless (UNIVERSAL::isa($obj, "VCS::CMSynergy::Object"))
+	    unless (UNIVERSAL::isa($obj, "VCS::CMSynergy::Object")
+	            || UNIVERSAL::isa($obj, "VCS::CMSynergy::Object::TI"))
 	    {
 		my $val = Test::Deep::render_val($obj);
 		$bad .= " [$i]=$val";
@@ -94,7 +96,7 @@ EOM
 	}
 	$diag .= <<EOM if $bad;
 got    : bad elements$bad
-expect : only VCS::CMSynergy::Objects
+expect : only VCS::CMSynergy::Object or VCS::CMSynergy::Object::TI
 EOM
     }
 
@@ -112,12 +114,13 @@ EOM
 	    {
 		my $attrs = $exp->{$_} or next;
 		my $obj = $got{$_};
+                $obj = tied %$obj if UNIVERSAL::isa($obj, "VCS::CMSynergy::Object::TI");
 
 		local $Test::Deep::Stack = Test::Deep::Stack->new;
 		local $Test::Deep::CompareCache = Test::Deep::Cache->new;
 
 		unless (Test::Deep::superhashof($attrs)->descend(
-		            $obj->_private->[VCS::CMSynergy::Object::ACACHE()]))
+		            $obj->[VCS::CMSynergy::Object::ACACHE()]))
 		{
 		    my $message = Test::Deep::deep_diag($Test::Deep::Stack);
 		    $diag .= <<EOM;
@@ -147,7 +150,7 @@ sub diagnostics
     my ($where, $last) = @_;
 
     my $diag = <<EOM;
-Comparing $where as a set of VCS::CMSynergy::Objects
+Comparing $where as a set of VCS::CMSynergy::Object or VCS::CMSynergy::Object::TI
 $last->{diag}
 EOM
 

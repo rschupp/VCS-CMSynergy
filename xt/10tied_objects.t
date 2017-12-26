@@ -1,10 +1,11 @@
 #!/usr/bin/perl
 
-use Test::More tests => 49;
+use strict;
+use warnings;
+use Test::More tests => 65;
 use End;
 use lib '.';
 use xt::util;
-use strict;
 
 BEGIN 
 { 
@@ -24,6 +25,8 @@ isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 diag("using cached_attributes") if VCS::CMSynergy::use_cached_attributes();
 
+sub _acache { my $obj = shift; tied(%$obj)->[VCS::CMSynergy::Object::ACACHE()] }
+
 {
     # we need a modifiable object...
     my ($rc, $out, $err) = $ccm->folder(qw/-create -name/, "the great quux");
@@ -32,7 +35,8 @@ diag("using cached_attributes") if VCS::CMSynergy::use_cached_attributes();
     like($out, $rx_created, "Created folder ...");
     my ($fno) = $out =~ $rx_created;
     my $folder = $ccm->folder_object($fno);
-    isa_ok($folder, "VCS::CMSynergy::Object");
+    isa_ok($folder, "VCS::CMSynergy::Object::TI");
+    isa_ok(tied %$folder, "VCS::CMSynergy::Object");
     my $cleanup = end { $ccm->folder(qw/-delete -quiet -y/, $folder) };
 
     my @values=
@@ -60,8 +64,7 @@ diag("using cached_attributes") if VCS::CMSynergy::use_cached_attributes();
 	{
 	    skip "not using :cached_attributes", 1 
 		unless VCS::CMSynergy::use_cached_attributes();
-	    is($folder->_private->[VCS::CMSynergy::Object::ACACHE()]{blurfl}, $value,
-		q[check cached attribute value]);
+	    is(_acache($folder)->{blurfl}, $value, q[check cached attribute value]);
 	}
     }
     is($folder->property("displayname"), $fno,
@@ -76,7 +79,7 @@ diag("using cached_attributes") if VCS::CMSynergy::use_cached_attributes();
     {
 	skip "not using :cached_attributes", 1 
 	    unless VCS::CMSynergy::use_cached_attributes();
-	ok(!defined $folder->_private->[VCS::CMSynergy::Object::ACACHE()]{blurfl}, q[attribute no longer cached]);
+	ok(!defined _acache($folder)->{blurfl}, q[attribute no longer cached]);
     }
 
     # retest with tied object methods
@@ -102,6 +105,36 @@ diag("using cached_attributes") if VCS::CMSynergy::use_cached_attributes();
     my @attrs1 = keys %{ $ccm->list_attributes($folder) };
     my @attrs2 = keys %$folder;
     ok(eq_set(\@attrs1, \@attrs2), q[V::C vs tied hash list_attributes()]);
+}
+
+# check that "special" VCS::CMSynergy::* classes also work in the tied case
+my $proj = $ccm->object("toolkit-1.0:project:1");
+isa_ok($proj, "VCS::CMSynergy::Object::TI");
+isa_ok(tied %$proj, "VCS::CMSynergy::Project");
+
+my @members_expected = qw(
+   calculator:1.0:project:1
+   editor:1.0:project:1
+   guilib:1.0:project:1
+   toolkit:1.0:project:1
+);
+my $members_got = $proj->hierarchy_project_members(qw( none release ));
+verbose('members_got', $members_got);
+cmp_vcos($members_got, \@members_expected,
+   q[check V::C::Project method hierarchy_project_members]);
+foreach my $p (@$members_got)
+{
+    SKIP:
+    {
+        skip "not using :cached_attributes", 1 
+            unless VCS::CMSynergy::use_cached_attributes();
+        is(_acache($p)->{release}, "Toolkit/1.0",
+            q[check cached attribute value]);
+    }
+    is($p->{release}, "Toolkit/1.0", 
+        q[get_attribute (tied hash) and compare]);
+    is($p->get_attribute("release"), "Toolkit/1.0", 
+        q[get_attribute (V::C::O) and compare]);
 }
 
 exit 0;

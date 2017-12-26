@@ -206,7 +206,7 @@ cmp_deeply($bc_got, array_each(code(
     sub
     {
 	my $got = shift;
-	my $acache = $got->_private->[VCS::CMSynergy::Object::ACACHE()];
+	my $acache = $got->[VCS::CMSynergy::Object::ACACHE()];
 	my $list = $got->list_attributes;
 	foreach my $attr (@bc_attrs)
 	{

@@ -112,6 +112,8 @@ isa_ok($ccm, "VCS::CMSynergy");
 diag("using coprocess") if defined $ccm->{coprocess};
 diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
 
+sub _acache { shift->[VCS::CMSynergy::Object::ACACHE()] }
+
 {
     my @keywords = qw/ status_log task_number /;
     my @rel_exp =
@@ -151,7 +153,7 @@ diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
             ($_->{to}{objectname} => hash_slice($_->{to}, @keywords))
             } @from_exp;
         my %attr_got = map { 
-            ("$_->{to}" => hash_slice($_->{to}->_private->[VCS::CMSynergy::Object::ACACHE()], @keywords))
+            ("$_->{to}" => hash_slice(_acache($_->{to}), @keywords))
             } @$from_obj_got;
         cmp_deeply(\%attr_got, \%attr_exp, "relations_object cached attributes FROM project");
     }
@@ -197,7 +199,7 @@ diag("using :cached_attributes") if VCS::CMSynergy::use_cached_attributes();
             ($_->{from}{objectname} => hash_slice($_->{from}, @keywords))
             } @to_exp;
         my %attr_got = map { 
-            ("$_->{from}" => hash_slice($_->{from}->_private->[VCS::CMSynergy::Object::ACACHE()], @keywords))
+            ("$_->{from}" => hash_slice(_acache($_->{from}), @keywords))
             } @$to_obj_got;
         cmp_deeply(\%attr_got, \%attr_exp, "relations_object cached attributes TO project");
     }

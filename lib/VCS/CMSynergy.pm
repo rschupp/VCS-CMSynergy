@@ -71,7 +71,6 @@ sub import
     # so that optimization based on constant expressions can 
     # e.g. eliminate branches guarded with "if (V::C::use_cached_attributes)"
     require VCS::CMSynergy::Object;
-    require VCS::CMSynergy::ObjectTieHash if use_tied_objects();
 }
 
 sub new

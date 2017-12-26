@@ -109,7 +109,7 @@ WriteMakefile1(
       'List::Util'		=> '1.09',
       'Log::Log4perl'           => 0,
       'Pod::Usage'		=> 0,
-      'Scalar::Util'		=> '1.09',
+      'Scalar::Util'		=> '1.19',
       'Time::HiRes'		=> 0,
       'Type::Params'		=> 0,
       'Types::Standard'         => 0,

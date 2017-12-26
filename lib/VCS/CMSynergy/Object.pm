@@ -59,6 +59,7 @@ use Carp;
 
 use Type::Params qw( compile );
 use Types::Standard qw( slurpy Str ArrayRef );
+use Scalar::Util qw( weaken );
 
 use constant 
 {
@@ -76,9 +77,6 @@ use overload
     '""'        => sub { $_[0]->objectname },
     cmp         => sub { $_[0]->objectname cmp $_[1]->objectname },
     fallback    => 1;
-
-my $have_weaken = eval "use Scalar::Util qw(weaken); 1";
-
 
 my %cvtype2subclass = qw(
     baseline          Baseline
@@ -109,7 +107,7 @@ sub new
     return $ccm->{objects}{$objectname} if $ccm->{objects}{$objectname};
 
     my @fields = ( $ccm, $objectname );  # at indexes CCM, OBJECTNAME
-    Scalar::Util::weaken($fields[CCM]) if $have_weaken;
+    weaken($fields[CCM]);
 
     if (my $subclass = $cvtype2subclass{ (split(":", $objectname))[2] })
     {
@@ -120,9 +118,8 @@ sub new
     my $self;
     if (VCS::CMSynergy::use_tied_objects())
     {
-        $self = bless {}, $class;
-        tie %$self, 'VCS::CMSynergy::ObjectTieHash', bless \@fields, $class;
-        # FIXME what if it's one of the %cvtype2subclass
+        $self = bless {}, 'VCS::CMSynergy::Object::TI';
+        tie %$self, $class, \@fields;
     }
     else
     {
@@ -131,7 +128,7 @@ sub new
 
     # remember new object
     $ccm->{objects}{$objectname} = $self;
-    Scalar::Util::weaken($ccm->{objects}{$objectname}) if $have_weaken;
+    weaken($ccm->{objects}{$objectname});
 
     return $self;
 }
@@ -139,33 +136,23 @@ sub new
 # NOTE: these need to be redefined for :tied_objects
 sub ccm         { return shift->[CCM] }
 sub objectname  { return shift->[OBJECTNAME] }
-sub _private    { return shift; }
 
 
 # access to the parts of the objectname
-# NOTE: DON'T use "shift->{objectname}" as it won't work for :tied_objects
-sub name        { return (split(":", shift->objectname))[0] }
-sub version     { return (split(":", shift->objectname))[1] }
-sub cvtype      { return (split(":", shift->objectname))[2] }
-sub instance    { return (split(":", shift->objectname))[3] }
+sub name        { return (split(":", shift->[OBJECTNAME]))[0] }
+sub version     { return (split(":", shift->[OBJECTNAME]))[1] }
+sub cvtype      { return (split(":", shift->[OBJECTNAME]))[2] }
+sub instance    { return (split(":", shift->[OBJECTNAME]))[3] }
 
 # convenience methods for frequently used tests
 sub is_dir      { return shift->cvtype eq "dir"; }
 sub is_project  { return shift->cvtype eq "project"; }
 
 
-# NOTE: All access to a VCS::CMSynergy::Objects data _must_ either use
-# methods, e.g. "$self->foo", or use _private(), e.g. "$self->_private->{foo}".
-# _Don't_ access its member directly, e.g. "$self->{foo}", because this
-# doesn't work when :tied_objects are enabled.
-# The only exception to this rule are the primary getter methods
-# (objectname, ccm) which use direct access for speed. Hence they need to be
-# redefined in ObjectTieHash.pm.
-
 sub mydata
 {
     my $self = shift;
-    return $self->_private->[MYDATA] //= {};
+    return $self->[MYDATA] //= {};
 }
 
 
@@ -183,7 +170,7 @@ sub get_attribute
 
     if (VCS::CMSynergy::use_cached_attributes())
     {
-        my $acache = $self->_private->[ACACHE];
+        my $acache = $self->[ACACHE];
         return $acache->{$name} if exists $acache->{$name};
     }
 
@@ -251,7 +238,7 @@ sub copy_attribute
     if (VCS::CMSynergy::use_cached_attributes())
     {
         my @objects = grep { UNIVERSAL::isa($_, 'VCS::CMSynergy') } @$to_file_specs;
-        my $acache = $self->_private->[ACACHE];
+        my $acache = $self->[ACACHE];
 
         foreach my $name (@$names)
         {
@@ -286,7 +273,7 @@ sub _update_acache
 
     while (my ($k, $v) = each %$attrs)
     {
-        $self->_private->[ACACHE]{$k} = $v unless $dont_cache{$k};
+        $self->[ACACHE]{$k} = $v unless $dont_cache{$k};
     }
 }
 
@@ -296,7 +283,7 @@ sub _forget_acache
     return unless VCS::CMSynergy::use_cached_attributes();
 
     my $self = shift;
-    delete $self->_private->[ACACHE]{$_} foreach @_;
+    delete $self->[ACACHE]{$_} foreach @_;
 }
 
 
@@ -330,7 +317,7 @@ sub displayname
     #    foreach (@$result) {
     #      ... $_->displayname ...      # cached, no "ccm property ..." called
     #    }
-    return $self->_private->[ACACHE]{displayname} //= $self->property('displayname');
+    return $self->[ACACHE]{displayname} //= $self->property('displayname');
 }
 
 sub cvid
@@ -344,7 +331,7 @@ sub cvid
     #    foreach (@$result) {
     #      ... $_->cvid ...             # cached, no "ccm property ..." called
     #    }
-    return $self->_private->[ACACHE]{cvid} //= $self->property('cvid');
+    return $self->[ACACHE]{cvid} //= $self->property('cvid');
 }
 
 sub cat_object
@@ -403,6 +390,76 @@ sub show_object
     return $self->_show($what, $keywords, VCS::CMSynergy::ROW_OBJECT());
 }
 
+
+# only for :tied_objects
+
+my %builtin = map { $_ => 1 } qw( objectname name version cvtype instance );
+
+# TIEHASH(class, \@fields)
+sub TIEHASH
+{
+    my ($class, $fields) = @_;
+    return bless $fields, $class;
+}
+
+sub FETCH
+{
+    my ($self, $key) = @_;
+    return $builtin{$key} ? $self->$key : $self->get_attribute($key);
+}
+
+sub STORE
+{
+    my ($self, $key, $value) = @_;
+    carp(__PACKAGE__ . qq[::STORE: pseudo attribute "$key" is read-only]) if $builtin{$key};
+    return $self->set_attribute($key, $value);
+}
+
+sub EXISTS
+{
+    my ($self, $key) = @_;
+    return $builtin{$key} || defined $self->get_attribute($key);
+}
+
+sub FIRSTKEY
+{
+    my ($self) = @_;
+    my $attrs = $self->list_attributes;
+    # FIXME are %builtin pseudo attrs shown by "ccm attr -la"? esp. objectname
+    $self->[ALIST] = [ keys %$attrs ];
+    return pop @{ $self->[ALIST] };
+    # FIXME should return (key, value) in list context
+}
+
+sub NEXTKEY
+{
+    my ($self, $lastkey) = @_;
+    return pop @{ $self->[ALIST] };
+    # FIXME should return (key, value) in list context
+}
+
+package VCS::CMSynergy::Object::TI;
+
+# inline these for performance
+sub ccm        { my $self = shift; tied(%$self)->[VCS::CMSynergy::Object::CCM] }
+sub objectname { my $self = shift; tied(%$self)->[VCS::CMSynergy::Object::OBJECTNAME] }
+
+use overload
+    '""'        => sub { $_[0]->objectname },
+    cmp         => sub { $_[0]->objectname cmp $_[1]->objectname },
+    fallback    => 1;
+
+our $AUTOLOAD;
+
+sub AUTOLOAD
+{
+    my ($class, $method) = $AUTOLOAD =~ /^(.*)::([^:]*)$/;
+    return if $method eq 'DESTROY';
+
+    no strict 'refs';
+    *{$method} = sub { my $self = shift; tied(%$self)->$method(@_) };
+    goto &$method;
+}
 
 1;
 

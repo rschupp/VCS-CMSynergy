@@ -1,9 +1,10 @@
-#!/usr/bin/perl -w
+#!/usr/bin/perl
 
+use strict;
+use warnings;
 use Test::More tests => 13;
 use lib '.';
 use xt::util;
-use strict;
 
 my @from_exp = 
 (

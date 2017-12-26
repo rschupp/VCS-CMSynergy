@@ -33,8 +33,8 @@ my $pname = "calculator";
 my $pversion = "test$$";
 
 my $result = $ccm->query_object(
-    [ type => 'project', name => $pname, version => 'test*' ]);
-ok(@$result == 0, qq[test project ${pname}-test* does not exist yet]);
+    [ type => 'project', name => $pname, version => $pversion ]);
+ok(@$result == 0, qq[test project ${pname}-${pversion} does not exist yet]);
 
 my %md5_expected;
 

@@ -450,7 +450,7 @@ sub recursive_is_member_of
 {
     my $self = shift;
     state $check = compile( Maybe[Str], VCS::CMSynergy::_KEYWORDS() );
-    my ($order_spec, $keywords) = @_ ? $check->(@_) : ();
+    my ($order_spec, $keywords) = @_ ? $check->(@_) : (undef, []);
     $order_spec //= "none";
 
     return $self->ccm->query_object("recursive_is_member_of('$self',$order_spec)", @$keywords);
@@ -461,7 +461,7 @@ sub hierarchy_project_members
 {
     my $self = shift;
     state $check = compile( Maybe[Str], VCS::CMSynergy::_KEYWORDS() );
-    my ($order_spec, $keywords) = @_ ? $check->(@_) : ();
+    my ($order_spec, $keywords) = @_ ? $check->(@_) : (undef, []);
     $order_spec //= "none";
 
     return $self->ccm->query_object("hierarchy_project_members('$self',$order_spec)", @$keywords);

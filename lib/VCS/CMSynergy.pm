@@ -26,8 +26,7 @@ use Types::Standard qw( slurpy Optional Str InstanceOf HasMethods Undef
     ArrayRef CodeRef GlobRef HashRef ScalarRef FileHandle Dict );
 
 use constant _KEYWORDS     => slurpy ArrayRef[Str];
-use constant _FILE_SPEC    => ( Str | InstanceOf["VCS::CMSynergy::Object"] );
-use constant _PROJECT_SPEC => ( Str | InstanceOf["VCS::CMSynergy::Project"] );
+use constant _FILE_SPEC    => ( Str | InstanceOf["VCS::CMSynergy::Object", "VCS::CMSynergy::Object::TI"] );
 use constant _QUERY        => ( Str | ArrayRef | HashRef );
 
 use constant ROW_HASH   => 1;
@@ -1270,8 +1269,12 @@ sub _relations
 sub project_tree
 {
     my $self = shift;
-    state $check = compile( (Undef | HashRef), slurpy ArrayRef[_PROJECT_SPEC] );
+    state $check = compile( (Undef | HashRef), slurpy ArrayRef[_FILE_SPEC] );
     my ($options, $projects) = $check->(@_);
+    if (my @not_projects = grep { ref($_) ? $_->cvtype ne "project" : !/:project:/ } @$projects)
+    {
+        croak("some arguments are not projects: @not_projects");
+    }
 
     # make a copy of $options, because we're modifying it below
     my %wanted = %{ $options || {} };           # Note: $options may be undef
@@ -1318,7 +1321,7 @@ sub project_tree
 sub project_diff
 {
     my $self = shift;
-    state $check = compile( (Undef | HashRef), _PROJECT_SPEC, _PROJECT_SPEC, HasMethods[qw( added deleted changed )] );
+    state $check = compile( (Undef | HashRef), _FILE_SPEC, _FILE_SPEC, HasMethods[qw( added deleted changed )] );
     my ($options, $old_project, $new_project, $differ) = $check->(@_);
 
     # make a copy of $options, because we're modifying it below
@@ -2031,7 +2034,7 @@ sub tset_object
 sub object_other_version
 {
     my $self = shift;
-    state $check = compile( InstanceOf["VCS::CMSynergy::Object"], Str );
+    state $check = compile( InstanceOf["VCS::CMSynergy::Object", "VCS::CMSynergy::Object::TI"], Str );
     my ($object, $other_version) = $check->(@_);
 
     return $self->object($object->name, $other_version, $object->cvtype, $object->instance);
@@ -2055,8 +2058,10 @@ sub object_from_cvid
 sub object_from_proj_ref
 {
     my $self = shift;
-    state $check = compile( (Str | ArrayRef[Str]), _PROJECT_SPEC, _KEYWORDS );
+    state $check = compile( (Str | ArrayRef[Str]), _FILE_SPEC, _KEYWORDS );
     my ($path, $proj_spec, $keywords) = $check->(@_);
+    croak("argument is not a project: $proj_spec") 
+        unless ref($proj_spec) ? $proj_spec->cvtype eq "project" : /:project:/;
 
     $path = join(VCS::CMSynergy::Client::_pathsep, @$path) if ref $path; 
     $proj_spec = $proj_spec->displayname if ref $proj_spec;

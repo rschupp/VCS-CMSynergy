@@ -304,7 +304,7 @@ my %traverse_opts =
 sub traverse
 {
     my $self = shift;
-    state $check = compile( (CodeRef | HashRef), Optional[InstanceOf["VCS::CMSynergy::Object"]] );
+    state $check = compile( (CodeRef | HashRef), Optional[InstanceOf["VCS::CMSynergy::Object", "VCS::CMSynergy::Object::TI"]] );
     my ($arg_wanted, $dir) = $check->(@_);
 
     my %wanted;
@@ -502,7 +502,7 @@ to L<VCS::CMSynergy/query_object> as additional keywords.
 sub is_child_of
 {
     my $self = shift;
-    state $check = compile( Maybe[InstanceOf["VCS::CMSynergy::Object"]], VCS::CMSynergy::_KEYWORDS() );
+    state $check = compile( Maybe[InstanceOf["VCS::CMSynergy::Object", "VCS::CMSynergy::Object::TI"]], VCS::CMSynergy::_KEYWORDS() );
     my ($dir, $keywords) = $check->(@_);
     if (defined $dir)
     {
@@ -520,7 +520,7 @@ sub is_child_of
 sub has_child
 {
     my $self = shift;
-    state $check = compile( InstanceOf["VCS::CMSynergy::Object"], VCS::CMSynergy::_KEYWORDS() );
+    state $check = compile( InstanceOf["VCS::CMSynergy::Object", "VCS::CMSynergy::Object::TI"], VCS::CMSynergy::_KEYWORDS() );
     my ($obj, $keywords) = $check->(@_);
 
     return $self->ccm->query_object("has_child('$obj','$self')", @$keywords);

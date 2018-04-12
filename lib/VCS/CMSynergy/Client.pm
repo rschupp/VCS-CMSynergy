@@ -86,6 +86,7 @@ our %opts =
     PrintError          => undef,
     RaiseError          => undef,
     CCM_HOME            => undef,
+    utf8                => undef,
 );
 
 
@@ -99,6 +100,7 @@ sub new
         PrintError      => 1,
         RaiseError      => 0,
         CCM_HOME        => $ENV{CCM_HOME},
+        utf8            => 0,
         env             => {},
         ccm_command     => undef,
         error           => undef,

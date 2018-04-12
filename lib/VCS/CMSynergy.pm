@@ -159,6 +159,26 @@ sub _start
             }
         }
 
+        # If the user requested that strings retrieved from Synergy
+        # should be Perl unicode strings, make a feeble attempt
+        # to check that we're running in a UTF-8 locale.
+        # Otherwise "ccm" (a Java program) won't encode its output in UTF-8
+        # (though the content of the Synergy database is supposed 
+        # to be encoded in UTF-8).
+        if ($self->{utf8} && !is_win32)
+        {
+            chomp(my $charmap = qx(locale charmap));
+            if ($? == 0)
+            {
+                croak(__PACKAGE__.qq[::_start: option "utf8" specified, but you're not running in a UTF-8 locale (LC_CTYPE is "$charmap")])
+                    unless $charmap =~ /^utf.?8/i;
+            }
+            else
+            {
+                croak(__PACKAGE__.qq[::_start: option "utf8" specified, but can't determine if you're running in aUTF-8 locale]);
+            }
+        }
+            
         # %start_opts: its keys are all valid options that can be
         # passed to VCS::CMSynergy::_start; moreover,
         # if $start_opts{foo} is defined then arg "foo" is automagically

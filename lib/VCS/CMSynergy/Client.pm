@@ -200,13 +200,15 @@ sub _ccm
     my ($rc, $out, $err);
     my %default_opts = 
     (
-        out     => \$out,
-        err     => \$err,
+        out => \$out,
+        err => \$err,
+        $this->{utf8} ? 
+        (
+            binmode_stdin  => ":utf8",
+            binmode_stdout => ":utf8",
+            binmode_stderr => ":utf8",
+        ) : ()
     );
-    if ($this->{utf8})
-    {
-        $default_opts{$_} = ":utf8" foreach qw( binmode_stdin binmode_stdout binmode_stderr );
-    }
 
     # let settings in %$opts override those in %default_opts
     my %run_opts = (%default_opts, %$opts);

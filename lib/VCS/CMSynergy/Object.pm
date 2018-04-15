@@ -425,17 +425,27 @@ sub FIRSTKEY
 {
     my ($self) = @_;
     my $attrs = $self->list_attributes;
+
+    # Note: You can't "get" the "source" attribute, 
+    # "ccm attribute -show source ..." will only raise a Synergy error.
+    # Therefore omit this attribute.
+    delete $attrs->{source};
+
     # FIXME are %builtin pseudo attrs shown by "ccm attr -la"? esp. objectname
     $self->[ALIST] = [ keys %$attrs ];
-    return pop @{ $self->[ALIST] };
-    # FIXME should return (key, value) in list context
+
+    my $key = pop @{ $self->[ALIST] };
+    return unless defined $key;
+    return wantarray ? ($key, $self->FETCH($key)) : $key;
 }
 
 sub NEXTKEY
 {
     my ($self, $lastkey) = @_;
-    return pop @{ $self->[ALIST] };
-    # FIXME should return (key, value) in list context
+
+    my $key = pop @{ $self->[ALIST] };
+    return unless defined $key;
+    return wantarray ? ($key, $self->FETCH($key)) : $key;
 }
 
 package VCS::CMSynergy::Object::TI;

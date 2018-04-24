@@ -312,7 +312,7 @@ Perl I<Unicode> strings (instead of I<byte> strings). It defaults to false.
 The only exception is the string returned from the C<cat_object> method
 which is always a I<byte> string.
 
-Be sure to study the E<perlunicode> documentation when setting
+Be sure to study the L<perlunicode> documentation when setting
 this attribute to true.
 
 Note that this will only work if the Synergy session is running

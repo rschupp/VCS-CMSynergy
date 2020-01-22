@@ -577,17 +577,12 @@ sub _query
 # doesn't accept these where a "file_spec" is expected 
 # (at least on Unix, because they contain slashes). 
 # Hence rewrite these fullnames to objectnames.
-# Also normalize the name/version separator to a colon.
 sub _fullname2objectname
 {
     my ($self, $fullname) = @_;
     if ($fullname =~ m{/} && (my @p = split("/", $fullname)) == 4)
     {
         $fullname = join(":", $p[2], $p[3], $p[1], $p[0]);
-    }
-    else
-    {
-        $fullname =~ s/$self->{delimiter_rx}/:/;
     }
     return $fullname;
 }

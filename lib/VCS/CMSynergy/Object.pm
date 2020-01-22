@@ -101,7 +101,14 @@ sub new
         unless $objectname =~ /$ccm->{objectname_rx}/;
 
     # canonicalize delimiter to colon
-    $objectname =~ s/$ccm->{delimiter_rx}/:/;
+    if ((my @parts = split(":", $objectname)) == 3)
+    {
+        # beware of databases with allow_delimiter_in_name=TRUE:
+        # replace the *last* "-" in the "name-version" part 
+        substr($parts[0], rindex($parts[0], $ccm->{delimiter}), 1, ":");
+        $objectname = join(":", @parts);
+    }
+    # else @parts == 4, i.e. already in canonical form
 
     # return "unique" object if we already "know" it
     return $ccm->{objects}{$objectname} if $ccm->{objects}{$objectname};

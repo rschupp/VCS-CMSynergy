@@ -7,7 +7,7 @@ use feature 'state';
 use strict;
 use warnings;
 
-our $VERSION = '1.52';
+our $VERSION = '1.53';
 
 use VCS::CMSynergy::Client qw(
     is_win32 _fullwin32path $Error $Ccm_command _error);
